@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* NAUTILUZ CRM Design System - Inspired by Pipefy
+All colors MUST be HSL. Blue-focused color palette for professional CRM interface.
+*/
+
+@layer base {
+  :root {
+    /* Background System */
+    --background: 210 25% 98%; /* Very light blue-tinted background */
+    --foreground: 210 20% 15%; /* Dark blue-gray text */
+
+    /* Card System */
+    --card: 0 0% 100%; /* Pure white cards for contrast */
+    --card-foreground: 210 20% 15%;
+    
+    /* Interactive Elements */
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 20% 15%;
+
+    /* Primary Brand Colors - Blue theme */
+    --primary: 210 95% 45%; /* Nautiluz blue - strong and professional */
+    --primary-hover: 210 95% 40%; /* Slightly darker on hover */
+    --primary-foreground: 0 0% 100%; /* White text on blue */
+    
+    /* Secondary Colors */
+    --secondary: 210 25% 95%; /* Light blue-gray for subtle elements */
+    --secondary-hover: 210 25% 90%; /* Darker secondary on hover */
+    --secondary-foreground: 210 20% 25%; /* Dark text on light backgrounds */
+
+    /* Muted Colors */
+    --muted: 210 20% 96%; /* Very light gray-blue */
+    --muted-foreground: 210 15% 50%; /* Medium gray-blue for less important text */
+
+    /* Accent Colors */
+    --accent: 200 100% 96%; /* Light cyan for highlights */
+    --accent-hover: 200 100% 92%; /* Darker accent on hover */
+    --accent-foreground: 210 95% 35%; /* Strong blue text on accent backgrounds */
+
+    /* Status Colors */
+    --success: 145 85% 35%; /* Green for success states */
+    --success-foreground: 0 0% 100%;
+    --warning: 35 85% 55%; /* Orange for warnings */
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 85% 60%; /* Red for destructive actions */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders and Inputs */
+    --border: 210 25% 88%; /* Light blue-gray borders */
+    --input: 210 25% 94%; /* Slightly darker than muted for inputs */
+    --ring: 210 95% 45%; /* Primary color for focus rings */
+
+    /* Design System Variables */
+    --radius: 0.75rem; /* Slightly larger radius for modern look */
+    
+    /* Kanban-specific colors */
+    --kanban-column-bg: 210 25% 97%;
+    --kanban-column-header: 210 95% 45%;
+    --kanban-card-shadow: 210 25% 85%;
+    --kanban-drag-preview: 210 95% 95%;
+    
+    /* Sidebar Colors */
+    --sidebar-background: 210 30% 97%; /* Light blue-tinted sidebar */
+    --sidebar-foreground: 210 20% 25%; /* Dark blue-gray text */
+    --sidebar-primary: 210 95% 45%; /* Primary blue for active items */
+    --sidebar-primary-foreground: 0 0% 100%; /* White text on primary */
+    --sidebar-accent: 210 25% 92%; /* Subtle blue for hover states */
+    --sidebar-accent-foreground: 210 20% 20%; /* Dark text on accent */
+    --sidebar-border: 210 25% 88%; /* Matching border color */
+    --sidebar-ring: 210 95% 45%; /* Primary blue for focus */
+
+    /* Gradients for visual appeal */
+    --gradient-primary: linear-gradient(135deg, hsl(210 95% 45%), hsl(200 90% 50%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 25% 99%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(210 30% 97%), hsl(210 25% 95%));
+    
+    /* Shadows */
+    --shadow-card: 0 2px 8px -2px hsl(210 25% 85% / 0.3);
+    --shadow-kanban-card: 0 1px 3px hsl(210 25% 80% / 0.4);
+    --shadow-sidebar: inset -1px 0 0 hsl(210 25% 88%);
+    
+    /* Animation timing */
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    /* Dark mode with blue accents */
+    --background: 210 25% 8%; /* Dark blue-tinted background */
+    --foreground: 210 15% 92%; /* Light blue-gray text */
+
+    --card: 210 25% 10%; /* Dark blue-tinted cards */
+    --card-foreground: 210 15% 92%;
+
+    --popover: 210 25% 10%;
+    --popover-foreground: 210 15% 92%;
+
+    --primary: 210 95% 55%; /* Brighter blue for dark mode */
+    --primary-hover: 210 95% 50%;
+    --primary-foreground: 210 25% 8%;
+
+    --secondary: 210 25% 15%; /* Dark blue-gray for secondary elements */
+    --secondary-hover: 210 25% 20%;
+    --secondary-foreground: 210 15% 90%;
+
+    --muted: 210 25% 12%; /* Very dark blue-gray */
+    --muted-foreground: 210 15% 60%; /* Medium light text */
+
+    --accent: 200 100% 20%; /* Dark cyan for accents */
+    --accent-hover: 200 100% 25%;
+    --accent-foreground: 210 15% 92%;
+
+    --success: 145 85% 45%;
+    --success-foreground: 210 25% 8%;
+    --warning: 35 85% 65%;
+    --warning-foreground: 210 25% 8%;
+    --destructive: 0 85% 70%;
+    --destructive-foreground: 210 25% 8%;
+
+    --border: 210 25% 18%; /* Dark borders */
+    --input: 210 25% 12%; /* Dark inputs */
+    --ring: 210 95% 55%; /* Bright blue focus rings */
+    
+    --kanban-column-bg: 210 25% 12%;
+    --kanban-column-header: 210 95% 55%;
+    --kanban-card-shadow: 210 25% 5%;
+    --kanban-drag-preview: 210 25% 15%;
+    
+    --sidebar-background: 210 30% 6%;
+    --sidebar-foreground: 210 15% 85%;
+    --sidebar-primary: 210 95% 55%;
+    --sidebar-primary-foreground: 210 25% 8%;
+    --sidebar-accent: 210 25% 12%;
+    --sidebar-accent-foreground: 210 15% 85%;
+    --sidebar-border: 210 25% 18%;
+    --sidebar-ring: 210 95% 55%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(210 95% 55%), hsl(200 90% 60%));
+    --gradient-card: linear-gradient(180deg, hsl(210 25% 10%), hsl(210 25% 8%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(210 30% 6%), hsl(210 25% 8%));
+    
+    --shadow-card: 0 2px 8px -2px hsl(210 25% 3% / 0.5);
+    --shadow-kanban-card: 0 1px 3px hsl(210 25% 3% / 0.6);
+    --shadow-sidebar: inset -1px 0 0 hsl(210 25% 18%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
