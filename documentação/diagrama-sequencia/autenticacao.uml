@@ -1,0 +1,32 @@
+@startuml
+title **Sequência - Autenticação**
+
+autonumber
+skinparam shadowing false
+skinparam dpi 180
+
+actor User as U
+participant "SPA (React)" as SPA
+participant "Auth API" as AUTH
+participant "Users Service" as USVC
+database "MongoDB Atlas" as DB
+
+== Login ==
+U -> SPA : email + senha
+SPA -> AUTH : POST /auth/login
+AUTH -> USVC : verifyCredentials()
+USVC -> DB : findByEmail()
+USVC --> AUTH : ok / falha
+AUTH --> SPA : 200 {accessToken, refreshToken}
+
+== Refresh ==
+SPA -> AUTH : POST /auth/refresh
+AUTH -> USVC : validateRefresh()
+USVC -> DB : find token/user
+AUTH --> SPA : 200 {new accessToken}
+
+== Logout ==
+SPA -> AUTH : POST /auth/logout
+AUTH --> SPA : 204
+
+@enduml

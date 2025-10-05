@@ -1,0 +1,40 @@
+@startuml
+title **Sequência - Criar / Editar Lead**
+
+autonumber
+skinparam shadowing false
+skinparam dpi 180
+
+actor User as U
+participant "SPA (React)" as SPA
+participant "Leads API" as LAPI
+participant "RBAC" as RBAC
+participant "Leads Service" as LSVC
+database "Mongo Atlas" as DB
+participant "Audit Service" as AUD
+participant "Realtime (Socket.IO)" as WS
+
+== Criar ==
+U -> SPA : preenche formulário
+SPA -> LAPI : POST /leads {payload}
+LAPI -> RBAC : can(create)
+RBAC --> LAPI : OK
+LAPI -> LSVC : validate(Zod) + dedupe
+LSVC -> DB : insert lead (rank middle)
+LSVC -> AUD : log "created"
+AUD -> DB : insert Activity
+LSVC -> WS : emit "kanban:updated"
+LAPI --> SPA : 201 {lead}
+
+== Editar ==
+SPA -> LAPI : PATCH /leads/:id {fields}
+LAPI -> RBAC : can(update) (owner ou role)
+RBAC --> LAPI : OK
+LAPI -> LSVC : apply changes
+LSVC -> DB : update lead
+LSVC -> AUD : log "updated" (diff)
+AUD -> DB : insert Activity
+LSVC -> WS : emit "lead:updated"
+LAPI --> SPA : 200 {lead}
+
+@enduml

@@ -1,0 +1,26 @@
+@startuml
+title **Nautiluz CRM - Deployment**
+
+skinparam shadowing false
+skinparam dpi 180
+
+node "Usuário (Browser)" as Client {
+  component "SPA (React)" as SPA
+}
+
+node "App Server" as App {
+  component "API (Express)\n+ Socket.IO" as BE
+}
+
+cloud "MongoDB Atlas\n(Cluster ReplicaSet)" as Mongo
+cloud "Redis (Managed)\n(opcional)" as Redis
+cloud "Storage (S3/FS)" as Storage
+cloud "Meta (Instagram)" as Meta
+
+SPA -down-> BE : HTTPS (REST/WS)
+BE -right-> Mongo : TLS SRV
+BE -right-> Redis : TCP 6379
+BE -right-> Storage : HTTPS / FS
+Meta -down-> BE : HTTPS Webhook
+
+@enduml

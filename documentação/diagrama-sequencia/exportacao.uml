@@ -1,0 +1,34 @@
+@startuml
+title **Sequência - Exportação XLSX (Assíncrona)**
+
+autonumber
+skinparam shadowing false
+skinparam dpi 180
+
+actor Admin as A
+participant "SPA (React)" as SPA
+participant "Export API" as EAPI
+participant "RBAC" as RBAC
+participant "Export Service" as ESVC
+node "Jobs (BullMQ)" as Jobs
+cloud "Redis" as Redis
+database "Mongo Atlas" as DB
+folder "Storage (Local/S3)" as Storage
+
+A -> SPA : Exportar (com filtros)
+SPA -> EAPI : POST /exports/xlsx {filtros}
+EAPI -> RBAC : can(export)
+RBAC --> EAPI : OK
+EAPI -> ESVC : enqueueJob(filtros, requester)
+ESVC -> Jobs : add to queue
+Jobs -> Redis : push
+
+... worker ...
+Jobs -> DB : consulta leads filtrados
+Jobs -> ESVC : gera XLSX (stream)
+ESVC -> Storage : salva arquivo
+ESVC --> EAPI : <url assinado / caminho>
+
+EAPI --> SPA : 202 {jobId}
+SPA : consulta status (polling) ou recebe notificação
+@enduml

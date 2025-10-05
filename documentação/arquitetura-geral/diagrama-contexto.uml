@@ -1,0 +1,46 @@
+@startuml
+title **Nautiluz CRM - Diagrama de Contexto**
+
+skinparam shadowing false
+skinparam dpi 180
+skinparam rectangle {
+  StereotypeFontColor #666
+  FontColor #222
+  BorderColor #999
+  BackgroundColor #f8f9fb
+}
+skinparam actorStyle awesome
+skinparam defaultFontName Inter, Segoe UI, Roboto
+
+actor "Usuário (Web)" as User
+actor "Administrador" as Admin
+cloud "Meta (Instagram Lead Ads)" as Meta
+
+rectangle "Nautiluz CRM" as CRM {
+  rectangle "Frontend SPA\n(React + Vite + TS)" as SPA <<UI>>
+  rectangle "Backend API\n(Node + Express + TS)" as API <<API>>
+  rectangle "Realtime\n(Socket.IO)" as WS <<WS>>
+  database "MongoDB Atlas\n(Mongoose)" as Mongo <<DB>>
+  node "Redis (opcional)\nFilas/Jobs (BullMQ)" as Redis <<Queue>>
+  folder "Storage\n(Local/S3)" as Storage <<FS>>
+}
+
+User  --> SPA : Navega (HTTPS)
+Admin --> SPA : Operações administrativas
+SPA  <--> API : REST/JSON (HTTPS)
+SPA  <--> WS  : WebSocket (tempo real)
+API  --> Mongo : Driver TLS
+API  --> Redis : TCP (jobs)
+API  --> Storage : Upload/Download
+Meta --> API : Webhook (Leads)
+
+legend right
+  **Objetivo**: visão de contexto do CRM na Nautiluz
+  UI: Frontend SPA
+  API: Backend REST
+  WS: Realtime
+  DB: Mongo Atlas
+  Queue: Redis/BullMQ
+  FS: Arquivos (propostas, anexos)
+endlegend
+@enduml

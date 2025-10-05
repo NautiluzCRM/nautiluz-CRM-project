@@ -1,0 +1,24 @@
+@startuml
+title **Sequência - RBAC por Rota**
+
+autonumber
+skinparam shadowing false
+skinparam dpi 180
+
+actor User as U
+participant "SPA (React)" as SPA
+participant "API (Express)" as API
+participant "RBAC Middleware" as RBAC
+participant "Policy Engine" as POL
+database "Mongo Atlas" as DB
+
+U -> SPA : ação (ex.: mover card)
+SPA -> API : POST /kanban/move (JWT)
+API -> RBAC : parse JWT -> subject (user, role)
+RBAC -> POL : can(role, action, resource)?
+POL -> DB : (opcional) busca resource/ownership/equipe
+POL --> RBAC : ALLOW / DENY
+RBAC --> API : OK / 403
+API --> SPA : 200 / 403
+
+@enduml

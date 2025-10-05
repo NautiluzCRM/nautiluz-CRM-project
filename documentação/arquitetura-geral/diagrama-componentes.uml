@@ -1,0 +1,67 @@
+@startuml
+title **Nautiluz CRM - Componentes do Backend**
+
+skinparam shadowing false
+skinparam dpi 180
+skinparam componentStyle rectangle
+
+package "Backend (Node + Express + TS)" {
+  [Auth API\n(Login/Refresh/Logout)] as Auth
+  [RBAC Middleware\n(roles/policies)] as RBAC
+  [Users API] as Users
+  [Pipelines API] as Pipes
+  [Stages API] as Stages
+  [Leads API] as Leads
+  [Kanban API\n(/kanban/move)] as Kanban
+  [Views/Filters API] as Views
+  [Export API\n(.xlsx)] as Export
+  [Integrations API\n(Meta Webhook)] as MetaAPI
+
+  [Audit Service] as Audit
+  [LGPD Service] as LGPD
+  [Kanban Service\n(LexoRank, WIP/SLA)] as KanbanSvc
+  [Leads Service\n(Validação/Zod, Dedupe)] as LeadSvc
+  [Export Service\n(XLSX)] as ExportSvc
+  [Realtime (Socket.IO)] as Realtime
+  [Jobs (BullMQ)] as Jobs
+}
+
+database "Mongo Atlas" as Mongo
+node "Redis" as Redis
+folder "Storage (Local/S3)" as Storage
+
+' Encadeamentos
+Auth --> RBAC
+Users --> RBAC
+Pipes --> RBAC
+Stages --> RBAC
+Leads --> RBAC
+Kanban --> RBAC
+Views --> RBAC
+Export --> RBAC
+MetaAPI --> RBAC
+
+Kanban --> KanbanSvc
+Leads  --> LeadSvc
+Export --> ExportSvc
+
+KanbanSvc --> Audit
+LeadSvc   --> Audit
+ExportSvc --> Jobs
+Jobs --> Redis
+
+Auth  --> Mongo
+Users --> Mongo
+Pipes --> Mongo
+Stages --> Mongo
+Leads --> Mongo
+Views --> Mongo
+Audit --> Mongo
+LGPD  --> Mongo
+ExportSvc --> Mongo
+LeadSvc --> Storage
+
+Realtime <- KanbanSvc : eventos "kanban:updated"
+Realtime <- LeadSvc   : eventos "lead:updated"
+
+@enduml

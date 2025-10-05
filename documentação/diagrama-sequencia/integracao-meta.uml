@@ -1,0 +1,32 @@
+@startuml
+title **Sequência - Webhook Instagram Lead Ads**
+
+autonumber
+skinparam shadowing false
+skinparam dpi 180
+
+participant "Meta (Instagram)" as META
+participant "Integrations API" as IAPI
+participant "Validation (Zod)" as VAL
+participant "Leads Service" as LSVC
+database "Mongo Atlas" as DB
+participant "Audit Service" as AUD
+queue "Jobs (BullMQ)" as Jobs
+participant "Realtime (Socket.IO)" as WS
+
+META -> IAPI : POST /integrations/meta/webhook {lead}
+IAPI -> VAL : validar + mapear campos
+VAL --> IAPI : OK / 400
+IAPI -> LSVC : createLead(origem=instagram)
+LSVC -> DB : insert lead (stage=Novo, rank middle)
+LSVC -> AUD : log "created"
+AUD -> DB : insert Activity
+LSVC -> WS : emit "kanban:updated"
+IAPI --> META : 200 OK
+
+' Dedupe/roteamento assíncrono
+IAPI -> Jobs : enqueue(dedupe/route)
+Jobs -> DB : processa duplicidade e rota owner
+WS -> WS : emite "lead:updated" se houve merge/owner change
+
+@enduml

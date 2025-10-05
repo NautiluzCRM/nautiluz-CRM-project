@@ -1,0 +1,32 @@
+@startuml
+title **Sequência - Drag & Drop no Kanban (LexoRank)**
+
+autonumber
+skinparam shadowing false
+skinparam dpi 180
+
+actor User as U
+participant "SPA (React)" as SPA
+participant "Kanban API" as KAPI
+participant "RBAC" as RBAC
+participant "Kanban Service\n(LexoRank)" as KSVC
+database "Mongo Atlas" as DB
+participant "Realtime (Socket.IO)" as WS
+participant "Audit Service" as AUD
+
+U -> SPA : arrasta card -> nova posição
+SPA -> KAPI : POST /kanban/move {leadId, toStageId, beforeId?, afterId?}
+KAPI -> RBAC : can(move)
+RBAC --> KAPI : OK
+KAPI -> KSVC : moveCard(...)
+KSVC -> DB : find lead, stage, vizinhos
+KSVC -> KSVC : calcula novo rank (between/next/prev)
+KSVC -> DB : update lead {stageId, rank, updatedBy, lastActivityAt}
+KSVC -> AUD : log "moved"
+AUD -> DB : insert Activity
+KSVC --> KAPI : lead atualizado
+KAPI -> WS : emit "kanban:updated" {leadId, stageId, rank}
+WS -> SPA : atualiza board em tempo real
+KAPI --> SPA : 200 {lead atualizado}
+
+@enduml

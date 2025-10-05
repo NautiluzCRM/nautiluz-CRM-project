@@ -1,0 +1,29 @@
+@startuml
+title **Sequência - Carregar Kanban**
+
+autonumber
+skinparam shadowing false
+skinparam dpi 180
+
+actor User as U
+participant "SPA (React)" as SPA
+participant "Pipelines API" as PAPI
+participant "Leads API" as LAPI
+database "Mongo Atlas" as DB
+participant "RBAC" as RBAC
+
+U -> SPA : abre tela de Kanban
+SPA -> PAPI : GET /pipelines (JWT)
+PAPI -> RBAC : can(view)
+RBAC --> PAPI : OK
+PAPI -> DB : find pipelines + stages
+PAPI --> SPA : 200 {pipelines, stages}
+
+SPA -> LAPI : GET /leads?pipelineId&byStage=true
+LAPI -> RBAC : can(list leads)
+RBAC --> LAPI : OK
+LAPI -> DB : query por stage (ordenado por rank)
+LAPI --> SPA : 200 {cards agrupados por coluna}
+
+SPA -> SPA : renderiza board (colunas + cards)
+@enduml

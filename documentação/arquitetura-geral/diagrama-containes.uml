@@ -1,0 +1,41 @@
+@startuml
+title **Nautiluz CRM - Diagrama de Containers**
+
+skinparam shadowing false
+skinparam dpi 180
+skinparam componentStyle rectangle
+
+package "Cliente (Browser)" {
+  [SPA React\nVite + TS + shadcn/ui] as SPA <<Container:UI>>
+}
+
+package "Servidor (Node.js)" {
+  [API REST\nExpress + JWT + RBAC] as API <<Container:API>>
+  [Realtime\nSocket.IO] as WS <<Container:WS>>
+  [Jobs/Workers\nBullMQ] as JOBS <<Container:Worker>>
+}
+
+cloud "MongoDB Atlas" as Mongo <<Container:DB>>
+cloud "Redis" as Redis <<Container:Queue>>
+cloud "Storage (Local/S3)" as Storage <<Container:FS>>
+cloud "Meta (Instagram Lead Ads)" as Meta <<External>>
+
+SPA -[#3366cc]-> API : HTTPS / JSON
+SPA -[#33a02c]-> WS  : WebSocket
+API -[#8a2be2]-> Mongo : Driver TLS
+API -[#ff7f0e]-> Redis : Enfileira jobs (SLA/Export/Dedupe)
+JOBS -[#ff7f0e]-> Redis : Consome jobs
+API -[#2ca02c]-> Storage : Upload/Download
+Meta -[#d62728]-> API : Webhook de leads
+
+note bottom of API
+  Endpoints:
+  - /auth, /users
+  - /pipelines, /stages
+  - /leads
+  - /kanban/move
+  - /views, /exports/xlsx
+  - /integrations/meta/webhook
+end note
+
+@enduml

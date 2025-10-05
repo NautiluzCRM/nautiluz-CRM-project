@@ -1,0 +1,118 @@
+@startuml
+title **Nautiluz CRM - Modelo de Dados (principal)**
+
+skinparam shadowing false
+skinparam dpi 180
+
+class User {
+  +_id: ObjectId
+  +name: string
+  +email: string (unique)
+  +passwordHash: string
+  +role: "admin|financeiro|vendedor"
+  +teamId?: ObjectId
+  +photoUrl?: string
+  +active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+}
+
+class Pipeline {
+  +_id: ObjectId
+  +name: string
+  +order: number
+  +slaRules?: JSON
+  +wipLimits?: JSON
+  +createdBy: ObjectId
+  +createdAt: Date
+  +updatedAt: Date
+}
+
+class Stage {
+  +_id: ObjectId
+  +pipelineId: ObjectId
+  +name: string
+  +key: string
+  +order: number
+  +wipLimit?: number
+  +requiredFieldsOnEnter?: string[]
+  +requiredFieldsOnExit?: string[]
+  +allowedRolesToEnter?: string[]
+  +allowedRolesToExit?: string[]
+  +createdAt: Date
+  +updatedAt: Date
+}
+
+class Lead {
+  +_id: ObjectId
+  +name: string
+  +company?: string
+  +phone: string
+  +email: string
+  +hasCnpj: boolean
+  +cnpjType?: "MEI|LTDA|SA|Outros"
+  +livesCount: number
+  +ages?: number[]
+  +ageBuckets?: JSON
+  +hasCurrentPlan: boolean
+  +currentPlan?: string
+  +avgPrice?: number
+  +preferredHospitals?: string[]
+  +state?: string
+  +city?: string
+  +origin: "instagram|indicacao|site|outros"
+  +owner: ObjectId (User)
+  +qualificationStatus: "Qualificado|Incompleto|Duplicado|Sem interesse"
+  +lostReason?: string
+  +notes?: string
+  +pipelineId: ObjectId
+  +stageId: ObjectId
+  +rank: string
+  +createdBy: ObjectId
+  +updatedBy: ObjectId
+  +lastActivityAt: Date
+  +wonAt?: Date
+  +lostAt?: Date
+  +createdAt: Date
+  +updatedAt: Date
+}
+
+class Activity {
+  +_id: ObjectId
+  +leadId: ObjectId
+  +type: "created|moved|updated|call|whatsapp|email|meeting|attachment"
+  +payload: JSON
+  +userId: ObjectId
+  +ip?: string
+  +createdAt: Date
+}
+
+class Attachment {
+  +_id: ObjectId
+  +leadId: ObjectId
+  +filename: string
+  +mime: string
+  +size: number
+  +storageKey: string
+  +uploadedBy: ObjectId
+  +createdAt: Date
+}
+
+class View {
+  +_id: ObjectId
+  +name: string
+  +ownerId: ObjectId
+  +isPublic: boolean
+  +query: JSON
+  +createdAt: Date
+  +updatedAt: Date
+}
+
+User "1" -- "many" Lead : owner >
+Pipeline "1" -- "many" Stage
+Stage "1" -- "many" Lead
+Lead "1" -- "many" Activity
+Lead "1" -- "many" Attachment
+User "1" -- "many" View
+
+@enduml
