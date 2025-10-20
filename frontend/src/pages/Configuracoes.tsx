@@ -127,7 +127,7 @@ const Configuracoes = () => {
         {/* Content */}
         <div className="flex-1 p-6 overflow-auto">
           <Tabs defaultValue="perfil" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="perfil" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Perfil
@@ -148,10 +148,12 @@ const Configuracoes = () => {
                 <Database className="h-4 w-4" />
                 Sistema
               </TabsTrigger>
+             {/* 
               <TabsTrigger value="seguranca" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
                 Segurança
               </TabsTrigger>
+              */}
             </TabsList>
 
             {/* Aba Perfil */}
@@ -483,6 +485,8 @@ const Configuracoes = () => {
                     </div>
                   </div>
 
+
+                  {/* 
                   <Separator />
 
                   <div className="space-y-4">
@@ -496,11 +500,14 @@ const Configuracoes = () => {
                       </Button>
                     </div>
                   </div>
+                  */}
+
                 </CardContent>
               </Card>
             </TabsContent>
 
             {/* Aba Segurança */}
+            {/*
             <TabsContent value="seguranca" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -538,6 +545,8 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
             </TabsContent>
+            */}
+
           </Tabs>
         </div>
       </div>
