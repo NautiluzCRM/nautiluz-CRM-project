@@ -3,6 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import ProtectedRoute from "./components/ProtectedRoute";
+
 import Index from "./pages/Index";
 import Leads from "./pages/Leads";
 import Relatorios from "./pages/Relatorios";
@@ -23,15 +26,18 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/leads" element={<Leads />} />
-          <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/calendario" element={<Calendario />} />
-          <Route path="/metas" element={<Metas />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
-          <Route path="/exportacoes" element={<Exportacoes />} />
-          <Route path="/analytics" element={<Analytics />} />
           <Route path="/login" element={<Login />} />
+
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Index />} />
+            <Route path="/leads" element={<Leads />} />
+            <Route path="/relatorios" element={<Relatorios />} />
+            <Route path="/calendario" element={<Calendario />} />
+            <Route path="/metas" element={<Metas />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="/exportacoes" element={<Exportacoes />} />
+            <Route path="/analytics" element={<Analytics />} />
+          </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
