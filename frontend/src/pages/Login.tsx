@@ -28,6 +28,9 @@ const Login = () => {
           title: "Login realizado com sucesso!",
           description: "Bem-vindo ao NAUTILUZ CRM",
         });
+
+        localStorage.setItem('authToken', 'token');
+
         navigate("/");
       } else {
         toast({

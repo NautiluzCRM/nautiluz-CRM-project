@@ -9,9 +9,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Bell, Settings, User, LogOut, Menu } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useNavigate } from "react-router-dom";
 
 export function Header() {
   const { toggleSidebar } = useSidebar();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    
+    navigate('/login');
+  };
 
   return (
     <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 shadow-card">
@@ -69,7 +77,7 @@ export function Header() {
               Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex items-center gap-2 text-destructive">
+            <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-destructive">
               <LogOut className="h-4 w-4" />
               Sair
             </DropdownMenuItem>
