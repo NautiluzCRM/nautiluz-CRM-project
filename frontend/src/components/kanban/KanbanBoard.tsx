@@ -84,14 +84,14 @@ export function KanbanBoard({ colunas, leads, onLeadMove, onLeadUpdate, onLeadCl
   const activeLead = activeId ? leads.find(l => l.id === activeId) : null;
 
   return (
-    <div className="flex-1 p-3 sm:p-6 bg-background overflow-x-auto">
+    <div className="h-full flex p-3 sm:p-6 bg-background overflow-x-auto">
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
       >
-        <div className="flex gap-3 sm:gap-6 min-w-fit pb-4">
+        <div className="flex h-full gap-3 sm:gap-6 min-w-fit">
           {colunas.map((coluna) => (
             <SortableContext
               key={coluna.id}

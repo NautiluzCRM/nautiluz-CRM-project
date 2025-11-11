@@ -33,7 +33,7 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col w-72 sm:w-80 min-h-[500px] sm:min-h-[600px] rounded-lg
+        flex flex-col w-72 sm:w-80 h-full rounded-lg
         ${isOver ? 'bg-kanban-preview border-2 border-primary border-dashed' : 'bg-kanban-column'}
         transition-colors duration-200
       `}

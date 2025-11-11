@@ -7,7 +7,7 @@ import {
   FileText,
   Calendar,
   Target,
-  TrendingUp
+  TrendingUp,
 } from "lucide-react";
 
 import {
@@ -25,15 +25,17 @@ import {
 const navigationItems = [
   { title: "Pipeline", url: "/", icon: Kanban },
   { title: "Leads", url: "/leads", icon: Users },
-  { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
-  { title: "Calendário", url: "/calendario", icon: Calendar },
-  { title: "Metas", url: "/metas", icon: Target },
+  //{ title: "Relatórios", url: "/relatorios", icon: BarChart3 },
+
+  //{ title: "Calendário", url: "/calendario", icon: Calendar },
+
+  //{ title: "Metas", url: "/metas", icon: Target },
 ];
 
 const managementItems = [
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Exportações", url: "/exportacoes", icon: FileText },
-  { title: "Analytics", url: "/analytics", icon: TrendingUp },
+  //{ title: "Analytics", url: "/analytics", icon: TrendingUp },
 ];
 
 export function AppSidebar() {
@@ -41,7 +43,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
 
   return (
-    <Sidebar 
+    <Sidebar
       className="border-r border-sidebar-border bg-gradient-sidebar"
       collapsible="icon"
     >
@@ -51,7 +53,9 @@ export function AppSidebar() {
         </div>
         {!isCollapsed && (
           <div>
-            <h2 className="text-sm font-semibold text-sidebar-primary">NAUTILUZ</h2>
+            <h2 className="text-sm font-semibold text-sidebar-primary">
+              NAUTILUZ
+            </h2>
             <p className="text-xs text-sidebar-foreground/70">CRM</p>
           </div>
         )}
@@ -69,19 +73,21 @@ export function AppSidebar() {
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      className={({ isActive }) => 
+                    <NavLink
+                      to={item.url}
+                      className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                          isActive 
-                            ? "bg-sidebar-accent text-sidebar-primary font-medium" 
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-primary font-medium"
                             : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
                         }`
                       }
                       title={isCollapsed ? item.title : undefined}
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {!isCollapsed && <span className="truncate">{item.title}</span>}
+                      {!isCollapsed && (
+                        <span className="truncate">{item.title}</span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -101,19 +107,21 @@ export function AppSidebar() {
               {managementItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      className={({ isActive }) => 
+                    <NavLink
+                      to={item.url}
+                      className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                          isActive 
-                            ? "bg-sidebar-accent text-sidebar-primary font-medium" 
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-primary font-medium"
                             : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
                         }`
                       }
                       title={isCollapsed ? item.title : undefined}
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {!isCollapsed && <span className="truncate">{item.title}</span>}
+                      {!isCollapsed && (
+                        <span className="truncate">{item.title}</span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

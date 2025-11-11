@@ -102,7 +102,7 @@ const Index = () => {
         </div>
 
         {/* Kanban Board */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-hidden">
           <KanbanBoard
             colunas={pipeline.colunas}
             leads={filteredLeads}
