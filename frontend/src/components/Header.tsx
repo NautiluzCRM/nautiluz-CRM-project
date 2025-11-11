@@ -22,7 +22,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 shadow-card">
+    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-1 shadow-card">
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
