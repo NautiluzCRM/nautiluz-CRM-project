@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Bell, Settings, User, LogOut, Menu } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export function Header() {
   const { toggleSidebar } = useSidebar();
@@ -68,14 +68,13 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Meu Perfil
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Configurações
-            </DropdownMenuItem>
+            
+            <Link to="/configuracoes">
+              <DropdownMenuItem className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Configurações
+              </DropdownMenuItem>
+            </Link>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-destructive">
               <LogOut className="h-4 w-4" />
