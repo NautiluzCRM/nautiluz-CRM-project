@@ -167,7 +167,7 @@ const handleButtonClick = () => {
         {/* Content */}
         <div className="flex-1 p-6 overflow-auto">
           <Tabs defaultValue="perfil" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="perfil" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Perfil
@@ -566,7 +566,7 @@ const handleButtonClick = () => {
             </TabsContent>
 
             {/* Aba Segurança */}
-            {/*
+            
             <TabsContent value="seguranca" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -604,7 +604,7 @@ const handleButtonClick = () => {
                 </CardContent>
               </Card>
             </TabsContent>
-            */}
+            
 
           </Tabs>
         </div>
