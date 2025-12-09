@@ -47,8 +47,13 @@ export function AppSidebar() {
       className="border-r border-sidebar-border bg-gradient-sidebar"
       collapsible="icon"
     >
-      <div className="flex items-center gap-2 p-4 border-b border-sidebar-border">
-        <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+      <div 
+        className={`
+          flex items-center gap-2 p-4 border-b border-sidebar-border 
+          ${isCollapsed ? 'justify-center' : ''}
+        `}
+      >
+        <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center flex-shrink-0">
           <span className="text-sm font-bold text-white">N</span>
         </div>
         {!isCollapsed && (
@@ -61,7 +66,7 @@ export function AppSidebar() {
         )}
       </div>
 
-      <SidebarContent className="px-2 py-4">
+      <SidebarContent className="py-4">
         <SidebarGroup>
           {!isCollapsed && (
             <SidebarGroupLabel className="text-sidebar-primary font-semibold text-xs uppercase tracking-wider mb-2">

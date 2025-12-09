@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ChangeEvent, useState, useRef} from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,8 @@ import {
   Smartphone,
   Save,
 } from "lucide-react";
+
+import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
 
 interface Usuario {
   id: string;
@@ -105,6 +107,44 @@ const Configuracoes = () => {
     { id: 'fechamento', nome: 'Fechamento', cor: '#10B981', sla: 48 },
   ];
 
+
+  
+  // Foto de perfil com overlay
+
+const fileInputRef = useRef<HTMLInputElement | null>(null);
+const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);// foto confirmada
+const [previewUrl, setPreviewUrl] = useState<string | null>(null);// preview da imagem
+const [isPreviewOpen, setIsPreviewOpen] = useState(false);// controla o modal(componente que sobrepõe a tela)
+
+const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const url = URL.createObjectURL(file);
+  setPreviewUrl(url);
+  setIsPreviewOpen(true);
+};
+
+const handleCancelPreview = () => {
+  fileInputRef.current!.value = "";
+  setIsPreviewOpen(false);
+  setPreviewUrl(null);
+};
+
+const handleConfirmPreview = () => {
+  if (previewUrl) {
+    setFotoPerfil(previewUrl); // confirma a foto
+  }
+  setIsPreviewOpen(false);
+};
+
+const handleButtonClick = () => {
+  fileInputRef.current?.click(); // abre o seletor
+};
+
+
+
+
   return (
     <Layout>
       <div className="flex flex-col h-full">
@@ -127,7 +167,7 @@ const Configuracoes = () => {
         {/* Content */}
         <div className="flex-1 p-6 overflow-auto">
           <Tabs defaultValue="perfil" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="perfil" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Perfil
@@ -166,22 +206,41 @@ const Configuracoes = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-center gap-6">
-                    <Avatar className="h-20 w-20">
-                      <AvatarImage src="" alt="Foto do perfil" />
-                      <AvatarFallback className="text-lg bg-primary text-primary-foreground">
-                        JS
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="space-y-2">
-                      <Button variant="outline" size="sm">
-                        Alterar Foto
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        JPG, PNG ou GIF. Máximo 2MB.
-                      </p>
-                    </div>
+
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" />
+                    <AvatarFallback className="text-lg bg-primary text-primary-foreground">
+                      JS
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-2">
+                    {/* input escondido, acionado pelo botão, uso UseRef par ligar o botão real com esse componente*/}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+
+                    <Button variant="outline" size="sm" onClick={handleButtonClick}>
+                      Alterar Foto
+                    </Button>
+
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG ou GIF. Máximo 2MB.
+                    </p>
+
+                    {/* Modal de preview */}
+                    {isPreviewOpen && previewUrl && (
+                      <ImagePreviewOverlay
+                        imageUrl={previewUrl}
+                        onCancel={handleCancelPreview}
+                        onConfirm={handleConfirmPreview}
+                      />
+                    )}
                   </div>
+                 
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -507,7 +566,7 @@ const Configuracoes = () => {
             </TabsContent>
 
             {/* Aba Segurança */}
-            {/*
+            
             <TabsContent value="seguranca" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -545,7 +604,7 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
             </TabsContent>
-            */}
+            
 
           </Tabs>
         </div>
