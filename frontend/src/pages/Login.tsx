@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Lock, Mail, Anchor } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -16,31 +17,24 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Simulação de login
-    setTimeout(() => {
-      if (email && password) {
-        toast({
-          title: "Login realizado com sucesso!",
-          description: "Bem-vindo ao NAUTILUZ CRM",
-        });
-
-        localStorage.setItem('authToken', 'token');
-
-        navigate("/");
-      } else {
-        toast({
-          title: "Erro no login",
-          description: "Por favor, preencha todos os campos",
-          variant: "destructive",
-        });
-      }
+    try {
+      await login(email, password);
+      toast({ title: "Login realizado com sucesso!", description: "Bem-vindo ao NAUTILUZ CRM" });
+      navigate("/");
+    } catch (err: any) {
+      toast({
+        title: "Erro no login",
+        description: err?.message || "Não foi possível autenticar",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

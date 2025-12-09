@@ -1,55 +1,73 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { KanbanBoard } from "@/components/kanban/KanbanBoard";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
-import { pipelineMock } from "@/data/mockData";
 import { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Plus, Filter, Download, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { fetchPipelineData, moveLeadApi, updateLeadApi } from "@/lib/api";
 
 const Index = () => {
-  const [pipeline, setPipeline] = useState(pipelineMock);
+  const [pipeline, setPipeline] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleLeadMove = (leadId: string, novaColuna: string) => {
-    setPipeline(prev => ({
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await fetchPipelineData();
+        setPipeline(data);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleLeadMove = async (leadId: string, novaColuna: string) => {
+    await moveLeadApi(leadId, novaColuna);
+    setPipeline((prev: any) => ({
       ...prev,
-      leads: prev.leads.map(lead => 
-        lead.id === leadId 
+      leads: prev.leads.map((lead: Lead) =>
+        lead.id === leadId
           ? { ...lead, colunaAtual: novaColuna, ultimaAtividade: new Date() }
           : lead
       )
     }));
   };
 
-  const handleLeadUpdate = (updatedLead: Lead) => {
-    setPipeline(prev => ({
+  const handleLeadUpdate = async (updatedLead: Lead) => {
+    await updateLeadApi(updatedLead.id, updatedLead);
+    setPipeline((prev: any) => ({
       ...prev,
-      leads: prev.leads.map(lead => 
+      leads: prev.leads.map((lead: Lead) =>
         lead.id === updatedLead.id ? updatedLead : lead
       )
     }));
   };
 
-  const filteredLeads = pipeline.leads.filter(lead => 
+  const filteredLeads = pipeline?.leads?.filter((lead: Lead) => 
     lead.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (lead.empresa && lead.empresa.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ) || [];
 
-  const totalLeads = pipeline.leads.length;
-  const leadsQualificados = pipeline.leads.filter(l => l.statusQualificacao === 'Qualificado').length;
-  const valorTotalEstimado = pipeline.leads.reduce((acc, lead) => 
+  const totalLeads = pipeline?.leads?.length || 0;
+  const leadsQualificados = pipeline?.leads?.filter((l: Lead) => l.statusQualificacao === 'Qualificado').length || 0;
+  const valorTotalEstimado = pipeline?.leads?.reduce((acc: number, lead: Lead) =>
     acc + (lead.valorMedio || 0), 0
-  );
+  ) || 0;
 
   return (
     <Layout>
       <div className="flex flex-col h-full">
+        {isLoading && (
+          <div className="p-6 text-sm text-muted-foreground">Carregando pipeline...</div>
+        )}
         {/* Toolbar */}
         <div className="bg-card border-b border-border p-4 shadow-card">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
@@ -103,16 +121,18 @@ const Index = () => {
 
         {/* Kanban Board */}
         <div className="flex-1 overflow-hidden">
-          <KanbanBoard
-            colunas={pipeline.colunas}
-            leads={filteredLeads}
-            onLeadMove={handleLeadMove}
-            onLeadUpdate={handleLeadUpdate}
-            onLeadClick={(lead) => {
-              setSelectedLead(lead);
-              setIsModalOpen(true);
-            }}
-          />
+          {pipeline ? (
+            <KanbanBoard
+              colunas={pipeline.colunas}
+              leads={filteredLeads}
+              onLeadMove={handleLeadMove}
+              onLeadUpdate={handleLeadUpdate}
+              onLeadClick={(lead) => {
+                setSelectedLead(lead);
+                setIsModalOpen(true);
+              }}
+            />
+          ) : null}
         </div>
       </div>
 
