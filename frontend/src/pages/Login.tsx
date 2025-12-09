@@ -23,7 +23,7 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       toast({ title: "Login realizado com sucesso!", description: "Bem-vindo ao NAUTILUZ CRM" });
       navigate("/");
     } catch (err: any) {
@@ -142,10 +142,12 @@ const Login = () => {
             </form>
 
             <div className="text-center text-sm text-muted-foreground">
-              <p>Acesso demo:</p>
-              <p className="font-mono text-xs mt-1">
-                admin@nautiluz.com / demo123
-              </p>
+              <p>Credenciais de teste:</p>
+              <div className="font-mono text-xs mt-1 space-y-1">
+                <p>admin@nautiluz.com / demo123 (Admin)</p>
+                <p>vendas@nautiluz.com / demo123 (Vendedor)</p>
+                <p>financeiro@nautiluz.com / demo123 (Financeiro)</p>
+              </div>
             </div>
           </CardContent>
         </Card>

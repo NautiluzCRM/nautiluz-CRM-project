@@ -1,10 +1,33 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Download, FileSpreadsheet, Calendar, Filter } from "lucide-react";
+import { Download, FileSpreadsheet, Calendar } from "lucide-react";
+import { exportLeadsXlsx, API_URL } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const Exportacoes = () => {
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
+
+  const handleExportXlsx = async () => {
+    setIsExporting(true);
+    try {
+      const { url } = await exportLeadsXlsx();
+      const fullUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
+      window.open(fullUrl, "_blank", "noopener,noreferrer");
+      toast({ title: "Exportação iniciada", description: "O download da planilha foi disparado." });
+    } catch (err: any) {
+      toast({
+        title: "Erro ao exportar",
+        description: err?.message || "Não foi possível gerar a planilha",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="flex flex-col h-full">
@@ -26,9 +49,13 @@ const Exportacoes = () => {
                 <p className="text-sm text-muted-foreground mb-4">
                   Exportar todos os dados dos leads em planilha Excel
                 </p>
-                <Button className="w-full bg-gradient-primary hover:bg-primary-hover">
+                <Button 
+                  className="w-full bg-gradient-primary hover:bg-primary-hover"
+                  onClick={handleExportXlsx}
+                  disabled={isExporting}
+                >
                   <Download className="h-4 w-4 mr-2" />
-                  Exportar (.xlsx)
+                  {isExporting ? "Exportando..." : "Exportar (.xlsx)"}
                 </Button>
               </CardContent>
             </Card>

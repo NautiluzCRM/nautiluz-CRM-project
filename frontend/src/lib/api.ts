@@ -1,21 +1,80 @@
 import { Lead, Pipeline, Coluna } from "@/types/crm";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const storages = [localStorage, sessionStorage];
 
-function getAuthHeaders() {
-  const token = localStorage.getItem("authToken");
+const getStoredValue = (key: string) => localStorage.getItem(key) ?? sessionStorage.getItem(key);
+
+const clearAuthStorage = () => {
+  for (const storage of storages) {
+    storage.removeItem("authToken");
+    storage.removeItem("refreshToken");
+  }
+};
+
+const getAuthStorage = () => {
+  if (localStorage.getItem("refreshToken")) return localStorage;
+  if (sessionStorage.getItem("refreshToken")) return sessionStorage;
+  if (localStorage.getItem("authToken")) return localStorage;
+  if (sessionStorage.getItem("authToken")) return sessionStorage;
+  return localStorage;
+};
+
+const setAccessToken = (token: string) => {
+  const storage = getAuthStorage();
+  storage.setItem("authToken", token);
+  const other = storage === localStorage ? sessionStorage : localStorage;
+  other.removeItem("authToken");
+};
+
+function getAuthHeaders(tokenOverride?: string) {
+  const token = tokenOverride || getStoredValue("authToken");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-      ...(options.headers || {}),
-    },
+async function refreshAccessToken() {
+  const storage = getAuthStorage();
+  const refreshToken = storage.getItem("refreshToken") ?? getStoredValue("refreshToken");
+  if (!refreshToken) return null;
+
+  const res = await fetch(`${API_URL}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: refreshToken }),
   });
+
+  if (!res.ok) {
+    clearAuthStorage();
+    return null;
+  }
+
+  const data = await res.json();
+  if (data?.accessToken) {
+    setAccessToken(data.accessToken);
+    return data.accessToken as string;
+  }
+  return null;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeaders(),
+    ...(options.headers || {}),
+  };
+
+  let res = await fetch(`${API_URL}${path}`, { ...options, headers });
+
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      const retryHeaders = {
+        ...headers,
+        ...getAuthHeaders(newToken),
+      };
+      res = await fetch(`${API_URL}${path}`, { ...options, headers: retryHeaders });
+    }
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -24,12 +83,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function loginApi(email: string, password: string) {
+export async function loginApi(email: string, password: string, remember = false) {
   return request<{ accessToken: string; refreshToken: string; user: any }>(
     "/auth/login",
     {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, remember }),
     }
   );
 }
@@ -56,7 +115,14 @@ export async function moveLeadApi(leadId: string, toStageId: string) {
 export async function updateLeadApi(leadId: string, payload: Partial<Lead>) {
   return request(`/leads/${leadId}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(mapLeadToApiPayload(payload)),
+  });
+}
+
+export async function exportLeadsXlsx(filter: Record<string, unknown> = {}) {
+  return request<{ url: string; file: string }>("/exports/xlsx", {
+    method: "POST",
+    body: JSON.stringify(filter),
   });
 }
 
@@ -99,6 +165,30 @@ export function mapApiLeadToLead(api: any): Lead {
     ultimaAtividade: api.lastActivityAt ? new Date(api.lastActivityAt) : new Date(),
     arquivos: [],
     atividades: api.activities || [],
+  };
+}
+
+export function mapLeadToApiPayload(lead: Partial<Lead>) {
+  return {
+    name: lead.nome,
+    company: lead.empresa,
+    phone: lead.celular,
+    email: lead.email,
+    hasCnpj: lead.possuiCnpj,
+    cnpjType: lead.tipoCnpj,
+    livesCount: lead.quantidadeVidas,
+    ageBuckets: lead.idades,
+    hasCurrentPlan: lead.possuiPlano,
+    currentPlan: lead.planoAtual,
+    avgPrice: lead.valorMedio,
+    preferredHospitals: lead.hospitaisPreferencia,
+    origin: lead.origem,
+    notes: lead.informacoes,
+    state: lead.uf,
+    city: lead.cidade,
+    qualificationStatus: lead.statusQualificacao,
+    lostReason: lead.motivoPerda,
+    stageId: lead.colunaAtual,
   };
 }
 
