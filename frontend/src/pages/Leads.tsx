@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
-import { leadsMock } from "@/data/mockData";
 import { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,15 +37,29 @@ import {
   Grid,
   List,
 } from "lucide-react";
+import { fetchLeads, mapApiLeadToLead, updateLeadApi } from "@/lib/api";
 
 const Leads = () => {
-  const [leads, setLeads] = useState(leadsMock);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [origemFilter, setOrigemFilter] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await fetchLeads();
+        setLeads(data.map(mapApiLeadToLead));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = 
@@ -65,7 +78,8 @@ const Leads = () => {
     setIsModalOpen(true);
   };
 
-  const handleLeadUpdate = (updatedLead: Lead) => {
+  const handleLeadUpdate = async (updatedLead: Lead) => {
+    await updateLeadApi(updatedLead.id, updatedLead);
     setLeads(prev => 
       prev.map(lead => 
         lead.id === updatedLead.id ? updatedLead : lead
@@ -176,6 +190,9 @@ const Leads = () => {
 
         {/* Content */}
         <div className="flex-1 p-6 overflow-auto">
+          {isLoading && (
+            <div className="text-sm text-muted-foreground mb-4">Carregando leads...</div>
+          )}
           {viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredLeads.map((lead) => (

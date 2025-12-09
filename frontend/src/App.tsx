@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/use-auth";
 
 import Teste from "./pages/Teste";
 
@@ -23,37 +24,39 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Index />} />
-            <Route path="/leads" element={<Leads />} />
-            {/* 
-            <Route path="/relatorios" element={<Relatorios />} />
-            */}
-            {/* 
-            <Route path="/calendario" element={<Calendario />} />
-            */}
-            {/* 
-            <Route path="/metas" element={<Metas />} />
-            */}
-            <Route path="/configuracoes" element={<Configuracoes />} />
-            <Route path="/exportacoes" element={<Exportacoes />} />
-            <Route path="/teste" element={<Teste/>} />
-            {/* 
-            <Route path="/analytics" element={<Analytics />} />
-            */}
-          </Route>
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/leads" element={<Leads />} />
+              {/* 
+              <Route path="/relatorios" element={<Relatorios />} />
+              */}
+              {/* 
+              <Route path="/calendario" element={<Calendario />} />
+              */}
+              {/* 
+              <Route path="/metas" element={<Metas />} />
+              */}
+              <Route path="/configuracoes" element={<Configuracoes />} />
+              <Route path="/exportacoes" element={<Exportacoes />} />
+              <Route path="/teste" element={<Teste/>} />
+              {/* 
+              <Route path="/analytics" element={<Analytics />} />
+              */}
+            </Route>
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

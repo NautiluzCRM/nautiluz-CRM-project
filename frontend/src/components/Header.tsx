@@ -7,17 +7,18 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Bell, Settings, User, LogOut, Menu } from "lucide-react";
+import { Bell, Settings, LogOut, Menu } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
 
 export function Header() {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    
+    logout();
     navigate('/login');
   };
 
@@ -56,14 +57,14 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 p-2 h-auto">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="/placeholder-avatar.jpg" alt="Usuário" />
+                <AvatarImage src={user?.photoUrl || "/placeholder-avatar.jpg"} alt={user?.name || "Usuário"} />
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  JD
+                  {(user?.name || "N").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="text-left hidden md:block">
-                <p className="text-sm font-medium text-foreground">João Silva</p>
-                <p className="text-xs text-muted-foreground">Vendedor</p>
+                <p className="text-sm font-medium text-foreground">{user?.name || "Usuário"}</p>
+                <p className="text-xs text-muted-foreground">{user?.role || ""}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
