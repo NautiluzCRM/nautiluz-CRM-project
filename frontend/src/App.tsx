@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
+import Teste from "./pages/Teste";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Index from "./pages/Index";
@@ -42,6 +44,7 @@ const App = () => (
             */}
             <Route path="/configuracoes" element={<Configuracoes />} />
             <Route path="/exportacoes" element={<Exportacoes />} />
+            <Route path="/teste" element={<Teste/>} />
             {/* 
             <Route path="/analytics" element={<Analytics />} />
             */}
