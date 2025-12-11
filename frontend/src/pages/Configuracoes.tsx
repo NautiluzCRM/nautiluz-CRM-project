@@ -188,12 +188,12 @@ const handleButtonClick = () => {
                 <Database className="h-4 w-4" />
                 Sistema
               </TabsTrigger>
-             {/* 
+             
               <TabsTrigger value="seguranca" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
                 Segurança
               </TabsTrigger>
-              */}
+              
             </TabsList>
 
             {/* Aba Perfil */}
@@ -271,8 +271,9 @@ const handleButtonClick = () => {
                   </div>
                 </CardContent>
               </Card>
-
-              <Card>
+              {/* 
+              
+             <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Key className="h-5 w-5" />
@@ -297,6 +298,8 @@ const handleButtonClick = () => {
                   <Button variant="outline">Alterar Senha</Button>
                 </CardContent>
               </Card>
+              */
+              }
             </TabsContent>
 
             {/* Aba Usuários */}
@@ -568,6 +571,7 @@ const handleButtonClick = () => {
             {/* Aba Segurança */}
             
             <TabsContent value="seguranca" className="space-y-6">
+              {/* Essa parte pode ser que seja mantida mas tenho que ver com o Et
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -601,6 +605,32 @@ const handleButtonClick = () => {
                       <Button variant="outline">Ver Logs</Button>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+              */}
+                     <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Key className="h-5 w-5" />
+                    Alterar Senha
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="senhaAtual">Senha Atual</Label>
+                    <Input id="senhaAtual" type="password" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="novaSenha">Nova Senha</Label>
+                      <Input id="novaSenha" type="password" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
+                      <Input id="confirmarSenha" type="password" />
+                    </div>
+                  </div>
+                  <Button variant="outline">Alterar Senha</Button>
                 </CardContent>
               </Card>
             </TabsContent>
