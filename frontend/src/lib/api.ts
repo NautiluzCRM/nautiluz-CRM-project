@@ -204,3 +204,58 @@ export async function fetchPipelineData(): Promise<Pipeline> {
     leads: leads.map(mapApiLeadToLead),
   };
 }
+
+export async function fetchUsers() {
+  const data = await request<any[]>("/users");
+  return data.map(mapApiUserToUsuario);
+}
+
+function mapApiUserToUsuario(apiUser: any) {
+  let perfil = 'Vendedor';
+  if (apiUser.role === 'admin') perfil = 'Administrador';
+  else if (apiUser.role === 'financial') perfil = 'Financeiro';
+
+  return {
+    id: apiUser._id || apiUser.id,
+    nome: apiUser.name || apiUser.nome || "Sem Nome",
+    email: apiUser.email,
+    perfil: perfil as "Administrador" | "Financeiro" | "Vendedor",
+    ativo: apiUser.active !== false,
+    foto: apiUser.avatar,
+    ultimoAcesso: apiUser.lastLoginAt ? new Date(apiUser.lastLoginAt) : new Date(),
+  };
+}
+
+export async function createUserApi(dados: { nome: string; email: string; perfil: string }) {
+  const payload = {
+    name: dados.nome,
+    email: dados.email,
+    password: "demo123", // Senha temporária
+    role: dados.perfil === 'Administrador' ? 'admin' : 
+          dados.perfil === 'Financeiro' ? 'financeiro' : 'vendedor',
+    active: true
+  };
+
+  return request("/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateUserApi(id: string, dados: { nome?: string; email?: string; perfil?: string; ativo?: boolean }) {
+  const payload: any = {};
+  
+  // Mapeia os campos apenas se eles forem passados
+  if (dados.nome) payload.name = dados.nome;
+  if (dados.email) payload.email = dados.email;
+  if (dados.ativo !== undefined) payload.active = dados.ativo;
+  
+  if (dados.perfil) {
+    payload.role = dados.perfil.toLowerCase(); 
+  }
+
+  return request(`/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}

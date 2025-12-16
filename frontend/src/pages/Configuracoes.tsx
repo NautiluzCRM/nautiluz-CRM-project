@@ -1,4 +1,4 @@
-import { ChangeEvent, useState, useRef} from "react";
+import { ChangeEvent, useState, useRef, useEffect} from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,8 @@ import {
   Plus,
   Edit,
   Trash2,
+  XCircle,
+  CheckCircle,
   Key,
   Mail,
   Smartphone,
@@ -46,6 +48,7 @@ import {
 } from "lucide-react";
 
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
+import { fetchUsers, createUserApi, updateUserApi } from "@/lib/api";
 
 interface Usuario {
   id: string;
@@ -62,42 +65,70 @@ const Configuracoes = () => {
   const [notificacaoSMS, setNotificacaoSMS] = useState(false);
   const [modoEscuro, setModoEscuro] = useState(false);
   const [autoSave, setAutoSave] = useState(true);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
-  const usuarios: Usuario[] = [
-    {
-      id: '1',
-      nome: 'João Silva',
-      email: 'joao@nautiluz.com.br',
-      perfil: 'Administrador',
-      ativo: true,
-      ultimoAcesso: new Date(2024, 0, 20, 14, 30)
-    },
-    {
-      id: '2',
-      nome: 'Ana Costa',
-      email: 'ana@nautiluz.com.br',
-      perfil: 'Vendedor',
-      ativo: true,
-      ultimoAcesso: new Date(2024, 0, 20, 16, 15)
-    },
-    {
-      id: '3',
-      nome: 'Carlos Santos',
-      email: 'carlos@nautiluz.com.br',
-      perfil: 'Vendedor',
-      ativo: true,
-      ultimoAcesso: new Date(2024, 0, 19, 18, 45)
-    },
-    {
-      id: '4',
-      nome: 'Maria Oliveira',
-      email: 'maria@nautiluz.com.br',
-      perfil: 'Financeiro',
-      ativo: false,
-      ultimoAcesso: new Date(2024, 0, 15, 9, 20)
+  const carregarUsuarios = async () => {
+    try {
+      const dados = await fetchUsers();
+      setUsuarios(dados);
+    } catch (error) {
+      console.error("Erro ao carregar usuários:", error);
     }
-  ];
+  };
 
+  useEffect(() => {
+    carregarUsuarios();
+  }, []);
+
+  // Estados para o formulário de Novo Usuário
+  const [novoNome, setNovoNome] = useState("");
+  const [novoEmail, setNovoEmail] = useState("");
+  const [novoPerfil, setNovoPerfil] = useState("Vendedor");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleCriarUsuario = async () => {
+    if (!novoNome || !novoEmail) return;
+
+    try {
+      await createUserApi({
+        nome: novoNome,
+        email: novoEmail,
+        perfil: novoPerfil
+      });
+      
+      setNovoNome("");
+      setNovoEmail("");
+      setIsModalOpen(false);
+      
+      carregarUsuarios();
+      
+      alert("Usuário criado com sucesso!");
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao criar usuário.");
+    }
+  };
+
+  const handleToggleStatus = async (usuario: Usuario) => {
+  const novoStatus = !usuario.ativo;
+  const acao = novoStatus ? "ativar" : "inativar";
+
+  if (!confirm(`Tem certeza que deseja ${acao} o usuário ${usuario.nome}?`)) return;
+
+  try {
+    await updateUserApi(usuario.id, { ativo: novoStatus });
+
+    carregarUsuarios();
+
+    alert(`Usuário ${usuario.nome} ${novoStatus ? 'ativado' : 'inativado'} com sucesso.`);
+  } catch (error) {
+    console.error(error);
+    alert(`Erro ao ${acao} usuário.`);
+  }
+};
+
+
+  
   const colunasPipeline = [
     { id: 'novo', nome: 'Novo', cor: '#3B82F6', sla: 24 },
     { id: 'qualificacao', nome: 'Qualificação', cor: '#8B5CF6', sla: 48 },
@@ -307,7 +338,7 @@ const handleButtonClick = () => {
                     <Users className="h-5 w-5" />
                     Gerenciar Usuários
                   </CardTitle>
-                  <Dialog>
+                  <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="bg-gradient-primary hover:bg-primary-hover">
                         <Plus className="h-4 w-4 mr-2" />
@@ -322,27 +353,41 @@ const handleButtonClick = () => {
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="nomeUsuario">Nome</Label>
-                            <Input id="nomeUsuario" placeholder="Nome completo" />
+                            <Input 
+                              id="nomeUsuario" 
+                              placeholder="Nome completo"
+                              value={novoNome}
+                              onChange={(e) => setNovoNome(e.target.value)}
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="emailUsuario">E-mail</Label>
-                            <Input id="emailUsuario" type="email" placeholder="email@nautiluz.com.br" />
+                            <Input 
+                              id="emailUsuario" 
+                              type="email" 
+                              placeholder="email@nautiluz.com.br"
+                              value={novoEmail}
+                              onChange={(e) => setNovoEmail(e.target.value)}
+                            />
                           </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="perfilUsuario">Perfil</Label>
-                          <Select>
+                          <Select value={novoPerfil} onValueChange={setNovoPerfil}>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione o perfil" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="vendedor">Vendedor</SelectItem>
-                              <SelectItem value="financeiro">Financeiro</SelectItem>
-                              <SelectItem value="administrador">Administrador</SelectItem>
+                              <SelectItem value="Vendedor">Vendedor</SelectItem>
+                              <SelectItem value="Financeiro">Financeiro</SelectItem>
+                              <SelectItem value="Administrador">Administrador</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <Button className="w-full bg-gradient-primary hover:bg-primary-hover">
+                        <Button 
+                          className="w-full bg-gradient-primary hover:bg-primary-hover"
+                          onClick={handleCriarUsuario}
+                        >
                           Criar Usuário
                         </Button>
                       </div>
@@ -375,12 +420,24 @@ const handleButtonClick = () => {
                             </div>
                           </div>
                         </div>
+
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm">
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={usuario.ativo ? "text-destructive hover:text-destructive" : "text-green-600 hover:text-green-700"}
+                            onClick={() => handleToggleStatus(usuario)}
+                            title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
+                          >
+                            {usuario.ativo ? (
+                              <XCircle className="h-4 w-4" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
                           </Button>
                         </div>
                       </div>
