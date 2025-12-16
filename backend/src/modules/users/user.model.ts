@@ -9,6 +9,9 @@ export interface User {
   teamId?: string;
   photoUrl?: string;
   active: boolean;
+  phone?: string;
+  jobTitle?: string;
+  emailSignature?: string;
 }
 
 const userSchema = new Schema<User>({
@@ -18,7 +21,10 @@ const userSchema = new Schema<User>({
   role: { type: String, enum: roles, required: true },
   teamId: { type: String },
   photoUrl: { type: String },
-  active: { type: Boolean, default: true }
+  active: { type: Boolean, default: true },
+  phone: { type: String },
+  jobTitle: { type: String },
+  emailSignature: { type: String }
 }, { timestamps: true });
 
 export const UserModel = mongoose.model<User>('User', userSchema);
