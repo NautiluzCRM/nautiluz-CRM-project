@@ -221,7 +221,7 @@ function mapApiUserToUsuario(apiUser: any) {
     email: apiUser.email,
     perfil: perfil as "Administrador" | "Financeiro" | "Vendedor",
     ativo: apiUser.active !== false,
-    foto: apiUser.avatar,
+    foto: apiUser.photoUrl || apiUser.avatar || null,
     ultimoAcesso: apiUser.lastLoginAt ? new Date(apiUser.lastLoginAt) : new Date(),
   };
 }
@@ -242,8 +242,6 @@ export async function createUserApi(dados: { nome: string; email: string; perfil
   });
 }
 
-// frontend/src/lib/api.ts
-
 export async function updateUserApi(id: string, dados: { 
   nome?: string; 
   email?: string; 
@@ -252,6 +250,9 @@ export async function updateUserApi(id: string, dados: {
   senha?: string;
   senhaAtual?: string;
   foto?: string;
+  telefone?: string;
+  cargo?: string;
+  assinatura?: string;
 }) {
   const payload: any = {};
   
@@ -259,14 +260,14 @@ export async function updateUserApi(id: string, dados: {
   if (dados.nome) payload.name = dados.nome;
   if (dados.email) payload.email = dados.email;
   if (dados.ativo !== undefined) payload.active = dados.ativo;
-  
-  // Mapeia os campos novos (segurança e visual)
   if (dados.senha) payload.password = dados.senha;
   if (dados.senhaAtual) payload.currentPassword = dados.senhaAtual;
+  if (dados.foto !== undefined) payload.photoUrl = dados.foto;
+
+  if (dados.telefone !== undefined) payload.phone = dados.telefone;
+  if (dados.cargo !== undefined) payload.jobTitle = dados.cargo;
+  if (dados.assinatura !== undefined) payload.emailSignature = dados.assinatura;
   
-  if (dados.foto) payload.avatar = dados.foto;
-  
-  // Mapeia o perfil (Role)
   if (dados.perfil) {
     payload.role = dados.perfil.toLowerCase() === 'administrador' ? 'admin' : 
                    dados.perfil.toLowerCase() === 'financeiro' ? 'financeiro' : 'vendedor';

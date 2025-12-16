@@ -8,44 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Settings,
-  User,
-  Shield,
-  Bell,
-  Palette,
-  Database,
-  Users,
-  Plus,
-  Edit,
-  Trash2,
-  XCircle,
-  CheckCircle,
-  Key,
-  Mail,
-  Smartphone,
-  Save,
-} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save } from "lucide-react";
 
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
 import { fetchUsers, createUserApi, updateUserApi } from "@/lib/api";
@@ -61,8 +27,18 @@ interface Usuario {
   ultimoAcesso: Date;
 }
 
+// Função para converter Arquivo -> Base64
+const convertFileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 const Configuracoes = () => {
-  const { user } = useAuth();
+  const { user, updateUserLocal } = useAuth();
   const isAdmin = user?.role === 'admin';
 
   const [notificacaoEmail, setNotificacaoEmail] = useState(true);
@@ -74,6 +50,9 @@ const Configuracoes = () => {
   // Estados do Perfil
   const [perfilNome, setPerfilNome] = useState("");
   const [perfilEmail, setPerfilEmail] = useState("");
+  const [perfilTelefone, setPerfilTelefone] = useState("");
+  const [perfilCargo, setPerfilCargo] = useState("");
+  const [perfilAssinatura, setPerfilAssinatura] = useState("");
 
   // Estados de Senha
   const [senhaAtual, setSenhaAtual] = useState("");
@@ -84,6 +63,7 @@ const Configuracoes = () => {
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);// foto confirmada
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);// preview da imagem
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);// controla o modal(componente que sobrepõe a tela)
+  const [arquivoTemporario, setArquivoTemporario] = useState<File | null>(null);
 
   // Preenche os campos automaticamente quando o usuário logado carregar
   useEffect(() => {
@@ -91,18 +71,26 @@ const Configuracoes = () => {
       setPerfilNome(user.name || "");
       setPerfilEmail(user.email || "");
       if (user.photoUrl) setFotoPerfil(user.photoUrl);
+      setPerfilTelefone((user as any).phone || ""); 
+      setPerfilCargo((user as any).jobTitle || "");
+      setPerfilAssinatura((user as any).emailSignature || "");
     }
   }, [user]);
 
-  // Verifica se algo mudou nos dados básicos
+  // Verifica se algo mudou nos dados
   const temAlteracoesPerfil = useMemo(() => {
     if (!user) return false;
+    
     const mudouNome = perfilNome !== (user.name || "");
     const mudouEmail = perfilEmail !== (user.email || "");
-    const mudouFoto = fotoPerfil !== (user.photoUrl || null); 
+    const mudouFoto = fotoPerfil !== (user.photoUrl || null);
     
-    return mudouNome || mudouEmail || mudouFoto;
-  }, [user, perfilNome, perfilEmail, fotoPerfil]);
+    const mudouTelefone = perfilTelefone !== ((user as any).phone || "");
+    const mudouCargo = perfilCargo !== ((user as any).jobTitle || "");
+    const mudouAssinatura = perfilAssinatura !== ((user as any).emailSignature || "");
+    
+    return mudouNome || mudouEmail || mudouFoto || mudouTelefone || mudouCargo || mudouAssinatura;
+  }, [user, perfilNome, perfilEmail, fotoPerfil, perfilTelefone, perfilCargo, perfilAssinatura]);
 
   // Verifica se o formulário de senha está válido
   const podeSalvarSenha = useMemo(() => {
@@ -185,33 +173,49 @@ const Configuracoes = () => {
     { id: 'fechamento', nome: 'Fechamento', cor: '#10B981', sla: 48 },
   ];
 
-const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  // Alterar foto de perfil
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const url = URL.createObjectURL(file);
-  setPreviewUrl(url);
-  setIsPreviewOpen(true);
-};
+    setArquivoTemporario(file);
 
-const handleCancelPreview = () => {
-  fileInputRef.current!.value = "";
-  setIsPreviewOpen(false);
-  setPreviewUrl(null);
-};
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    setIsPreviewOpen(true);
+  };
 
-const handleConfirmPreview = () => {
-  if (previewUrl) {
-    setFotoPerfil(previewUrl); // confirma a foto
-  }
-  setIsPreviewOpen(false);
-};
+  const handleCancelPreview = () => {
+    fileInputRef.current!.value = "";
+    setIsPreviewOpen(false);
+    setPreviewUrl(null);
+  };
 
-const handleButtonClick = () => {
-  fileInputRef.current?.click(); // abre o seletor
-};
+  const handleConfirmPreview = async () => {
+    if (arquivoTemporario) {
+      try {
+        const base64 = await convertFileToBase64(arquivoTemporario);
+        setFotoPerfil(base64);
+      } catch (error) {
+        console.error("Erro ao converter imagem", error);
+        alert("Erro ao processar a imagem.");
+      }
+    }
+    setIsPreviewOpen(false);
+    setPreviewUrl(null);
+    setArquivoTemporario(null);
+  };
 
-const handleSalvarDados = async () => {
+  const handleRemoverFoto = () => {
+    setFotoPerfil(null);
+    setArquivoTemporario(null);
+  };
+
+  const handleButtonClick = () => {
+    fileInputRef.current?.click(); // abre o seletor
+  };
+
+  const handleSalvarDados = async () => {
     const userId = user?.id || (user as any)?._id;
 
     if (!userId) {
@@ -219,53 +223,95 @@ const handleSalvarDados = async () => {
       return;
     }
 
+    if (!perfilNome.trim() || !perfilEmail.trim()) {
+      alert("Os campos Nome e E-mail são obrigatórios.");
+      return;
+    }
+
+    const telefoneLimpo = perfilTelefone.replace(/\D/g, "");
+    if (telefoneLimpo.length > 0 && telefoneLimpo.length < 10) {
+      alert("O número de telefone está incompleto. Digite o DDD + Número.");
+      return;
+    }
+
     try {
       await updateUserApi(userId, {
         nome: perfilNome,
         email: perfilEmail,
-        foto: fotoPerfil || undefined
+        foto: fotoPerfil === null ? "" : fotoPerfil,
+        telefone: perfilTelefone,
+        cargo: perfilCargo,
+        assinatura: perfilAssinatura
+      });
+
+      updateUserLocal({
+        name: perfilNome,
+        email: perfilEmail,
+        photoUrl: fotoPerfil || undefined,
+        ...({ phone: perfilTelefone, jobTitle: perfilCargo, emailSignature: perfilAssinatura } as any)
       });
       alert("Dados do perfil atualizados com sucesso!");
+
     } catch (error) {
       console.error(error);
       alert("Erro ao atualizar dados.");
     }
   };
 
-const handleAlterarSenha = async () => {
-  const userId = user?.id || (user as any)?._id;
+  const handleAlterarSenha = async () => {
+    const userId = user?.id || (user as any)?._id;
 
-  if (!userId) {
-    console.error("Erro: ID do usuário não encontrado.", user);
-    return;
-  }
+    if (!userId) {
+      console.error("Erro: ID do usuário não encontrado.", user);
+      return;
+    }
 
-  if (!novaSenha || !confirmarSenha) {
-    alert("Preencha a nova senha e a confirmação.");
-    return;
-  }
+    if (!novaSenha || !confirmarSenha) {
+      alert("Preencha a nova senha e a confirmação.");
+      return;
+    }
 
-  if (novaSenha !== confirmarSenha) {
-    alert("As senhas não conferem!");
-    return;
-  }
+    if (novaSenha !== confirmarSenha) {
+      alert("As senhas não conferem!");
+      return;
+    }
 
-  try {
-    await updateUserApi(userId, {
-      senha: novaSenha,
-      senhaAtual: senhaAtual
-    });
+    try {
+      await updateUserApi(userId, {
+        senha: novaSenha,
+        senhaAtual: senhaAtual
+      });
 
-    alert("Senha alterada com sucesso!");
-    setSenhaAtual("");
-    setNovaSenha("");
-    setConfirmarSenha("");
-  } catch (error: any) {
-    console.error(error);
-    const msg = error.message || "Verifique a senha atual e tente novamente.";
-    alert("Erro: " + msg);
-  }
-};
+      alert("Senha alterada com sucesso!");
+      setSenhaAtual("");
+      setNovaSenha("");
+      setConfirmarSenha("");
+    } catch (error: any) {
+      console.error(error);
+      const msg = error.message || "Verifique a senha atual e tente novamente.";
+      alert("Erro: " + msg);
+    }
+  };
+
+// Função auxiliar para mascarar o telefone: (99) 99999-9999
+  const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    
+    // Remove tudo que não for número
+    value = value.replace(/\D/g, "");
+    
+    // Limita a 11 números (DDD + 9 dígitos)
+    if (value.length > 11) {
+      value = value.slice(0, 11);
+    }
+
+    // Adiciona parênteses no DDD
+    value = value.replace(/^(\d{2})(\d)/g, "($1) $2");
+    // Adiciona o hífen (funciona para 8 ou 9 dígitos)
+    value = value.replace(/(\d)(\d{4})$/, "$1-$2");
+
+    setPerfilTelefone(value);
+  };
 
 
 
@@ -339,11 +385,10 @@ const handleAlterarSenha = async () => {
                   <Avatar className="h-20 w-20">
                     <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" />
                     <AvatarFallback className="text-lg bg-primary text-primary-foreground">
-                      JS
+                      {(user?.name || "N").slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-2">
-                    {/* input escondido, acionado pelo botão, uso UseRef par ligar o botão real com esse componente*/}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -355,6 +400,19 @@ const handleAlterarSenha = async () => {
                     <Button variant="outline" size="sm" onClick={handleButtonClick}>
                       Alterar Foto
                     </Button>
+
+                    {/* BOTÃO REMOVER (Só aparece se tiver foto) */}
+                    {fotoPerfil && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={handleRemoverFoto}
+                        title="Remover foto de perfil"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
 
                     <p className="text-xs text-muted-foreground">
                       JPG, PNG ou GIF. Máximo 2MB.
@@ -373,7 +431,9 @@ const handleAlterarSenha = async () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="nome">Nome Completo</Label>
+                      <Label htmlFor="nome">
+                        Nome Completo <span className="text-red-500">*</span>
+                      </Label>
                       <Input 
                         id="nome" 
                         value={perfilNome}
@@ -381,21 +441,44 @@ const handleAlterarSenha = async () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">E-mail</Label>
+                      <Label htmlFor="email">
+                        E-mail <span className="text-red-500">*</span>
+                      </Label>
                       <Input 
                         id="email" 
                         type="email" 
-                        value={perfilEmail}
+                        value={perfilEmail} 
                         onChange={(e) => setPerfilEmail(e.target.value)}
+                        
+                        disabled={!isAdmin}
+                        className={!isAdmin ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
+                        // --------------------
                       />
+                      {!isAdmin && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Para alterar seu e-mail, contate um administrador.
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="telefone">Telefone</Label>
-                      <Input id="telefone" defaultValue="(11) 99999-9999" />
+                      <Input 
+                        id="telefone" 
+                        value={perfilTelefone} 
+                        onChange={handleTelefoneChange}
+                        placeholder="(99) 99999-9999"
+                        maxLength={15}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="cargo">Cargo</Label>
-                      <Input id="cargo" defaultValue="Gerente de Vendas" />
+                      <Input 
+                        id="cargo" 
+                        value={perfilCargo} 
+                        onChange={e => setPerfilCargo(e.target.value)}
+                        disabled={!isAdmin}
+                        className={!isAdmin ? "bg-muted text-muted-foreground" : ""}
+                      />
                     </div>
                   </div>
 
@@ -403,8 +486,9 @@ const handleAlterarSenha = async () => {
                     <Label htmlFor="assinatura">Assinatura de E-mail</Label>
                     <Textarea
                       id="assinatura"
-                      placeholder="Sua assinatura personalizada..."
-                      defaultValue="João Silva&#10;Gerente de Vendas&#10;NAUTILUZ - Consultoria em Seguros&#10;(11) 99999-9999 | joao@nautiluz.com.br"
+                      value={perfilAssinatura}
+                      onChange={e => setPerfilAssinatura(e.target.value)}
+                      placeholder="Sua assinatura..."
                     />
                   </div>
                   <div className="flex justify-begin">
