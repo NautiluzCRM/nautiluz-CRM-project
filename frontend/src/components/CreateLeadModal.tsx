@@ -90,14 +90,56 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // --- VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS ---
+
+    if (!formData.nome.trim()) {
+      toast({ variant: "destructive", title: "Campo Obrigatório", description: "Por favor, preencha o Nome Completo." });
+      return;
+    }
+
+    // Validação específica de celular (mínimo de caracteres)
+    if (!formData.celular.trim() || formData.celular.length < 10) {
+      toast({ variant: "destructive", title: "Celular Inválido", description: "Informe um número de celular válido com DDD." });
+      return;
+    }
+
+    // Validação de Email (Se preenchido, deve ser válido)
+    if (formData.email && (!formData.email.includes("@") || !formData.email.includes("."))) {
+      toast({ variant: "destructive", title: "Email Inválido", description: "O email precisa conter '@' e um domínio (ex: .com)." });
+      return;
+    }
+
+    if (!formData.cidade.trim()) {
+      toast({ variant: "destructive", title: "Localização", description: "O campo Cidade é obrigatório." });
+      return;
+    }
+
+    if (!formData.uf) {
+      toast({ variant: "destructive", title: "Localização", description: "Selecione o Estado (UF)." });
+      return;
+    }
+
+    if (Number(formData.quantidadeVidas) <= 0) {
+      toast({ variant: "destructive", title: "Cotação", description: "A quantidade de vidas deve ser maior que zero." });
+      return;
+    }
+
+    if (Number(formData.valorMedio) <= 0) {
+      toast({ variant: "destructive", title: "Cotação", description: "Informe o Valor Estimado da negociação." });
+      return;
+    }
+
+    // Validação de Faixas Etárias (Sua lógica existente)
     if (!isTotalValid) {
       toast({
         variant: "destructive",
         title: "Divergência de Vidas",
-        description: `Total informado: ${formData.quantidadeVidas}. Distribuído: ${totalFaixas}.`
+        description: `Você informou ${formData.quantidadeVidas} vidas no total, mas distribuiu ${totalFaixas} nas faixas etárias.`
       });
       return;
     }
+
+    // --- FIM DA VALIDAÇÃO ---
 
     setIsLoading(true);
 
@@ -117,7 +159,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         quantidadeVidas: Number(formData.quantidadeVidas),
         valorMedio: Number(formData.valorMedio),
         idades: faixas,
-        hospitaisPreferencia: hospitais // Envia a lista de hospitais
+        hospitaisPreferencia: hospitais
       };
 
       await createLeadApi(leadData);
@@ -139,7 +181,8 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
 
     } catch (error: any) {
       console.error(error);
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      // Aqui pegamos a mensagem do Backend (Zod) se passar pela validação do front mas falhar lá
+      toast({ variant: "destructive", title: "Erro ao Salvar", description: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +218,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
               </div>
 
               <div className="col-span-6 md:col-span-4 space-y-2">
-                <Label htmlFor="celular">Celular</Label>
+                <Label htmlFor="celular">Celular *</Label>
                 <Input 
                   id="celular" value={formData.celular}
                   onChange={(e) => handleChange("celular", e.target.value)}
@@ -205,7 +248,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
 
               <div className="col-span-8 md:col-span-9 space-y-2">
                 <Label htmlFor="cidade" className="flex items-center gap-1">
-                   <MapPin className="h-3 w-3" /> Cidade
+                   <MapPin className="h-3 w-3" /> Cidade *
                 </Label>
                 <Input 
                   id="cidade" value={formData.cidade}
@@ -214,7 +257,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                 />
               </div>
               <div className="col-span-4 md:col-span-3 space-y-2">
-                <Label htmlFor="uf">UF</Label>
+                <Label htmlFor="uf">UF *</Label>
                 <Select value={formData.uf} onValueChange={(val) => handleChange("uf", val)}>
                   <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
                   <SelectContent>
@@ -233,7 +276,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
             
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="qtdVidas">Total de Vidas</Label>
+                <Label htmlFor="qtdVidas">Total de Vidas *</Label>
                 <Input 
                   id="qtdVidas" type="number" min="1" className="font-bold"
                   value={formData.quantidadeVidas}
@@ -241,7 +284,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                 />
               </div>
               <div className="space-y-2">
-                 <Label htmlFor="valorMedio">Valor Estimado (R$)</Label>
+                 <Label htmlFor="valorMedio">Valor Estimado (R$) *</Label>
                  <Input 
                    id="valorMedio" type="number" step="0.01"
                    value={formData.valorMedio}
