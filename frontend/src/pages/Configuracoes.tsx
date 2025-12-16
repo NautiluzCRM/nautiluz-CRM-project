@@ -49,6 +49,7 @@ import {
 
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
 import { fetchUsers, createUserApi, updateUserApi } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Usuario {
   id: string;
@@ -61,6 +62,9 @@ interface Usuario {
 }
 
 const Configuracoes = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [notificacaoEmail, setNotificacaoEmail] = useState(true);
   const [notificacaoSMS, setNotificacaoSMS] = useState(false);
   const [modoEscuro, setModoEscuro] = useState(false);
@@ -203,22 +207,31 @@ const handleButtonClick = () => {
                 <User className="h-4 w-4" />
                 Perfil
               </TabsTrigger>
-              <TabsTrigger value="usuarios" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Usuários
-              </TabsTrigger>
-              <TabsTrigger value="pipeline" className="flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Pipeline
-              </TabsTrigger>
+
+              {isAdmin && (
+                <TabsTrigger value="usuarios" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Usuários
+                </TabsTrigger>
+              )}
+
+              {isAdmin && (
+                <TabsTrigger value="pipeline" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Pipeline
+                </TabsTrigger>
+              )}
+
               <TabsTrigger value="notificacoes" className="flex items-center gap-2">
                 <Bell className="h-4 w-4" />
                 Notificações
               </TabsTrigger>
+
               <TabsTrigger value="sistema" className="flex items-center gap-2">
                 <Database className="h-4 w-4" />
                 Sistema
               </TabsTrigger>
+
              {/* 
               <TabsTrigger value="seguranca" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
@@ -331,171 +344,175 @@ const handleButtonClick = () => {
             </TabsContent>
 
             {/* Aba Usuários */}
-            <TabsContent value="usuarios" className="space-y-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Gerenciar Usuários
-                  </CardTitle>
-                  <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="bg-gradient-primary hover:bg-primary-hover">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Novo Usuário
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Novo Usuário</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="nomeUsuario">Nome</Label>
-                            <Input 
-                              id="nomeUsuario" 
-                              placeholder="Nome completo"
-                              value={novoNome}
-                              onChange={(e) => setNovoNome(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="emailUsuario">E-mail</Label>
-                            <Input 
-                              id="emailUsuario" 
-                              type="email" 
-                              placeholder="email@nautiluz.com.br"
-                              value={novoEmail}
-                              onChange={(e) => setNovoEmail(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="perfilUsuario">Perfil</Label>
-                          <Select value={novoPerfil} onValueChange={setNovoPerfil}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o perfil" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Vendedor">Vendedor</SelectItem>
-                              <SelectItem value="Financeiro">Financeiro</SelectItem>
-                              <SelectItem value="Administrador">Administrador</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button 
-                          className="w-full bg-gradient-primary hover:bg-primary-hover"
-                          onClick={handleCriarUsuario}
-                        >
-                          Criar Usuário
+            {isAdmin && (
+              <TabsContent value="usuarios" className="space-y-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Gerenciar Usuários
+                    </CardTitle>
+                    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" className="bg-gradient-primary hover:bg-primary-hover">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Novo Usuário
                         </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {usuarios.map((usuario) => (
-                      <div key={usuario.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <Avatar>
-                            <AvatarImage src={usuario.foto} alt={usuario.nome} />
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              {usuario.nome.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h4 className="font-medium">{usuario.nome}</h4>
-                            <p className="text-sm text-muted-foreground">{usuario.email}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-muted-foreground">{usuario.perfil}</span>
-                              <span className={`text-xs px-2 py-1 rounded-full ${
-                                usuario.ativo 
-                                  ? 'bg-success/20 text-success' 
-                                  : 'bg-muted text-muted-foreground'
-                              }`}>
-                                {usuario.ativo ? 'Ativo' : 'Inativo'}
-                              </span>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Novo Usuário</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="nomeUsuario">Nome</Label>
+                              <Input 
+                                id="nomeUsuario" 
+                                placeholder="Nome completo"
+                                value={novoNome}
+                                onChange={(e) => setNovoNome(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="emailUsuario">E-mail</Label>
+                              <Input 
+                                id="emailUsuario" 
+                                type="email" 
+                                placeholder="email@nautiluz.com.br"
+                                value={novoEmail}
+                                onChange={(e) => setNovoEmail(e.target.value)}
+                              />
                             </div>
                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={usuario.ativo ? "text-destructive hover:text-destructive" : "text-green-600 hover:text-green-700"}
-                            onClick={() => handleToggleStatus(usuario)}
-                            title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
+                          <div className="space-y-2">
+                            <Label htmlFor="perfilUsuario">Perfil</Label>
+                            <Select value={novoPerfil} onValueChange={setNovoPerfil}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o perfil" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Vendedor">Vendedor</SelectItem>
+                                <SelectItem value="Financeiro">Financeiro</SelectItem>
+                                <SelectItem value="Administrador">Administrador</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button 
+                            className="w-full bg-gradient-primary hover:bg-primary-hover"
+                            onClick={handleCriarUsuario}
                           >
-                            {usuario.ativo ? (
-                              <XCircle className="h-4 w-4" />
-                            ) : (
-                              <CheckCircle className="h-4 w-4" />
-                            )}
+                            Criar Usuário
                           </Button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                      </DialogContent>
+                    </Dialog>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {usuarios.map((usuario) => (
+                        <div key={usuario.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                          <div className="flex items-center gap-4">
+                            <Avatar>
+                              <AvatarImage src={usuario.foto} alt={usuario.nome} />
+                              <AvatarFallback className="bg-primary text-primary-foreground">
+                                {usuario.nome.split(' ').map(n => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h4 className="font-medium">{usuario.nome}</h4>
+                              <p className="text-sm text-muted-foreground">{usuario.email}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-muted-foreground">{usuario.perfil}</span>
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                  usuario.ativo 
+                                    ? 'bg-success/20 text-success' 
+                                    : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  {usuario.ativo ? 'Ativo' : 'Inativo'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
 
-            {/* Aba Pipeline */}
-            <TabsContent value="pipeline" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Configurações do Pipeline
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    {colunasPipeline.map((coluna, index) => (
-                      <div key={coluna.id} className="flex items-center gap-4 p-4 border border-border rounded-lg">
-                        <div className="flex items-center gap-3 flex-1">
-                          <div 
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: coluna.cor }}
-                          />
-                          <Input defaultValue={coluna.nome} className="flex-1" />
                           <div className="flex items-center gap-2">
-                            <Label className="text-sm">SLA:</Label>
-                            <Input 
-                              type="number" 
-                              defaultValue={coluna.sla} 
-                              className="w-20"
-                            />
-                            <span className="text-sm text-muted-foreground">horas</span>
+                            <Button variant="ghost" size="sm">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={usuario.ativo ? "text-destructive hover:text-destructive" : "text-green-600 hover:text-green-700"}
+                              onClick={() => handleToggleStatus(usuario)}
+                              title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
+                            >
+                              {usuario.ativo ? (
+                                <XCircle className="h-4 w-4" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4" />
+                              )}
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          {index > 2 && (
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+
+            {/* Aba Pipeline */}
+            {isAdmin && (
+              <TabsContent value="pipeline" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-5 w-5" />
+                      Configurações do Pipeline
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                      {colunasPipeline.map((coluna, index) => (
+                        <div key={coluna.id} className="flex items-center gap-4 p-4 border border-border rounded-lg">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div 
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: coluna.cor }}
+                            />
+                            <Input defaultValue={coluna.nome} className="flex-1" />
+                            <div className="flex items-center gap-2">
+                              <Label className="text-sm">SLA:</Label>
+                              <Input 
+                                type="number" 
+                                defaultValue={coluna.sla} 
+                                className="w-20"
+                              />
+                              <span className="text-sm text-muted-foreground">horas</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm">
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          )}
+                            {index > 2 && (
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                  <Button variant="outline" className="w-full">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Nova Etapa
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                      ))}
+                    </div>
+                    <Button variant="outline" className="w-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Nova Etapa
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
             {/* Aba Notificações */}
             <TabsContent value="notificacoes" className="space-y-6">
