@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea"; // Importe o Textarea
+import { Textarea } from "@/components/ui/textarea"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge"; // Importe o Badge
+import { Badge } from "@/components/ui/badge"; 
 import { useToast } from "@/hooks/use-toast";
 import { createLeadApi, fetchPipelines, fetchStages } from "@/lib/api";
-import { Loader2, AlertCircle, CheckCircle2, MapPin, X, Plus } from "lucide-react"; // Importe o X e Plus
+import { Loader2, AlertCircle, CheckCircle2, MapPin, X, Plus } from "lucide-react"; 
 
 const FAIXAS_ETARIAS = [
   "0 a 18", "19 a 23", "24 a 28", "29 a 33", "34 a 38",
@@ -20,6 +20,9 @@ const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", 
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
+
+// Lista de Naturezas Jurídicas comuns no mercado
+const TIPOS_CNPJ = ["MEI", "EI", "SLU", "LTDA", "SS", "SA", "Outros"];
 
 interface CreateLeadModalProps {
   isOpen: boolean;
@@ -42,25 +45,22 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
     quantidadeVidas: 1,
     valorMedio: 0,
     possuiCnpj: false,
+    tipoCnpj: "", // Armazena o tipo selecionado (MEI, LTDA, etc)
     possuiPlano: false,
     planoAtual: "",
     cidade: "",
     uf: "",
     dataCriacao: hoje,
-    observacoes: "" // Novo campo de texto
+    observacoes: ""
   });
 
-  // Estado para Hospitais (Lista e Input atual)
   const [hospitais, setHospitais] = useState<string[]>([]);
   const [hospitalInput, setHospitalInput] = useState("");
-
   const [faixas, setFaixas] = useState<number[]>(Array(10).fill(0));
 
-  // Adiciona hospital ao apertar Enter
   const handleAddHospital = (e?: React.KeyboardEvent | React.MouseEvent) => {
     if (e && 'key' in e && e.key !== 'Enter') return;
-    e?.preventDefault(); // Evita submit do form
-
+    e?.preventDefault();
     if (hospitalInput.trim()) {
       if (!hospitais.includes(hospitalInput.trim())) {
         setHospitais([...hospitais, hospitalInput.trim()]);
@@ -97,13 +97,11 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       return;
     }
 
-    // Validação específica de celular (mínimo de caracteres)
     if (!formData.celular.trim() || formData.celular.length < 10) {
       toast({ variant: "destructive", title: "Celular Inválido", description: "Informe um número de celular válido com DDD." });
       return;
     }
 
-    // Validação de Email (Se preenchido, deve ser válido)
     if (formData.email && (!formData.email.includes("@") || !formData.email.includes("."))) {
       toast({ variant: "destructive", title: "Email Inválido", description: "O email precisa conter '@' e um domínio (ex: .com)." });
       return;
@@ -129,7 +127,12 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       return;
     }
 
-    // Validação de Faixas Etárias (Sua lógica existente)
+    // Validação extra: Se marcou que tem CNPJ, deve escolher o tipo
+    if (formData.possuiCnpj && !formData.tipoCnpj) {
+      toast({ variant: "destructive", title: "Dados da Empresa", description: "Selecione o Tipo de CNPJ (ex: MEI, LTDA)." });
+      return;
+    }
+
     if (!isTotalValid) {
       toast({
         variant: "destructive",
@@ -169,7 +172,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       // Reset Total
       setFormData({
         nome: "", empresa: "", email: "", celular: "", origem: "Indicação",
-        quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, possuiPlano: false,
+        quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, tipoCnpj: "", possuiPlano: false,
         planoAtual: "", cidade: "", uf: "", dataCriacao: hoje, observacoes: ""
       });
       setFaixas(Array(10).fill(0));
@@ -181,7 +184,6 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
 
     } catch (error: any) {
       console.error(error);
-      // Aqui pegamos a mensagem do Backend (Zod) se passar pela validação do front mas falhar lá
       toast({ variant: "destructive", title: "Erro ao Salvar", description: error.message });
     } finally {
       setIsLoading(false);
@@ -325,10 +327,27 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-               <div className="flex items-center justify-between border p-3 rounded-lg bg-card">
-                 <Label htmlFor="possuiCnpj" className="text-sm">Possui CNPJ?</Label>
-                 <Switch id="possuiCnpj" checked={formData.possuiCnpj} onCheckedChange={(c) => handleChange("possuiCnpj", c)} />
+               {/* Bloco de CNPJ com Select Condicional */}
+               <div className="flex flex-col border p-3 rounded-lg gap-3 bg-card transition-all duration-300">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="possuiCnpj" className="text-sm cursor-pointer font-medium">Possui CNPJ?</Label>
+                    <Switch id="possuiCnpj" checked={formData.possuiCnpj} onCheckedChange={(c) => handleChange("possuiCnpj", c)} />
+                  </div>
+                  
+                  {formData.possuiCnpj && (
+                    <div className="animate-in slide-in-from-top-2 fade-in duration-300">
+                       <Select value={formData.tipoCnpj} onValueChange={(val) => handleChange("tipoCnpj", val)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o Tipo" /></SelectTrigger>
+                        <SelectContent>
+                          {TIPOS_CNPJ.map(tipo => (
+                            <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                </div>
+
                <div className="flex flex-col border p-3 rounded-lg gap-3 bg-card">
                  <div className="flex items-center justify-between">
                     <Label htmlFor="possuiPlano" className="text-sm">Já tem Plano?</Label>
@@ -336,7 +355,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                  </div>
                  {formData.possuiPlano && (
                     <Input 
-                      className="h-8 text-sm"
+                      className="h-8 text-sm animate-in slide-in-from-top-2"
                       value={formData.planoAtual}
                       onChange={(e) => handleChange("planoAtual", e.target.value)}
                       placeholder="Qual plano atual?"

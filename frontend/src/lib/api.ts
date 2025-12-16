@@ -103,7 +103,6 @@ export async function fetchStages(pipelineId: string) {
 }
 
 export async function createLeadApi(data: any) {
-  // Mapeamento COMPLETO: Frontend (Português) -> Backend (Inglês)
   const payload = {
     name: data.nome,
     email: data.email,
@@ -116,6 +115,10 @@ export async function createLeadApi(data: any) {
     livesCount: Number(data.quantidadeVidas || 0),
     avgPrice: Number(data.valorMedio || 0),
     hasCnpj: Boolean(data.possuiCnpj),
+    
+    // NOVO: Mapeia o Tipo de CNPJ apenas se tiver CNPJ marcado
+    cnpjType: data.possuiCnpj ? data.tipoCnpj : undefined,
+
     hasCurrentPlan: Boolean(data.possuiPlano),
     currentPlan: data.planoAtual,
     ageBuckets: data.idades,
@@ -127,8 +130,6 @@ export async function createLeadApi(data: any) {
     preferredHospitals: data.hospitaisPreferencia
   };
 
-  // Usamos 'request' para garantir que se o token expirar enquanto preenche o form,
-  // o sistema renova e salva sem dar erro para o usuário.
   return request("/leads", {
     method: "POST",
     body: JSON.stringify(payload),

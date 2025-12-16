@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { addActivity, createLead, deleteLead, getLead, listLeads, updateLead } from './leads.service.js';
 
 const leadSchema = z.object({
-  // Campos Obrigatórios com mensagens personalizadas
+  // --- Campos Obrigatórios (Validadores Rigorosos) ---
   name: z.string({ required_error: "O nome completo é obrigatório." }).min(3, "O nome deve ter pelo menos 3 caracteres."),
   
   phone: z.string({ required_error: "O celular é obrigatório." }).min(10, "O celular deve ter DDD e número válidos."),
@@ -22,11 +22,15 @@ const leadSchema = z.object({
   pipelineId: z.string(),
   stageId: z.string(),
   
-  // Campos Opcionais (mas com validação se forem preenchidos)
+  // --- Campos Opcionais / Condicionais ---
   email: z.string().email("O email informado é inválido. Verifique se tem '@' e '.com'").optional().or(z.literal('')),
   
   company: z.string().optional(),
   hasCnpj: z.boolean().optional(),
+  
+  // NOVO: Lista fechada de tipos de empresa
+  cnpjType: z.enum(["MEI", "EI", "SLU", "LTDA", "SS", "SA", "Outros"]).optional(), 
+  
   hasCurrentPlan: z.boolean().optional(),
   currentPlan: z.string().optional(),
   ageBuckets: z.array(z.number()).optional(), 

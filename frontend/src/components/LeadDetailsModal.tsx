@@ -23,6 +23,7 @@ import {
   DollarSign,
   Clock,
   CheckCircle,
+  Briefcase // Adicionado ícone para CNPJ
 } from "lucide-react";
 
 // Faixas Padrão ANS (Mapeiam os índices 0 a 9 do array)
@@ -41,6 +42,9 @@ interface LeadDetailsModalProps {
 export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsModalProps) {
   if (!lead) return null;
 
+  // Casting para acessar propriedades novas (cidade, uf, tipoCnpj)
+  const leadData = lead as any;
+
   const getOrigemColor = (origem: string) => {
     const colors: Record<string, string> = {
       'Instagram': 'bg-purple-100 text-purple-700 border-purple-200',
@@ -53,8 +57,8 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      'Qualificado': 'default', // Shadcn usa 'default', 'secondary', 'destructive'
-      'Incompleto': 'secondary', // Warning n existe por padrão, usando secondary
+      'Qualificado': 'default', 
+      'Incompleto': 'secondary',
       'Duplicado': 'outline',
       'Sem interesse': 'destructive'
     };
@@ -65,12 +69,11 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
     ? Math.floor((Date.now() - new Date(lead.ultimaAtividade).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  // LÓGICA CORRIGIDA:
-  // Mapeia o array de contadores [0, 2, 5...] para objetos { label: "19-23", count: 2 }
+  // Mapeia o array de contadores
   const faixasPreenchidas = (lead.idades || []).map((count, index) => ({
     label: FAIXAS_LABELS[index],
     count: count
-  })).filter(item => item.count > 0); // Filtra para mostrar apenas as faixas que têm gente
+  })).filter(item => item.count > 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -86,12 +89,11 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               </Avatar>
               <div>
                 <h2 className="text-xl font-semibold">{lead.nome}</h2>
-                {lead.empresa && (
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Building className="h-3 w-3" />
-                    {lead.empresa}
-                  </p>
-                )}
+                {/* Empresa sempre aparece, se vazio mostra "-" */}
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Building className="h-3 w-3" />
+                  {lead.empresa || "-"}
+                </p>
               </div>
             </div>
             <Button
@@ -108,6 +110,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {/* Coluna Principal - Informações de Contato */}
           <div className="md:col-span-2 space-y-6">
+            
             {/* Badges de Status */}
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className={getOrigemColor(lead.origem)}>
@@ -138,10 +141,11 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                     size="sm"
                     variant="outline"
                     className="w-full justify-start"
-                    onClick={() => window.open(`tel:${lead.celular}`, '_self')}
+                    onClick={() => lead.celular && window.open(`tel:${lead.celular}`, '_self')}
+                    disabled={!lead.celular}
                   >
                     <Phone className="h-4 w-4 mr-2" />
-                    {lead.celular}
+                    {lead.celular || "-"}
                   </Button>
                 </div>
                 <div className="flex items-center gap-3">
@@ -149,10 +153,11 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                     size="sm"
                     variant="outline"
                     className="w-full justify-start"
-                    onClick={() => window.open(`mailto:${lead.email}`, '_self')}
+                    onClick={() => lead.email && window.open(`mailto:${lead.email}`, '_self')}
+                    disabled={!lead.email}
                   >
                     <Mail className="h-4 w-4 mr-2" />
-                    {lead.email || 'Sem email'}
+                    {lead.email || "-"}
                   </Button>
                 </div>
                 <div className="flex items-center gap-3">
@@ -160,18 +165,18 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                     size="sm"
                     variant="outline"
                     className="w-full justify-start hover:text-green-600 hover:border-green-600"
-                    onClick={() => window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')}
+                    onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')}
+                    disabled={!lead.celular}
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
                     WhatsApp
                   </Button>
                 </div>
-                {(lead as any).uf && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground px-3">
-                    <MapPin className="h-4 w-4" />
-                    {(lead as any).cidade}, {(lead as any).uf}
-                  </div>
-                )}
+                {/* Localização sempre aparece */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 border rounded-md h-9">
+                   <MapPin className="h-4 w-4" />
+                   {leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}
+                </div>
               </div>
             </div>
 
@@ -193,7 +198,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Faixas Etárias</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1">
                     {faixasPreenchidas.length > 0 ? (
                       faixasPreenchidas.map((item) => (
                         <Badge key={item.label} variant="outline" className="text-xs bg-slate-50">
@@ -201,12 +206,13 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                         </Badge>
                       ))
                     ) : (
-                      <span className="text-xs">Nenhuma faixa registrada</span>
+                      <span className="text-xs text-muted-foreground">-</span>
                     )}
                   </div>
                 </div>
               </div>
 
+              {/* Box Verde (Se existir plano) */}
               {lead.possuiPlano && (
                 <div className="bg-green-50/50 border border-green-100 p-4 rounded-lg space-y-2 mt-4">
                   <p className="text-sm font-medium flex items-center gap-2 text-green-700">
@@ -214,49 +220,67 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                     Plano Atual
                   </p>
                   <p className="text-sm font-semibold">{lead.planoAtual}</p>
-                  {lead.valorMedio > 0 && (
-                    <p className="text-sm flex items-center gap-1 text-muted-foreground">
-                      <DollarSign className="h-3 w-3" />
-                      Estimado: {lead.valorMedio.toLocaleString('pt-BR', { 
-                        style: 'currency', 
-                        currency: 'BRL' 
-                      })}
-                    </p>
-                  )}
                 </div>
               )}
 
-              {lead.hospitaisPreferencia && lead.hospitaisPreferencia.length > 0 && (
-                <div className="space-y-2 pt-2">
-                  <p className="text-sm font-medium text-muted-foreground">Hospitais de Preferência</p>
-                  <div className="flex flex-wrap gap-1">
-                    {lead.hospitaisPreferencia.map((hospital) => (
+              {/* CNPJ e Valor Estimado (Abaixo do box verde) */}
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                 <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">CNPJ</p>
+                    <div className="flex items-center gap-2 text-sm">
+                       <Briefcase className="h-4 w-4 text-muted-foreground" />
+                       {lead.possuiCnpj ? (
+                          <span>Sim ({leadData.tipoCnpj || "N/A"})</span>
+                       ) : (
+                          <span>Não</span>
+                       )}
+                    </div>
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Valor Estimado</p>
+                    <div className="flex items-center gap-2 text-sm">
+                       <DollarSign className="h-4 w-4 text-muted-foreground" />
+                       {lead.valorMedio > 0 
+                         ? lead.valorMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
+                         : "-"
+                       }
+                    </div>
+                 </div>
+              </div>
+
+              {/* Hospitais sempre aparece */}
+              <div className="space-y-2 pt-2">
+                <p className="text-sm font-medium text-muted-foreground">Hospitais de Preferência</p>
+                <div className="flex flex-wrap gap-1">
+                  {lead.hospitaisPreferencia && lead.hospitaisPreferencia.length > 0 ? (
+                    lead.hospitaisPreferencia.map((hospital) => (
                       <Badge key={hospital} variant="secondary" className="text-xs">
                         {hospital}
                       </Badge>
-                    ))}
-                  </div>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">-</span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
-            {lead.informacoes && (
-              <>
-                <Separator />
-                <div className="space-y-3">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Observações
-                  </h3>
-                  <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg leading-relaxed">
-                    {lead.informacoes}
-                  </p>
-                </div>
-              </>
-            )}
+            <Separator />
+            
+            {/* Observações sempre aparece */}
+            <div className="space-y-3">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Observações
+                </h3>
+                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg leading-relaxed">
+                {lead.informacoes || "-"}
+                </p>
+            </div>
+
           </div>
 
-          {/* Sidebar - Atividades e Timeline */}
+          {/* Sidebar - Atividades e Timeline (Mantido Igual) */}
           <div className="space-y-6">
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -298,26 +322,30 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               </div>
             </div>
 
-            {lead.atividades && lead.atividades.length > 0 && (
-              <div className="space-y-3">
+            <div className="space-y-3">
                 <h3 className="text-lg font-semibold">Atividades Recentes</h3>
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {lead.atividades.map((atividade) => (
+                {lead.atividades && lead.atividades.length > 0 ? (
+                    lead.atividades.map((atividade) => (
                     <div key={atividade.id} className="p-3 bg-muted/50 border rounded-lg text-sm">
-                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between mb-1">
                         <Badge variant="outline" className="text-[10px] px-1 py-0 h-5">
-                          {atividade.tipo}
+                            {atividade.tipo}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground">
-                          {new Date(atividade.data).toLocaleDateString('pt-BR')}
+                            {new Date(atividade.data).toLocaleDateString('pt-BR')}
                         </span>
-                      </div>
-                      <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{atividade.descricao}</p>
+                        </div>
+                        <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{atividade.descricao}</p>
                     </div>
-                  ))}
+                    ))
+                ) : (
+                    <div className="text-xs text-muted-foreground p-3 border border-dashed rounded-lg text-center">
+                    Nenhuma atividade registrada
+                    </div>
+                )}
                 </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </DialogContent>
