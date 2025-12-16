@@ -17,7 +17,7 @@ import { Lead, Coluna } from "@/types/crm";
 interface KanbanBoardProps {
   colunas: Coluna[];
   leads: Lead[];
-  onLeadMove: (leadId: string, novaColuna: string) => void;
+  onLeadMove: (leadId: string, novaColuna: string, beforeId?: string, afterId?: string) => void;
   onLeadUpdate: (lead: Lead) => void;
   onLeadClick?: (lead: Lead) => void;
 }

@@ -94,22 +94,90 @@ export async function loginApi(email: string, password: string, remember = false
 }
 
 export async function fetchPipelines() {
-  return request<any[]>("/pipelines");
+  const response = await fetch(`${API_URL}/pipelines`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Erro ao buscar pipelines");
+  return response.json();
 }
 
 export async function fetchStages(pipelineId: string) {
-  return request<any[]>(`/pipelines/${pipelineId}/stages`);
+  const response = await fetch(`${API_URL}/pipelines/${pipelineId}/stages`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Erro ao buscar estágios");
+  return response.json();
+}
+
+export async function createLeadApi(data: any) {
+  // Mapeamento COMPLETO: Frontend (Português) -> Backend (Inglês)
+  const payload = {
+    name: data.nome,
+    email: data.email,
+    phone: data.celular,
+    origin: data.origem || "Indicação",
+    pipelineId: data.pipelineId,
+    stageId: data.stageId,
+    
+    // Novos campos mapeados corretamente:
+    company: data.empresa,
+    livesCount: Number(data.quantidadeVidas || 0), // Garante que é número
+    avgPrice: Number(data.valorMedio || 0),       // Garante que é número
+    hasCnpj: Boolean(data.possuiCnpj),
+    hasCurrentPlan: Boolean(data.possuiPlano),
+    currentPlan: data.planoAtual,
+    ageBuckets: data.idades,
+    city: data.cidade,
+    state: data.uf,
+    createdAt: data.dataCriacao ? new Date(data.dataCriacao).toISOString() : undefined,
+
+    notes: data.observacoes, // Mapeia o campo de texto
+    preferredHospitals: data.hospitaisPreferencia // Mapeia o array de hospitais
+  };
+
+  const response = await fetch(`${API_URL}/leads`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Erro ao criar lead");
+  }
+  return response.json();
 }
 
 export async function fetchLeads() {
   return request<any[]>("/leads");
 }
 
-export async function moveLeadApi(leadId: string, toStageId: string) {
-  return request(`/kanban/move`, {
+export async function moveLeadApi(
+  leadId: string, 
+  toStageId: string, 
+  beforeId?: string, 
+  afterId?: string
+) {
+  // Chamamos a rota específica do módulo Kanban
+  // Ela espera: leadId, toStageId (destino) e os vizinhos (beforeId, afterId)
+  const response = await fetch(`${API_URL}/kanban/move`, {
     method: "POST",
-    body: JSON.stringify({ leadId, toStageId }),
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify({ leadId, toStageId, beforeId, afterId }),
   });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Erro ao mover lead");
+  }
+
+  return response.json();
 }
 
 export async function updateLeadApi(leadId: string, payload: Partial<Lead>) {
@@ -204,3 +272,4 @@ export async function fetchPipelineData(): Promise<Pipeline> {
     leads: leads.map(mapApiLeadToLead),
   };
 }
+

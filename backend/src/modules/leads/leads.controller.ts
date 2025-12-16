@@ -11,9 +11,25 @@ const leadSchema = z.object({
   origin: z.string(),
   pipelineId: z.string(),
   stageId: z.string(),
+  
+  // Financeiro e Vidas
+  livesCount: z.number().optional(),
+  avgPrice: z.number().optional(),
+  hasCnpj: z.boolean().optional(),
+  hasCurrentPlan: z.boolean().optional(),
+  currentPlan: z.string().optional(),
+  ageBuckets: z.array(z.number()).optional(), 
+  
+  // NOVOS CAMPOS ADICIONADOS AGORA:
+  city: z.string().optional(),
+  state: z.string().length(2).optional(), // Ex: SP, RJ
+  createdAt: z.string().datetime().optional(), // Permite data retroativa
+
+  preferredHospitals: z.array(z.string()).optional(),
+
+  notes: z.string().optional(),
   qualificationStatus: z.string().optional(),
-  rank: z.string().optional(),
-  notes: z.string().optional()
+  rank: z.string().optional()
 });
 
 export const listLeadsHandler = asyncHandler(async (req: Request, res: Response) => {
