@@ -242,16 +242,34 @@ export async function createUserApi(dados: { nome: string; email: string; perfil
   });
 }
 
-export async function updateUserApi(id: string, dados: { nome?: string; email?: string; perfil?: string; ativo?: boolean }) {
+// frontend/src/lib/api.ts
+
+export async function updateUserApi(id: string, dados: { 
+  nome?: string; 
+  email?: string; 
+  perfil?: string; 
+  ativo?: boolean;
+  senha?: string;
+  senhaAtual?: string;
+  foto?: string;
+}) {
   const payload: any = {};
   
-  // Mapeia os campos apenas se eles forem passados
+  // Mapeia os campos simples
   if (dados.nome) payload.name = dados.nome;
   if (dados.email) payload.email = dados.email;
   if (dados.ativo !== undefined) payload.active = dados.ativo;
   
+  // Mapeia os campos novos (segurança e visual)
+  if (dados.senha) payload.password = dados.senha;
+  if (dados.senhaAtual) payload.currentPassword = dados.senhaAtual;
+  
+  if (dados.foto) payload.avatar = dados.foto;
+  
+  // Mapeia o perfil (Role)
   if (dados.perfil) {
-    payload.role = dados.perfil.toLowerCase(); 
+    payload.role = dados.perfil.toLowerCase() === 'administrador' ? 'admin' : 
+                   dados.perfil.toLowerCase() === 'financeiro' ? 'financeiro' : 'vendedor';
   }
 
   return request(`/users/${id}`, {

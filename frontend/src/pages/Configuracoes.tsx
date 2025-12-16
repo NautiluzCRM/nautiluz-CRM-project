@@ -1,4 +1,4 @@
-import { ChangeEvent, useState, useRef, useEffect} from "react";
+import { ChangeEvent, useState, useRef, useEffect, useMemo} from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,6 +71,49 @@ const Configuracoes = () => {
   const [autoSave, setAutoSave] = useState(true);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
+  // Estados do Perfil
+  const [perfilNome, setPerfilNome] = useState("");
+  const [perfilEmail, setPerfilEmail] = useState("");
+
+  // Estados de Senha
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);// foto confirmada
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);// preview da imagem
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);// controla o modal(componente que sobrepõe a tela)
+
+  // Preenche os campos automaticamente quando o usuário logado carregar
+  useEffect(() => {
+    if (user) {
+      setPerfilNome(user.name || "");
+      setPerfilEmail(user.email || "");
+      if (user.photoUrl) setFotoPerfil(user.photoUrl);
+    }
+  }, [user]);
+
+  // Verifica se algo mudou nos dados básicos
+  const temAlteracoesPerfil = useMemo(() => {
+    if (!user) return false;
+    const mudouNome = perfilNome !== (user.name || "");
+    const mudouEmail = perfilEmail !== (user.email || "");
+    const mudouFoto = fotoPerfil !== (user.photoUrl || null); 
+    
+    return mudouNome || mudouEmail || mudouFoto;
+  }, [user, perfilNome, perfilEmail, fotoPerfil]);
+
+  // Verifica se o formulário de senha está válido
+  const podeSalvarSenha = useMemo(() => {
+    return (
+      senhaAtual.length > 0 && 
+      novaSenha.length >= 6 && // Mínimo de 6 caracteres
+      novaSenha === confirmarSenha &&
+      senhaAtual !== novaSenha // Nova senha deve ser diferente da atual
+    );
+  }, [senhaAtual, novaSenha, confirmarSenha]);
+
   const carregarUsuarios = async () => {
     try {
       const dados = await fetchUsers();
@@ -142,15 +185,6 @@ const Configuracoes = () => {
     { id: 'fechamento', nome: 'Fechamento', cor: '#10B981', sla: 48 },
   ];
 
-
-  
-  // Foto de perfil com overlay
-
-const fileInputRef = useRef<HTMLInputElement | null>(null);
-const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);// foto confirmada
-const [previewUrl, setPreviewUrl] = useState<string | null>(null);// preview da imagem
-const [isPreviewOpen, setIsPreviewOpen] = useState(false);// controla o modal(componente que sobrepõe a tela)
-
 const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -177,6 +211,61 @@ const handleButtonClick = () => {
   fileInputRef.current?.click(); // abre o seletor
 };
 
+const handleSalvarDados = async () => {
+    const userId = user?.id || (user as any)?._id;
+
+    if (!userId) {
+      console.error("Erro: ID do usuário não encontrado.", user);
+      return;
+    }
+
+    try {
+      await updateUserApi(userId, {
+        nome: perfilNome,
+        email: perfilEmail,
+        foto: fotoPerfil || undefined
+      });
+      alert("Dados do perfil atualizados com sucesso!");
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao atualizar dados.");
+    }
+  };
+
+const handleAlterarSenha = async () => {
+  const userId = user?.id || (user as any)?._id;
+
+  if (!userId) {
+    console.error("Erro: ID do usuário não encontrado.", user);
+    return;
+  }
+
+  if (!novaSenha || !confirmarSenha) {
+    alert("Preencha a nova senha e a confirmação.");
+    return;
+  }
+
+  if (novaSenha !== confirmarSenha) {
+    alert("As senhas não conferem!");
+    return;
+  }
+
+  try {
+    await updateUserApi(userId, {
+      senha: novaSenha,
+      senhaAtual: senhaAtual
+    });
+
+    alert("Senha alterada com sucesso!");
+    setSenhaAtual("");
+    setNovaSenha("");
+    setConfirmarSenha("");
+  } catch (error: any) {
+    console.error(error);
+    const msg = error.message || "Verifique a senha atual e tente novamente.";
+    alert("Erro: " + msg);
+  }
+};
 
 
 
@@ -192,10 +281,6 @@ const handleButtonClick = () => {
                 Gerencie as configurações do sistema e usuários
               </p>
             </div>
-            <Button className="bg-gradient-primary hover:bg-primary-hover">
-              <Save className="h-4 w-4 mr-2" />
-              Salvar Alterações
-            </Button>
           </div>
         </div>
 
@@ -289,11 +374,20 @@ const handleButtonClick = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="nome">Nome Completo</Label>
-                      <Input id="nome" defaultValue="João Silva" />
+                      <Input 
+                        id="nome" 
+                        value={perfilNome}
+                        onChange={(e) => setPerfilNome(e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">E-mail</Label>
-                      <Input id="email" type="email" defaultValue="joao@nautiluz.com.br" />
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        value={perfilEmail}
+                        onChange={(e) => setPerfilEmail(e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="telefone">Telefone</Label>
@@ -313,6 +407,16 @@ const handleButtonClick = () => {
                       defaultValue="João Silva&#10;Gerente de Vendas&#10;NAUTILUZ - Consultoria em Seguros&#10;(11) 99999-9999 | joao@nautiluz.com.br"
                     />
                   </div>
+                  <div className="flex justify-begin">
+                    <Button 
+                      onClick={handleSalvarDados} 
+                      disabled={!temAlteracoesPerfil}
+                      className="bg-gradient-primary hover:bg-primary-hover disabled:opacity-50"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar Alterações
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -326,19 +430,41 @@ const handleButtonClick = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="senhaAtual">Senha Atual</Label>
-                    <Input id="senhaAtual" type="password" />
+                    <Input 
+                      id="senhaAtual" 
+                      type="password" 
+                      value={senhaAtual}
+                      onChange={(e) => setSenhaAtual(e.target.value)}
+                    />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="novaSenha">Nova Senha</Label>
-                      <Input id="novaSenha" type="password" />
+                      <Input 
+                        id="novaSenha" 
+                        type="password" 
+                        value={novaSenha}
+                        onChange={(e) => setNovaSenha(e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
-                      <Input id="confirmarSenha" type="password" />
+                      <Input 
+                        id="confirmarSenha" 
+                        type="password" 
+                        value={confirmarSenha}
+                        onChange={(e) => setConfirmarSenha(e.target.value)}
+                      />
                     </div>
                   </div>
-                  <Button variant="outline">Alterar Senha</Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={handleAlterarSenha}
+                    disabled={!podeSalvarSenha}
+                  >
+                    Alterar Senha
+                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>

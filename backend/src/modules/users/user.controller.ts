@@ -7,6 +7,7 @@ const userSchema = z.object({
   name: z.string(),
   email: z.string().email(),
   password: z.string().min(6),
+  currentPassword: z.string().optional(),
   role: z.string(),
   active: z.boolean().optional()
 });
@@ -32,9 +33,24 @@ export const getUserHandler = asyncHandler(async (req: Request, res: Response) =
 export const updateUserHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const body = userSchema.partial().parse(req.body);
-  const user = await updateUser(id, body);
-  if (!user) return res.status(404).json({ message: 'User not found' });
-  res.json(user);
+
+  if (body.password && !body.currentPassword) {
+    return res.status(400).json({ message: "Para alterar a senha, informe a senha atual." });
+  }
+
+  try {
+    const user = await updateUser(id, body);
+    
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    res.json(user);
+
+  } catch (error: any) {
+    if (error.message === 'A senha atual está incorreta.') {
+      return res.status(400).json({ message: error.message });
+    }
+    throw error;
+  }
 });
 
 export const deleteUserHandler = asyncHandler(async (req: Request, res: Response) => {
