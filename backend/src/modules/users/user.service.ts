@@ -9,18 +9,23 @@ export function getUser(id: string) {
   return UserModel.findById(id);
 }
 
-export async function createUser(input: { name: string; email: string; password: string; role: string; active?: boolean }) {
+export async function createUser(input: { name: string; email: string; password: string; role: string; active?: boolean; phone?: string; jobTitle?: string; emailSignature?: string; photoUrl?: string; }) {
   const passwordHash = await hashPassword(input.password);
+  
   return UserModel.create({
     name: input.name,
     email: input.email,
     passwordHash,
     role: input.role,
-    active: input.active ?? true
+    active: input.active ?? true,
+    phone: input.phone,
+    jobTitle: input.jobTitle,
+    emailSignature: input.emailSignature,
+    photoUrl: input.photoUrl
   });
 }
 
-export async function updateUser(id: string, input: Partial<{ name: string; email: string; password: string; currentPassword?: string; role: string; active: boolean }>) {
+export async function updateUser(id: string, input: Partial<{ name: string; email: string; password: string; currentPassword?: string; role: string; active: boolean; phone: string; jobTitle: string; emailSignature: string; photoUrl: string; }>) {
   const update: any = { ...input };
 
   delete update.currentPassword;
@@ -48,5 +53,5 @@ export async function updateUser(id: string, input: Partial<{ name: string; emai
 }
 
 export function deleteUser(id: string) {
-  return UserModel.findByIdAndUpdate(id, { active: false }, { new: true });
+  return UserModel.findByIdAndDelete(id);
 }

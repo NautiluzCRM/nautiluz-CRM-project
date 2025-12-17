@@ -263,17 +263,30 @@ function mapApiUserToUsuario(apiUser: any) {
     ativo: apiUser.active !== false,
     foto: apiUser.photoUrl || apiUser.avatar || null,
     ultimoAcesso: apiUser.lastLoginAt ? new Date(apiUser.lastLoginAt) : new Date(),
+    phone: apiUser.phone,
+    jobTitle: apiUser.jobTitle,
+    emailSignature: apiUser.emailSignature
   };
 }
 
-export async function createUserApi(dados: { nome: string; email: string; perfil: string }) {
+export async function createUserApi(dados: {
+  nome: string;
+  email: string;
+  perfil: string;
+  telefone?: string;
+  cargo?: string;
+  assinatura?: string;
+}) {
   const payload = {
     name: dados.nome,
     email: dados.email,
-    password: "demo123", // Senha temporária
+    password: "demo123",
     role: dados.perfil === 'Administrador' ? 'admin' : 
           dados.perfil === 'Financeiro' ? 'financeiro' : 'vendedor',
-    active: true
+    active: true,
+    phone: dados.telefone,
+    jobTitle: dados.cargo,
+    emailSignature: dados.assinatura
   };
 
   return request("/users", {
@@ -316,5 +329,11 @@ export async function updateUserApi(id: string, dados: {
   return request(`/users/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteUserApi(id: string) {
+  return request(`/users/${id}`, {
+    method: "DELETE",
   });
 }
