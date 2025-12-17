@@ -28,9 +28,12 @@ const leadSchema = z.object({
   company: z.string().optional(),
   hasCnpj: z.boolean().optional(),
   
-  // NOVO: Lista fechada de tipos de empresa
+  // Lista fechada de tipos de empresa
   cnpjType: z.enum(["MEI", "EI", "SLU", "LTDA", "SS", "SA", "Outros"]).optional(), 
   
+  // NOVO: Array de IDs para múltiplos responsáveis
+  owners: z.array(z.string()).optional(),
+
   hasCurrentPlan: z.boolean().optional(),
   currentPlan: z.string().optional(),
   ageBuckets: z.array(z.number()).optional(), 
