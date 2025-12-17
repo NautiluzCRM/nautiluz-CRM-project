@@ -12,10 +12,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save } from "lucide-react";
-
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
 import { fetchUsers, createUserApi, updateUserApi, deleteUserApi } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Usuario {
   id: string;
@@ -41,6 +52,7 @@ const convertFileToBase64 = (file: File): Promise<string> => {
 };
 
 const Configuracoes = () => {
+  const { toast } = useToast();
   const { user, updateUserLocal } = useAuth();
   const isAdmin = user?.role === 'admin';
 
@@ -78,6 +90,10 @@ const Configuracoes = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [usuarioEmEdicao, setUsuarioEmEdicao] = useState<Usuario | null>(null);
 
+  const [alertExclusaoOpen, setAlertExclusaoOpen] = useState(false); // Modal de Excluir
+  const [alertStatusOpen, setAlertStatusOpen] = useState(false);     // Modal de Ativar/Inativar
+  const [usuarioParaStatus, setUsuarioParaStatus] = useState<Usuario | null>(null); // Quem vamos ativar/inativar?
+
   // Preenche os campos automaticamente quando o usuário logado carregar
   useEffect(() => {
     if (user) {
@@ -110,7 +126,6 @@ const Configuracoes = () => {
     return (
       senhaAtual.length > 0 && 
       novaSenha.length >= 6 && // Mínimo de 6 caracteres
-      novaSenha === confirmarSenha &&
       senhaAtual !== novaSenha // Nova senha deve ser diferente da atual
     );
   }, [senhaAtual, novaSenha, confirmarSenha]);
@@ -171,43 +186,71 @@ const Configuracoes = () => {
     setNovoTelefone(value);
   };
 
-  const handleExcluirUsuario = async () => {
+  const handleClickExcluir = () => {
+    setAlertExclusaoOpen(true);
+  };
+  const confirmarExclusao = async () => {
     if (!usuarioEmEdicao) return;
-    
-    if (!confirm(`Tem certeza que deseja EXCLUIR permanentemente o usuário ${usuarioEmEdicao.nome}?`)) {
-      return;
-    }
-
     const id = usuarioEmEdicao.id || (usuarioEmEdicao as any)._id;
 
     try {
       await deleteUserApi(id);
-      alert("Usuário excluído com sucesso.");
+      
+      toast({
+        title: "Usuário Excluído",
+        description: `O usuário ${usuarioEmEdicao.nome} foi removido.`
+      });
+
+      setAlertExclusaoOpen(false);
       setIsModalOpen(false);
       resetModal();
       carregarUsuarios();
     } catch (error) {
       console.error(error);
-      alert("Erro ao excluir usuário.");
+      toast({
+        variant: "destructive",
+        title: "Erro ao Excluir",
+        description: "Não foi possível remover o usuário."
+      });
     }
   };
 
   const handleSalvarUsuario = async () => {
-    // 1. Validação de Campos Obrigatórios
+    // Validação 1: Obrigatórios
     if (!novoNome.trim() || !novoEmail.trim()) {
-      alert("Nome e E-mail são obrigatórios.");
+      toast({
+        variant: "destructive",
+        title: "Dados Incompletos",
+        description: "Nome e E-mail são obrigatórios."
+      });
       return;
     }
-    // 2. Validação de Telefone (se preenchido)
+
+    // Validação 2: Formato de E-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(novoEmail)) {
+      toast({
+        variant: "destructive",
+        title: "E-mail Inválido",
+        description: "Por favor, insira um endereço de e-mail válido."
+      });
+      return;
+    }
+    
+    // Validação 3: Telefone
     const telLimpo = novoTelefone.replace(/\D/g, "");
     if (telLimpo.length > 0 && telLimpo.length < 10) {
-      alert("Telefone inválido. Digite o DDD + Número.");
+      toast({
+        variant: "destructive",
+        title: "Telefone Inválido",
+        description: "O número deve conter DDD + 8 ou 9 dígitos."
+      });
       return;
     }
 
     try {
       if (usuarioEmEdicao) {
-        // --- EDIÇÃO ---
+        // --- MODO EDIÇÃO ---
         const id = usuarioEmEdicao.id || (usuarioEmEdicao as any)._id;
         
         await updateUserApi(id, {
@@ -218,8 +261,14 @@ const Configuracoes = () => {
           cargo: novoCargo,
           assinatura: novaAssinatura
         });
-        alert("Usuário atualizado com sucesso!");
+        
+        toast({
+          title: "Usuário Atualizado",
+          description: "As alterações foram salvas com sucesso."
+        });
+
       } else {
+        // --- MODO CRIAÇÃO ---
         await createUserApi({
           nome: novoNome,
           email: novoEmail,
@@ -228,36 +277,66 @@ const Configuracoes = () => {
           cargo: novoCargo,
           assinatura: novaAssinatura
         });
-        alert("Usuário criado com sucesso!");
+
+        toast({
+          title: "Usuário Criado",
+          description: "Novo acesso liberado com sucesso."
+        });
       }
       
       setIsModalOpen(false);
       resetModal();
       carregarUsuarios();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Erro ao salvar usuário.");
+      
+      // Tratamento de Erro JSON (igual fizemos na senha)
+      let msg = "Não foi possível salvar os dados.";
+      try {
+        const parsed = JSON.parse(error.message);
+        if (parsed.message) msg = parsed.message;
+      } catch (e) { /* mantém msg padrão */ }
+
+      toast({
+        variant: "destructive",
+        title: "Erro na Operação",
+        description: msg
+      });
     }
   };
 
-  const handleToggleStatus = async (usuario: Usuario) => {
-  const novoStatus = !usuario.ativo;
-  const acao = novoStatus ? "ativar" : "inativar";
+  const handleClickStatus = (usuario: Usuario) => {
+    setUsuarioParaStatus(usuario);
+    setAlertStatusOpen(true);
+  };
+  const confirmarStatus = async () => {
+    if (!usuarioParaStatus) return;
+    
+    const novoStatus = !usuarioParaStatus.ativo;
+    const acao = novoStatus ? "ativar" : "inativar";
 
-  if (!confirm(`Tem certeza que deseja ${acao} o usuário ${usuario.nome}?`)) return;
+    try {
+      await updateUserApi(usuarioParaStatus.id, { ativo: novoStatus });
+      
+      toast({
+        title: `Usuário ${novoStatus ? 'Ativado' : 'Inativado'}`,
+        description: `Status de ${usuarioParaStatus.nome} atualizado.`
+      });
 
-  try {
-    await updateUserApi(usuario.id, { ativo: novoStatus });
-
-    carregarUsuarios();
-
-    alert(`Usuário ${usuario.nome} ${novoStatus ? 'ativado' : 'inativado'} com sucesso.`);
-  } catch (error) {
-    console.error(error);
-    alert(`Erro ao ${acao} usuário.`);
-  }
-};
+      carregarUsuarios();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: `Não foi possível ${acao} o usuário.`
+      });
+    } finally {
+      setAlertStatusOpen(false);
+      setUsuarioParaStatus(null);
+    }
+  };
 
 
   
@@ -295,7 +374,11 @@ const Configuracoes = () => {
         setFotoPerfil(base64);
       } catch (error) {
         console.error("Erro ao converter imagem", error);
-        alert("Erro ao processar a imagem.");
+        toast({
+          variant: "destructive",
+          title: "Erro na Imagem",
+          description: "Não foi possível processar o arquivo selecionado."
+        });
       }
     }
     setIsPreviewOpen(false);
@@ -316,18 +399,32 @@ const Configuracoes = () => {
     const userId = user?.id || (user as any)?._id;
 
     if (!userId) {
-      console.error("Erro: ID do usuário não encontrado.", user);
+      toast({
+        variant: "destructive",
+        title: "Erro de Sessão",
+        description: "Não foi possível identificar o usuário logado."
+      });
       return;
     }
 
+    // 1. Validação de Obrigatórios
     if (!perfilNome.trim() || !perfilEmail.trim()) {
-      alert("Os campos Nome e E-mail são obrigatórios.");
+      toast({
+        variant: "destructive",
+        title: "Campos Obrigatórios",
+        description: "Por favor, preencha o Nome e o E-mail."
+      });
       return;
     }
 
+    // 2. Validação de Telefone
     const telefoneLimpo = perfilTelefone.replace(/\D/g, "");
     if (telefoneLimpo.length > 0 && telefoneLimpo.length < 10) {
-      alert("O número de telefone está incompleto. Digite o DDD + Número.");
+      toast({
+        variant: "destructive",
+        title: "Telefone Inválido",
+        description: "O número deve conter DDD + Número."
+      });
       return;
     }
 
@@ -347,29 +444,44 @@ const Configuracoes = () => {
         photoUrl: fotoPerfil || undefined,
         ...({ phone: perfilTelefone, jobTitle: perfilCargo, emailSignature: perfilAssinatura } as any)
       });
-      alert("Dados do perfil atualizados com sucesso!");
+
+      toast({
+        title: "Perfil Atualizado",
+        description: "Suas informações foram salvas com sucesso."
+      });
 
     } catch (error) {
       console.error(error);
-      alert("Erro ao atualizar dados.");
+      toast({
+        variant: "destructive",
+        title: "Erro ao Salvar",
+        description: "Não foi possível atualizar seus dados."
+      });
     }
   };
 
   const handleAlterarSenha = async () => {
     const userId = user?.id || (user as any)?._id;
 
-    if (!userId) {
-      console.error("Erro: ID do usuário não encontrado.", user);
-      return;
-    }
+    if (!userId) return;
 
+    // 1. Validação de Campos Vazios
     if (!novaSenha || !confirmarSenha) {
-      alert("Preencha a nova senha e a confirmação.");
+      toast({
+        variant: "destructive",
+        title: "Campos Incompletos",
+        description: "Preencha a nova senha e a confirmação."
+      });
       return;
     }
 
+    // 2. Validação de Igualdade
     if (novaSenha !== confirmarSenha) {
-      alert("As senhas não conferem!");
+      toast({
+        variant: "destructive",
+        title: "Senhas Diferentes",
+        description: "A nova senha e a confirmação não conferem."
+      });
       return;
     }
 
@@ -379,14 +491,33 @@ const Configuracoes = () => {
         senhaAtual: senhaAtual
       });
 
-      alert("Senha alterada com sucesso!");
+      toast({
+        title: "Senha Alterada",
+        description: "Sua senha foi atualizada com sucesso."
+      });
+      
       setSenhaAtual("");
       setNovaSenha("");
       setConfirmarSenha("");
+
     } catch (error: any) {
       console.error(error);
-      const msg = error.message || "Verifique a senha atual e tente novamente.";
-      alert("Erro: " + msg);
+      let msg = error.message || "Verifique a senha atual e tente novamente.";
+
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed.message) {
+          msg = parsed.message;
+        }
+      } catch (e) {
+      }
+      
+      // Erro do Backend (Ex: Senha atual incorreta)
+      toast({
+        variant: "destructive",
+        title: "Erro ao Alterar Senha",
+        description: msg
+      });
     }
   };
 
@@ -754,9 +885,9 @@ const Configuracoes = () => {
                             {/* Botão de Excluir (Só aparece se estiver editando) */}
                             {usuarioEmEdicao && (
                               <Button 
-                                variant="destructive" // Vermelho
+                                variant="destructive"
                                 type="button"
-                                onClick={handleExcluirUsuario}
+                                onClick={handleClickExcluir}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Excluir Usuário
@@ -816,7 +947,7 @@ const Configuracoes = () => {
                               variant="ghost"
                               size="sm"
                               className={usuario.ativo ? "text-destructive hover:text-destructive" : "text-green-600 hover:text-green-700"}
-                              onClick={() => handleToggleStatus(usuario)}
+                              onClick={() => handleClickStatus(usuario)}
                               title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
                             >
                               {usuario.ativo ? (
@@ -1050,11 +1181,57 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
             </TabsContent>
-            
-
           </Tabs>
         </div>
       </div>
+      {/* --- MODAL DE CONFIRMAÇÃO: EXCLUIR --- */}
+      <AlertDialog open={alertExclusaoOpen} onOpenChange={setAlertExclusaoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. Isso excluirá permanentemente o usuário 
+              <span className="font-bold text-foreground"> {usuarioEmEdicao?.nome} </span>
+              e removerá seus dados dos nossos servidores.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmarExclusao} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sim, excluir usuário
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* --- MODAL DE CONFIRMAÇÃO: STATUS --- */}
+      <AlertDialog open={alertStatusOpen} onOpenChange={setAlertStatusOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {usuarioParaStatus?.ativo ? "Inativar Usuário" : "Reativar Usuário"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja {usuarioParaStatus?.ativo ? "inativar" : "ativar"} o acesso de 
+              <span className="font-bold text-foreground"> {usuarioParaStatus?.nome}</span>?
+              {usuarioParaStatus?.ativo && " Ele perderá o acesso ao sistema imediatamente."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmarStatus}
+              className={usuarioParaStatus?.ativo ? "bg-destructive hover:bg-destructive/90" : "bg-green-600 hover:bg-green-700"}
+            >
+              {usuarioParaStatus?.ativo ? "Inativar" : "Ativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Layout>
   );
 };
