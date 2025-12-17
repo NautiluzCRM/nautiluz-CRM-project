@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save } from "lucide-react";
 
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
-import { fetchUsers, createUserApi, updateUserApi } from "@/lib/api";
+import { fetchUsers, createUserApi, updateUserApi, deleteUserApi } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 
 interface Usuario {
@@ -25,6 +25,9 @@ interface Usuario {
   ativo: boolean;
   foto?: string;
   ultimoAcesso: Date;
+  phone?: string;
+  jobTitle?: string;
+  emailSignature?: string;
 }
 
 // Função para converter Arquivo -> Base64
@@ -64,6 +67,16 @@ const Configuracoes = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);// preview da imagem
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);// controla o modal(componente que sobrepõe a tela)
   const [arquivoTemporario, setArquivoTemporario] = useState<File | null>(null);
+
+  // Estados para o formulário de Novo Usuário
+  const [novoNome, setNovoNome] = useState("");
+  const [novoEmail, setNovoEmail] = useState("");
+  const [novoPerfil, setNovoPerfil] = useState("Vendedor");
+  const [novoTelefone, setNovoTelefone] = useState("");
+  const [novoCargo, setNovoCargo] = useState("");
+  const [novaAssinatura, setNovaAssinatura] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [usuarioEmEdicao, setUsuarioEmEdicao] = useState<Usuario | null>(null);
 
   // Preenche os campos automaticamente quando o usuário logado carregar
   useEffect(() => {
@@ -115,32 +128,116 @@ const Configuracoes = () => {
     carregarUsuarios();
   }, []);
 
-  // Estados para o formulário de Novo Usuário
-  const [novoNome, setNovoNome] = useState("");
-  const [novoEmail, setNovoEmail] = useState("");
-  const [novoPerfil, setNovoPerfil] = useState("Vendedor");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Reseta os campos do modal
+  const resetModal = () => {
+    setNovoNome("");
+    setNovoEmail("");
+    setNovoPerfil("Vendedor");
+    setNovoTelefone("");
+    setNovoCargo("");
+    setNovaAssinatura("");
+    setUsuarioEmEdicao(null);
+  };
 
-  const handleCriarUsuario = async () => {
-    if (!novoNome || !novoEmail) return;
+  // Abre modal para CRIAR
+  const handleNovoUsuario = () => {
+    resetModal();
+    setIsModalOpen(true);
+  };
+
+  // Abre modal para EDITAR
+  const handleEditarUsuario = (usuario: Usuario) => {
+    setNovoNome(usuario.nome);
+    setNovoEmail(usuario.email);
+    const perfilFormatado = usuario.perfil === 'Administrador' ? 'Administrador' : 
+                            usuario.perfil === 'Financeiro' ? 'Financeiro' : 'Vendedor';
+    setNovoPerfil(perfilFormatado);
+    
+    setNovoTelefone(usuario.phone || "");
+    setNovoCargo(usuario.jobTitle || "");
+    setNovaAssinatura(usuario.emailSignature || "");
+    
+    setUsuarioEmEdicao(usuario);
+    setIsModalOpen(true);
+  };
+
+  // Máscara de telefone específica para o Modal
+  const handleNovoTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    value = value.replace(/\D/g, "");
+    if (value.length > 11) value = value.slice(0, 11);
+    value = value.replace(/^(\d{2})(\d)/g, "($1) $2");
+    value = value.replace(/(\d)(\d{4})$/, "$1-$2");
+    setNovoTelefone(value);
+  };
+
+  const handleExcluirUsuario = async () => {
+    if (!usuarioEmEdicao) return;
+    
+    if (!confirm(`Tem certeza que deseja EXCLUIR permanentemente o usuário ${usuarioEmEdicao.nome}?`)) {
+      return;
+    }
+
+    const id = usuarioEmEdicao.id || (usuarioEmEdicao as any)._id;
 
     try {
-      await createUserApi({
-        nome: novoNome,
-        email: novoEmail,
-        perfil: novoPerfil
-      });
-      
-      setNovoNome("");
-      setNovoEmail("");
+      await deleteUserApi(id);
+      alert("Usuário excluído com sucesso.");
       setIsModalOpen(false);
-      
+      resetModal();
       carregarUsuarios();
-      
-      alert("Usuário criado com sucesso!");
     } catch (error) {
       console.error(error);
-      alert("Erro ao criar usuário.");
+      alert("Erro ao excluir usuário.");
+    }
+  };
+
+  const handleSalvarUsuario = async () => {
+    // 1. Validação de Campos Obrigatórios
+    if (!novoNome.trim() || !novoEmail.trim()) {
+      alert("Nome e E-mail são obrigatórios.");
+      return;
+    }
+    // 2. Validação de Telefone (se preenchido)
+    const telLimpo = novoTelefone.replace(/\D/g, "");
+    if (telLimpo.length > 0 && telLimpo.length < 10) {
+      alert("Telefone inválido. Digite o DDD + Número.");
+      return;
+    }
+
+    try {
+      if (usuarioEmEdicao) {
+        // --- EDIÇÃO ---
+        const id = usuarioEmEdicao.id || (usuarioEmEdicao as any)._id;
+        
+        await updateUserApi(id, {
+          nome: novoNome,
+          email: novoEmail,
+          perfil: novoPerfil,
+          telefone: novoTelefone,
+          cargo: novoCargo,
+          assinatura: novaAssinatura
+        });
+        alert("Usuário atualizado com sucesso!");
+      } else {
+        await createUserApi({
+          nome: novoNome,
+          email: novoEmail,
+          perfil: novoPerfil,
+          telefone: novoTelefone,
+          cargo: novoCargo,
+          assinatura: novaAssinatura
+        });
+        alert("Usuário criado com sucesso!");
+      }
+      
+      setIsModalOpen(false);
+      resetModal();
+      carregarUsuarios();
+      
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao salvar usuário.");
     }
   };
 
@@ -564,19 +661,27 @@ const Configuracoes = () => {
                     </CardTitle>
                     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                       <DialogTrigger asChild>
-                        <Button size="sm" className="bg-gradient-primary hover:bg-primary-hover">
+                        <Button 
+                          size="sm" 
+                          className="bg-gradient-primary hover:bg-primary-hover"
+                          onClick={handleNovoUsuario}
+                        >
                           <Plus className="h-4 w-4 mr-2" />
                           Novo Usuário
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="max-w-2xl">
                         <DialogHeader>
-                          <DialogTitle>Novo Usuário</DialogTitle>
+                          <DialogTitle>
+                            {usuarioEmEdicao ? "Editar Usuário" : "Novo Usuário"}
+                          </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
+                          
+                          {/* Linha 1: Nome e Email */}
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label htmlFor="nomeUsuario">Nome</Label>
+                              <Label htmlFor="nomeUsuario">Nome <span className="text-red-500">*</span></Label>
                               <Input 
                                 id="nomeUsuario" 
                                 placeholder="Nome completo"
@@ -585,7 +690,7 @@ const Configuracoes = () => {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="emailUsuario">E-mail</Label>
+                              <Label htmlFor="emailUsuario">E-mail <span className="text-red-500">*</span></Label>
                               <Input 
                                 id="emailUsuario" 
                                 type="email" 
@@ -595,25 +700,78 @@ const Configuracoes = () => {
                               />
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="perfilUsuario">Perfil</Label>
-                            <Select value={novoPerfil} onValueChange={setNovoPerfil}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione o perfil" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Vendedor">Vendedor</SelectItem>
-                                <SelectItem value="Financeiro">Financeiro</SelectItem>
-                                <SelectItem value="Administrador">Administrador</SelectItem>
-                              </SelectContent>
-                            </Select>
+
+                          {/* Linha 2: Perfil e Cargo */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="perfilUsuario">Perfil (Acesso) <span className="text-red-500">*</span></Label>
+                              <Select value={novoPerfil} onValueChange={setNovoPerfil}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o perfil" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Vendedor">Vendedor</SelectItem>
+                                  <SelectItem value="Financeiro">Financeiro</SelectItem>
+                                  <SelectItem value="Administrador">Administrador</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="cargoUsuario">Cargo</Label>
+                              <Input 
+                                id="cargoUsuario" 
+                                placeholder="Ex: Gerente Comercial"
+                                value={novoCargo}
+                                onChange={(e) => setNovoCargo(e.target.value)}
+                              />
+                            </div>
                           </div>
-                          <Button 
-                            className="w-full bg-gradient-primary hover:bg-primary-hover"
-                            onClick={handleCriarUsuario}
-                          >
-                            Criar Usuário
-                          </Button>
+
+                          {/* Linha 3: Telefone */}
+                          <div className="space-y-2">
+                            <Label htmlFor="telefoneUsuario">Telefone</Label>
+                            <Input 
+                              id="telefoneUsuario" 
+                              placeholder="(99) 99999-9999"
+                              value={novoTelefone}
+                              onChange={handleNovoTelefoneChange}
+                              maxLength={15}
+                            />
+                          </div>
+
+                          {/* Linha 4: Assinatura */}
+                          <div className="space-y-2">
+                            <Label htmlFor="assinaturaUsuario">Assinatura de E-mail</Label>
+                            <Textarea 
+                              id="assinaturaUsuario" 
+                              placeholder="Assinatura padrão para e-mails..."
+                              value={novaAssinatura}
+                              onChange={(e) => setNovaAssinatura(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="flex gap-2 justify-end pt-4">
+                            {/* Botão de Excluir (Só aparece se estiver editando) */}
+                            {usuarioEmEdicao && (
+                              <Button 
+                                variant="destructive" // Vermelho
+                                type="button"
+                                onClick={handleExcluirUsuario}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir Usuário
+                              </Button>
+                            )}
+
+                            {/* Botão Salvar (Ocupa o resto do espaço ou largura total se for novo) */}
+                            <Button 
+                              className={usuarioEmEdicao ? "flex-1 bg-gradient-primary" : "w-full bg-gradient-primary"}
+                              onClick={handleSalvarUsuario}
+                            >
+                              <Save className="h-4 w-4 mr-2" />
+                              {usuarioEmEdicao ? "Salvar Alterações" : "Criar Usuário"}
+                            </Button>
+                          </div>
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -646,7 +804,11 @@ const Configuracoes = () => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleEditarUsuario(usuario)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
 
