@@ -4,16 +4,41 @@ import { z } from 'zod';
 import { addActivity, createLead, deleteLead, getLead, listLeads, updateLead } from './leads.service.js';
 
 const leadSchema = z.object({
-  name: z.string(),
-  company: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
-  origin: z.string(),
+  // --- Campos Obrigatórios (Validadores Rigorosos) ---
+  name: z.string({ required_error: "O nome completo é obrigatório." }).min(3, "O nome deve ter pelo menos 3 caracteres."),
+  
+  phone: z.string({ required_error: "O celular é obrigatório." }).min(10, "O celular deve ter DDD e número válidos."),
+  
+  origin: z.string({ required_error: "A origem do lead é obrigatória." }),
+  
+  city: z.string({ required_error: "A cidade é obrigatória." }).min(2, "Informe o nome da cidade."),
+  
+  state: z.string({ required_error: "O estado (UF) é obrigatório." }).length(2, "Selecione um estado válido (UF)."),
+  
+  livesCount: z.number({ required_error: "A quantidade de vidas é obrigatória." }).min(1, "A quantidade de vidas deve ser maior que zero."),
+  
+  avgPrice: z.number({ required_error: "O valor estimado é obrigatório." }).min(0, "O valor estimado não pode ser negativo."),
+
   pipelineId: z.string(),
   stageId: z.string(),
+  
+  // --- Campos Opcionais / Condicionais ---
+  email: z.string().email("O email informado é inválido. Verifique se tem '@' e '.com'").optional().or(z.literal('')),
+  
+  company: z.string().optional(),
+  hasCnpj: z.boolean().optional(),
+  
+  // NOVO: Lista fechada de tipos de empresa
+  cnpjType: z.enum(["MEI", "EI", "SLU", "LTDA", "SS", "SA", "Outros"]).optional(), 
+  
+  hasCurrentPlan: z.boolean().optional(),
+  currentPlan: z.string().optional(),
+  ageBuckets: z.array(z.number()).optional(), 
+  createdAt: z.string().datetime().optional(),
+  preferredHospitals: z.array(z.string()).optional(),
+  notes: z.string().optional(),
   qualificationStatus: z.string().optional(),
-  rank: z.string().optional(),
-  notes: z.string().optional()
+  rank: z.string().optional()
 });
 
 export const listLeadsHandler = asyncHandler(async (req: Request, res: Response) => {

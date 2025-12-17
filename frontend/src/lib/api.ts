@@ -94,6 +94,7 @@ export async function loginApi(email: string, password: string, remember = false
 }
 
 export async function fetchPipelines() {
+  // O 'request' lida automaticamente com o cabeçalho Authorization e erro 401
   return request<any[]>("/pipelines");
 }
 
@@ -101,14 +102,53 @@ export async function fetchStages(pipelineId: string) {
   return request<any[]>(`/pipelines/${pipelineId}/stages`);
 }
 
+export async function createLeadApi(data: any) {
+  const payload = {
+    name: data.nome,
+    email: data.email,
+    phone: data.celular,
+    origin: data.origem || "Indicação",
+    pipelineId: data.pipelineId,
+    stageId: data.stageId,
+    
+    company: data.empresa,
+    livesCount: Number(data.quantidadeVidas || 0),
+    avgPrice: Number(data.valorMedio || 0),
+    hasCnpj: Boolean(data.possuiCnpj),
+    
+    // NOVO: Mapeia o Tipo de CNPJ apenas se tiver CNPJ marcado
+    cnpjType: data.possuiCnpj ? data.tipoCnpj : undefined,
+
+    hasCurrentPlan: Boolean(data.possuiPlano),
+    currentPlan: data.planoAtual,
+    ageBuckets: data.idades,
+    city: data.cidade,
+    state: data.uf,
+    createdAt: data.dataCriacao ? new Date(data.dataCriacao).toISOString() : undefined,
+
+    notes: data.observacoes,
+    preferredHospitals: data.hospitaisPreferencia
+  };
+
+  return request("/leads", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchLeads() {
   return request<any[]>("/leads");
 }
 
-export async function moveLeadApi(leadId: string, toStageId: string) {
-  return request(`/kanban/move`, {
+export async function moveLeadApi(
+  leadId: string, 
+  toStageId: string, 
+  beforeId?: string, 
+  afterId?: string
+) {
+  return request("/kanban/move", {
     method: "POST",
-    body: JSON.stringify({ leadId, toStageId }),
+    body: JSON.stringify({ leadId, toStageId, beforeId, afterId }),
   });
 }
 
