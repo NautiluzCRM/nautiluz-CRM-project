@@ -16,7 +16,10 @@ export interface Lead {
   state?: string;
   city?: string;
   origin: string;
-  owner?: Types.ObjectId;
+  
+  owner?: Types.ObjectId;       // Mantido para legado
+  owners?: Types.ObjectId[];    // NOVO: Array de responsáveis
+  
   pipelineId: Types.ObjectId;
   stageId: Types.ObjectId;
   rank: string;
@@ -46,7 +49,13 @@ const leadSchema = new Schema<Lead>({
   state: String,
   city: String,
   origin: { type: String, required: true },
+  
+  // Mantendo o singular para não quebrar leads antigos
   owner: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  
+  // NOVO: Lista de responsáveis (Multi-owner)
+  owners: [{ type: Schema.Types.ObjectId, ref: 'User', index: true }],
+  
   pipelineId: { type: Schema.Types.ObjectId, ref: 'Pipeline', required: true, index: true },
   stageId: { type: Schema.Types.ObjectId, ref: 'Stage', required: true, index: true },
   rank: { type: String, required: true, index: true },
