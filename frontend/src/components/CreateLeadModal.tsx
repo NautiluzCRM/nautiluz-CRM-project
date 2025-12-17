@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge"; 
 import { useToast } from "@/hooks/use-toast";
-import { createLeadApi, fetchPipelines, fetchStages } from "@/lib/api";
+import { createLeadApi, updateLeadApi, fetchPipelines, fetchStages } from "@/lib/api"; // Adicionado updateLeadApi
+import { Lead } from "@/types/crm"; // Importando o tipo Lead para tipar a prop
 import { Loader2, AlertCircle, CheckCircle2, MapPin, X, Plus } from "lucide-react"; 
 
 const FAIXAS_ETARIAS = [
@@ -28,9 +29,10 @@ interface CreateLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  leadToEdit?: Lead | null; // Nova prop opcional para edição
 }
 
-export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalProps) {
+export function CreateLeadModal({ isOpen, onClose, onSuccess, leadToEdit }: CreateLeadModalProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -45,7 +47,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
     quantidadeVidas: 1,
     valorMedio: 0,
     possuiCnpj: false,
-    tipoCnpj: "", // Armazena o tipo selecionado (MEI, LTDA, etc)
+    tipoCnpj: "", 
     possuiPlano: false,
     planoAtual: "",
     cidade: "",
@@ -57,6 +59,51 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
   const [hospitais, setHospitais] = useState<string[]>([]);
   const [hospitalInput, setHospitalInput] = useState("");
   const [faixas, setFaixas] = useState<number[]>(Array(10).fill(0));
+
+  // --- EFEITO: Carrega dados na Edição ou Limpa na Criação ---
+  useEffect(() => {
+    if (isOpen && leadToEdit) {
+      // MODO EDIÇÃO: Preenche os campos
+      setFormData({
+        nome: leadToEdit.nome || "",
+        empresa: leadToEdit.empresa || "",
+        email: leadToEdit.email || "",
+        celular: leadToEdit.celular || "",
+        origem: leadToEdit.origem || "Indicação",
+        quantidadeVidas: leadToEdit.quantidadeVidas || 1,
+        valorMedio: leadToEdit.valorMedio || 0,
+        possuiCnpj: leadToEdit.possuiCnpj || false,
+        tipoCnpj: leadToEdit.tipoCnpj || "",
+        possuiPlano: leadToEdit.possuiPlano || false,
+        planoAtual: leadToEdit.planoAtual || "",
+        cidade: leadToEdit.cidade || "",
+        uf: leadToEdit.uf || "",
+        dataCriacao: leadToEdit.dataCriacao ? new Date(leadToEdit.dataCriacao).toISOString().split('T')[0] : hoje,
+        observacoes: leadToEdit.informacoes || ""
+      });
+
+      // Carrega arrays específicos
+      setHospitais(leadToEdit.hospitaisPreferencia || []);
+      
+      // Carrega as faixas etárias (garantindo array de 10 posições)
+      if (leadToEdit.idades && leadToEdit.idades.length === 10) {
+        setFaixas([...leadToEdit.idades]);
+      } else {
+        setFaixas(Array(10).fill(0));
+      }
+
+    } else if (isOpen && !leadToEdit) {
+      // MODO CRIAÇÃO: Reseta o formulário
+      setFormData({
+        nome: "", empresa: "", email: "", celular: "", origem: "Indicação",
+        quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, tipoCnpj: "",
+        possuiPlano: false, planoAtual: "", cidade: "", uf: "", 
+        dataCriacao: hoje, observacoes: ""
+      });
+      setHospitais([]);
+      setFaixas(Array(10).fill(0));
+    }
+  }, [isOpen, leadToEdit]);
 
   const handleAddHospital = (e?: React.KeyboardEvent | React.MouseEvent) => {
     if (e && 'key' in e && e.key !== 'Enter') return;
@@ -91,48 +138,38 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
     e.preventDefault();
     
     // --- VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS ---
-
     if (!formData.nome.trim()) {
       toast({ variant: "destructive", title: "Campo Obrigatório", description: "Por favor, preencha o Nome Completo." });
       return;
     }
-
     if (!formData.celular.trim() || formData.celular.length < 10) {
       toast({ variant: "destructive", title: "Celular Inválido", description: "Informe um número de celular válido com DDD." });
       return;
     }
-
     if (formData.email && (!formData.email.includes("@") || !formData.email.includes("."))) {
       toast({ variant: "destructive", title: "Email Inválido", description: "O email precisa conter '@' e um domínio (ex: .com)." });
       return;
     }
-
     if (!formData.cidade.trim()) {
       toast({ variant: "destructive", title: "Localização", description: "O campo Cidade é obrigatório." });
       return;
     }
-
     if (!formData.uf) {
       toast({ variant: "destructive", title: "Localização", description: "Selecione o Estado (UF)." });
       return;
     }
-
     if (Number(formData.quantidadeVidas) <= 0) {
       toast({ variant: "destructive", title: "Cotação", description: "A quantidade de vidas deve ser maior que zero." });
       return;
     }
-
     if (Number(formData.valorMedio) <= 0) {
       toast({ variant: "destructive", title: "Cotação", description: "Informe o Valor Estimado da negociação." });
       return;
     }
-
-    // Validação extra: Se marcou que tem CNPJ, deve escolher o tipo
     if (formData.possuiCnpj && !formData.tipoCnpj) {
       toast({ variant: "destructive", title: "Dados da Empresa", description: "Selecione o Tipo de CNPJ (ex: MEI, LTDA)." });
       return;
     }
-
     if (!isTotalValid) {
       toast({
         variant: "destructive",
@@ -141,39 +178,50 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       });
       return;
     }
-
     // --- FIM DA VALIDAÇÃO ---
 
     setIsLoading(true);
 
     try {
-      const pipelines = await fetchPipelines();
-      if (!pipelines.length) throw new Error("Nenhum pipeline configurado.");
-      const pipelineId = pipelines[0]._id;
-      
-      const stages = await fetchStages(pipelineId);
-      if (!stages.length) throw new Error("Pipeline sem colunas.");
-      const firstStageId = stages[0]._id;
-
-      const leadData = {
+      // Monta o objeto de dados comum para criação e edição
+      const leadData: any = {
         ...formData,
-        pipelineId,
-        stageId: firstStageId,
         quantidadeVidas: Number(formData.quantidadeVidas),
         valorMedio: Number(formData.valorMedio),
         idades: faixas,
         hospitaisPreferencia: hospitais
       };
 
-      await createLeadApi(leadData);
+      if (leadToEdit) {
+        // --- FLUXO DE EDIÇÃO ---
+        // Mantemos o pipeline e stage originais do lead
+        leadData.pipelineId = leadToEdit.pipelineId;
+        leadData.stageId = leadToEdit.colunaAtual; // 'colunaAtual' mapeia para 'stageId' no backend
 
-      toast({ title: "Sucesso!", description: "Lead criado com sucesso." });
+        await updateLeadApi(leadToEdit.id, leadData);
+        toast({ title: "Atualizado!", description: "Dados do lead atualizados com sucesso." });
+
+      } else {
+        // --- FLUXO DE CRIAÇÃO ---
+        // Busca pipeline e stage padrão
+        const pipelines = await fetchPipelines();
+        if (!pipelines.length) throw new Error("Nenhum pipeline configurado.");
+        leadData.pipelineId = pipelines[0]._id;
+        
+        const stages = await fetchStages(leadData.pipelineId);
+        if (!stages.length) throw new Error("Pipeline sem colunas.");
+        leadData.stageId = stages[0]._id;
+
+        await createLeadApi(leadData);
+        toast({ title: "Criado!", description: "Lead criado com sucesso." });
+      }
       
-      // Reset Total
+      // Limpa estados e fecha
       setFormData({
         nome: "", empresa: "", email: "", celular: "", origem: "Indicação",
-        quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, tipoCnpj: "", possuiPlano: false,
-        planoAtual: "", cidade: "", uf: "", dataCriacao: hoje, observacoes: ""
+        quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, tipoCnpj: "",
+        possuiPlano: false, planoAtual: "", cidade: "", uf: "", 
+        dataCriacao: hoje, observacoes: ""
       });
       setFaixas(Array(10).fill(0));
       setHospitais([]);
@@ -194,7 +242,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Lead</DialogTitle>
+          <DialogTitle>{leadToEdit ? "Editar Lead" : "Novo Lead"}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6 py-2">
@@ -413,7 +461,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={isLoading || !isTotalValid} className="bg-primary hover:bg-primary-hover text-white">
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Criar Lead
+              {leadToEdit ? "Salvar Alterações" : "Criar Lead"}
             </Button>
           </DialogFooter>
         </form>
