@@ -8,6 +8,7 @@ import { Plus, Filter, Download, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fetchPipelineData, moveLeadApi, updateLeadApi } from "@/lib/api";
+import { CreateLeadModal } from "@/components/CreateLeadModal";
 
 const Index = () => {
   const [pipeline, setPipeline] = useState<any>(null);
@@ -15,6 +16,7 @@ const Index = () => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -28,16 +30,35 @@ const Index = () => {
     load();
   }, []);
 
-  const handleLeadMove = async (leadId: string, novaColuna: string) => {
-    await moveLeadApi(leadId, novaColuna);
-    setPipeline((prev: any) => ({
-      ...prev,
-      leads: prev.leads.map((lead: Lead) =>
-        lead.id === leadId
-          ? { ...lead, colunaAtual: novaColuna, ultimaAtividade: new Date() }
-          : lead
-      )
-    }));
+  const handleLeadMove = async (
+    leadId: string, 
+    novaColuna: string, 
+    beforeId?: string, 
+    afterId?: string
+  ) => {
+    // Atualização Otimista (Frontend muda antes do Backend responder)
+    setPipeline((prev: any) => {
+      // Cria uma cópia profunda dos leads para não mutar estado direto
+      const newLeads = prev.leads.map((lead: Lead) => {
+        if (lead.id === leadId) {
+          return { ...lead, colunaAtual: novaColuna };
+        }
+        return lead;
+      });
+      return { ...prev, leads: newLeads };
+    });
+
+    try {
+      // Chama a API nova que criamos no Passo 1
+      await moveLeadApi(leadId, novaColuna, beforeId, afterId);
+      
+      // Opcional: Recarregar dados para garantir sincronia total (ranks, etc)
+      // const data = await fetchPipelineData();
+      // setPipeline(data);
+    } catch (error) {
+      console.error("Erro ao mover lead:", error);
+      // Aqui você poderia adicionar um toast de erro e reverter a mudança
+    }
   };
 
   const handleLeadUpdate = async (updatedLead: Lead) => {
@@ -77,7 +98,8 @@ const Index = () => {
                 Gestão de leads e oportunidades - NAUTILUZ CRM
               </p>
             </div>
-            <Button className="bg-gradient-primary hover:bg-primary-hover w-full sm:w-auto">
+            <Button onClick={() => setIsCreateModalOpen(true)}
+              className="bg-gradient-primary hover:bg-primary-hover w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Novo Lead
             </Button>
@@ -142,6 +164,20 @@ const Index = () => {
         onClose={() => setIsModalOpen(false)}
         onEdit={handleLeadUpdate}
       />
+
+      <CreateLeadModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => {
+          // Essa função já existe no seu Index.tsx, ela recarrega o Kanban
+          const load = async () => {
+            const data = await fetchPipelineData();
+            setPipeline(data);
+          };
+          load();
+      }}
+    />
+
     </Layout>
   );
 };
