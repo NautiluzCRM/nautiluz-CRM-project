@@ -10,13 +10,14 @@ import { authenticate } from '../../rbac/rbac.middleware.js';
 import { requireRole } from '../../rbac/rbac.guard.js';
 
 const router = Router();
-router.use(authenticate);
-router.use(requireRole(['admin']));
 
-router.get('/', listUsersHandler);
-router.post('/', createUserHandler);
+router.use(authenticate);
+
+router.get('/', requireRole(['admin']), listUsersHandler);
+router.post('/', requireRole(['admin']), createUserHandler);
+router.delete('/:id', requireRole(['admin']), deleteUserHandler);
+
 router.get('/:id', getUserHandler);
 router.patch('/:id', updateUserHandler);
-router.delete('/:id', deleteUserHandler);
 
 export default router;

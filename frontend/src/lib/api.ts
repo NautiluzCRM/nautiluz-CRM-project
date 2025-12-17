@@ -204,3 +204,96 @@ export async function fetchPipelineData(): Promise<Pipeline> {
     leads: leads.map(mapApiLeadToLead),
   };
 }
+
+export async function fetchUsers() {
+  const data = await request<any[]>("/users");
+  return data.map(mapApiUserToUsuario);
+}
+
+function mapApiUserToUsuario(apiUser: any) {
+  let perfil = 'Vendedor';
+  if (apiUser.role === 'admin') perfil = 'Administrador';
+  else if (apiUser.role === 'financial') perfil = 'Financeiro';
+
+  return {
+    id: apiUser._id || apiUser.id,
+    nome: apiUser.name || apiUser.nome || "Sem Nome",
+    email: apiUser.email,
+    perfil: perfil as "Administrador" | "Financeiro" | "Vendedor",
+    ativo: apiUser.active !== false,
+    foto: apiUser.photoUrl || apiUser.avatar || null,
+    ultimoAcesso: apiUser.lastLoginAt ? new Date(apiUser.lastLoginAt) : new Date(),
+    phone: apiUser.phone,
+    jobTitle: apiUser.jobTitle,
+    emailSignature: apiUser.emailSignature
+  };
+}
+
+export async function createUserApi(dados: {
+  nome: string;
+  email: string;
+  perfil: string;
+  telefone?: string;
+  cargo?: string;
+  assinatura?: string;
+}) {
+  const payload = {
+    name: dados.nome,
+    email: dados.email,
+    password: "demo123",
+    role: dados.perfil === 'Administrador' ? 'admin' : 
+          dados.perfil === 'Financeiro' ? 'financeiro' : 'vendedor',
+    active: true,
+    phone: dados.telefone,
+    jobTitle: dados.cargo,
+    emailSignature: dados.assinatura
+  };
+
+  return request("/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateUserApi(id: string, dados: { 
+  nome?: string; 
+  email?: string; 
+  perfil?: string; 
+  ativo?: boolean;
+  senha?: string;
+  senhaAtual?: string;
+  foto?: string;
+  telefone?: string;
+  cargo?: string;
+  assinatura?: string;
+}) {
+  const payload: any = {};
+  
+  // Mapeia os campos simples
+  if (dados.nome) payload.name = dados.nome;
+  if (dados.email) payload.email = dados.email;
+  if (dados.ativo !== undefined) payload.active = dados.ativo;
+  if (dados.senha) payload.password = dados.senha;
+  if (dados.senhaAtual) payload.currentPassword = dados.senhaAtual;
+  if (dados.foto !== undefined) payload.photoUrl = dados.foto;
+
+  if (dados.telefone !== undefined) payload.phone = dados.telefone;
+  if (dados.cargo !== undefined) payload.jobTitle = dados.cargo;
+  if (dados.assinatura !== undefined) payload.emailSignature = dados.assinatura;
+  
+  if (dados.perfil) {
+    payload.role = dados.perfil.toLowerCase() === 'administrador' ? 'admin' : 
+                   dados.perfil.toLowerCase() === 'financeiro' ? 'financeiro' : 'vendedor';
+  }
+
+  return request(`/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteUserApi(id: string) {
+  return request(`/users/${id}`, {
+    method: "DELETE",
+  });
+}
