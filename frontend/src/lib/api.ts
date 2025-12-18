@@ -175,7 +175,7 @@ export function mapApiStageToColuna(stage: any): Coluna {
   return {
     id: stage._id || stage.id,
     nome: stage.name,
-    cor: "#3B82F6",
+    cor: stage.color || "#3B82F6",
     ordem: stage.order,
     wipLimit: stage.wipLimit,
     sla: stage.sla,
@@ -373,6 +373,39 @@ export async function updateUserApi(id: string, dados: {
 
 export async function deleteUserApi(id: string) {
   return request(`/users/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// --- Funções de Pipeline / Etapas ---
+
+export async function createStageApi(pipelineId: string, dados: { 
+  name: string; 
+  order: number; 
+  key: string; 
+  color: string; 
+  sla: number 
+}) {
+  return request(`/pipelines/${pipelineId}/stages`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function updateStageApi(stageId: string, dados: { 
+  name?: string; 
+  order?: number; 
+  color?: string; 
+  sla?: number 
+}) {
+  return request(`/pipelines/stages/${stageId}`, {
+    method: "PATCH",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function deleteStageApi(stageId: string) {
+  return request(`/pipelines/stages/${stageId}`, {
     method: "DELETE",
   });
 }

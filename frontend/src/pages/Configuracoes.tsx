@@ -11,9 +11,21 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save } from "lucide-react";
+import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save, Loader2 } from "lucide-react";
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
-import { fetchUsers, createUserApi, updateUserApi, deleteUserApi } from "@/lib/api";
+import { 
+  fetchUsers, 
+  createUserApi, 
+  updateUserApi, 
+  deleteUserApi,
+  fetchPipelines,
+  fetchStages,
+  createStageApi,
+  updateStageApi,
+  deleteStageApi,
+  mapApiStageToColuna
+} from "@/lib/api";
+import { Coluna } from "@/types/crm";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -339,15 +351,108 @@ const Configuracoes = () => {
   };
 
 
-  
-  const colunasPipeline = [
-    { id: 'novo', nome: 'Novo', cor: '#3B82F6', sla: 24 },
-    { id: 'qualificacao', nome: 'Qualificação', cor: '#8B5CF6', sla: 48 },
-    { id: 'cotacao', nome: 'Cotação', cor: '#F59E0B', sla: 72 },
-    { id: 'proposta', nome: 'Proposta Enviada', cor: '#EF4444', sla: 96 },
-    { id: 'negociacao', nome: 'Negociação', cor: '#F97316', sla: 120 },
-    { id: 'fechamento', nome: 'Fechamento', cor: '#10B981', sla: 48 },
-  ];
+
+  // Estados do Pipeline Dinâmico
+  const [stages, setStages] = useState<Coluna[]>([]);
+  const [loadingPipeline, setLoadingPipeline] = useState(false);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
+
+  // Controle de Edição de Etapa
+  const [editingStageId, setEditingStageId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Coluna>>({});
+
+  // Controle de Exclusão de Etapa
+  const [stageParaExcluir, setStageParaExcluir] = useState<Coluna | null>(null);
+  const [alertExclusaoEtapaOpen, setAlertExclusaoEtapaOpen] = useState(false);
+
+  // 1. Carregar Pipeline ao abrir
+  useEffect(() => {
+    carregarDadosPipeline();
+  }, []);
+
+  const carregarDadosPipeline = async () => {
+    // Evita recarregar se já estiver na aba de pipeline, mas garante dados frescos
+    setLoadingPipeline(true);
+    try {
+      const pipelines = await fetchPipelines();
+      if (pipelines.length > 0) {
+        const pipelinePadrao = pipelines[0];
+        const id = pipelinePadrao._id || pipelinePadrao.id;
+        setSelectedPipelineId(id);
+        await carregarEtapas(id);
+      }
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao carregar pipeline." });
+    } finally {
+      setLoadingPipeline(false);
+    }
+  };
+
+  const carregarEtapas = async (pipelineId: string) => {
+    try {
+      const rawStages = await fetchStages(pipelineId);
+      const formattedStages = rawStages.map(mapApiStageToColuna);
+      setStages(formattedStages.sort((a, b) => a.ordem - b.ordem));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // 2. Adicionar Etapa
+  const handleAdicionarEtapa = async () => {
+    if (!selectedPipelineId) return;
+    try {
+      const novaOrdem = stages.length > 0 ? Math.max(...stages.map(s => s.ordem)) + 1 : 1;
+      const keyGerada = `nova-${Date.now()}`;
+
+      await createStageApi(selectedPipelineId, {
+        name: "Nova Etapa",
+        color: "#94a3b8",
+        sla: 24,
+        order: novaOrdem,
+        key: keyGerada
+      });
+
+      toast({ title: "Etapa Criada", description: "Edite o nome e a cor conforme necessário." });
+      carregarEtapas(selectedPipelineId);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível criar a etapa." });
+    }
+  };
+
+  // 3. Salvar Edição (Nome, Cor, SLA)
+  const handleSalvarEdicaoEtapa = async (stage: Coluna) => {
+    try {
+      await updateStageApi(stage.id, {
+        name: editForm.nome,
+        sla: editForm.sla,
+        color: editForm.cor,
+      });
+
+      toast({ title: "Atualizado", description: "Etapa salva com sucesso." });
+      setEditingStageId(null);
+      setEditForm({});
+      if (selectedPipelineId) carregarEtapas(selectedPipelineId);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao salvar alterações." });
+    }
+  };
+
+  // 4. Confirmar Exclusão
+  const confirmarExclusaoEtapa = async () => {
+    if (!stageParaExcluir) return;
+    try {
+      await deleteStageApi(stageParaExcluir.id);
+      toast({ title: "Excluída", description: "Etapa removida com sucesso." });
+      if (selectedPipelineId) carregarEtapas(selectedPipelineId);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir (verifique se há leads)." });
+    } finally {
+      setAlertExclusaoEtapaOpen(false);
+      setStageParaExcluir(null);
+    }
+  };
 
   // Alterar foto de perfil
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -966,6 +1071,7 @@ const Configuracoes = () => {
             )}
 
             {/* Aba Pipeline */}
+            {/* Aba Pipeline ATUALIZADA */}
             {isAdmin && (
               <TabsContent value="pipeline" className="space-y-6">
                 <Card>
@@ -976,39 +1082,97 @@ const Configuracoes = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                      {colunasPipeline.map((coluna, index) => (
-                        <div key={coluna.id} className="flex items-center gap-4 p-4 border border-border rounded-lg">
-                          <div className="flex items-center gap-3 flex-1">
-                            <div 
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: coluna.cor }}
-                            />
-                            <Input defaultValue={coluna.nome} className="flex-1" />
-                            <div className="flex items-center gap-2">
-                              <Label className="text-sm">SLA:</Label>
-                              <Input 
-                                type="number" 
-                                defaultValue={coluna.sla} 
-                                className="w-20"
-                              />
-                              <span className="text-sm text-muted-foreground">horas</span>
+                    
+                    {loadingPipeline ? (
+                      <div className="flex justify-center p-8">
+                        <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {stages.map((stage) => {
+                          const isEditing = editingStageId === stage.id;
+                          
+                          return (
+                            <div key={stage.id} className="flex items-center gap-4 p-4 border border-border rounded-lg transition-all hover:shadow-sm">
+                              
+                              {/* LADO ESQUERDO: Cor e Nome */}
+                              <div className="flex items-center gap-3 flex-1">
+                                {isEditing ? (
+                                  <input 
+                                    type="color" 
+                                    className="h-8 w-8 rounded cursor-pointer border-none p-0 bg-transparent"
+                                    value={editForm.cor || stage.cor}
+                                    onChange={(e) => setEditForm({ ...editForm, cor: e.target.value })}
+                                  />
+                                ) : (
+                                  <div 
+                                    className="w-6 h-6 rounded-full border border-gray-100 shadow-sm"
+                                    style={{ backgroundColor: stage.cor }}
+                                  />
+                                )}
+                                
+                                {isEditing ? (
+                                  <Input 
+                                    value={editForm.nome !== undefined ? editForm.nome : stage.nome}
+                                    onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })} 
+                                    className="flex-1 max-w-[300px]"
+                                    placeholder="Nome da etapa"
+                                  />
+                                ) : (
+                                  <span className="flex-1 font-medium text-foreground">{stage.nome}</span>
+                                )}
+
+                                {/* SLA */}
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-sm whitespace-nowrap">SLA (h):</Label>
+                                  {isEditing ? (
+                                    <Input 
+                                      type="number" 
+                                      value={editForm.sla !== undefined ? editForm.sla : (stage.sla || 0)} 
+                                      onChange={(e) => setEditForm({ ...editForm, sla: Number(e.target.value) })}
+                                      className="w-20 text-center"
+                                    />
+                                  ) : (
+                                    <span className="text-sm font-mono bg-muted px-2 py-1 rounded">{stage.sla || 0}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* LADO DIREITO: Botões */}
+                              <div className="flex items-center gap-2">
+                                {isEditing ? (
+                                  <Button size="sm" onClick={() => handleSalvarEdicaoEtapa(stage)} className="bg-green-600 hover:bg-green-700 h-8">
+                                    <Save className="h-4 w-4 mr-1" /> Salvar
+                                  </Button>
+                                ) : (
+                                  <>
+                                    <Button variant="ghost" size="sm" onClick={() => {
+                                      setEditingStageId(stage.id);
+                                      setEditForm({ nome: stage.nome, sla: stage.sla, cor: stage.cor });
+                                    }}>
+                                      <Edit className="h-4 w-4 text-gray-500" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => {
+                                        setStageParaExcluir(stage);
+                                        setAlertExclusaoEtapaOpen(true);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {index > 2 && (
-                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <Button variant="outline" className="w-full">
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <Button variant="outline" className="w-full border-dashed" onClick={handleAdicionarEtapa}>
                       <Plus className="h-4 w-4 mr-2" />
                       Adicionar Nova Etapa
                     </Button>
@@ -1184,6 +1348,7 @@ const Configuracoes = () => {
           </Tabs>
         </div>
       </div>
+
       {/* --- MODAL DE CONFIRMAÇÃO: EXCLUIR --- */}
       <AlertDialog open={alertExclusaoOpen} onOpenChange={setAlertExclusaoOpen}>
         <AlertDialogContent>
@@ -1227,6 +1392,29 @@ const Configuracoes = () => {
               className={usuarioParaStatus?.ativo ? "bg-destructive hover:bg-destructive/90" : "bg-green-600 hover:bg-green-700"}
             >
               {usuarioParaStatus?.ativo ? "Inativar" : "Ativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* --- MODAL DE CONFIRMAÇÃO: EXCLUIR ETAPA --- */}
+      <AlertDialog open={alertExclusaoEtapaOpen} onOpenChange={setAlertExclusaoEtapaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Etapa do Pipeline</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a etapa <strong>{stageParaExcluir?.nome}</strong>?
+              <br/>
+              <span className="text-red-500 font-bold">Atenção:</span> Se houver leads nesta etapa, a exclusão será bloqueada pelo sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmarExclusaoEtapa}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir Etapa
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -13,7 +13,13 @@ import {
 } from './pipelines.service.js';
 
 const pipelineSchema = z.object({ name: z.string(), key: z.string(), description: z.string().optional() });
-const stageSchema = z.object({ name: z.string(), order: z.number(), key: z.string() });
+const stageSchema = z.object({ 
+  name: z.string(), 
+  order: z.number(), 
+  key: z.string(),
+  color: z.string().optional(),
+  sla: z.number().optional()
+});
 
 export const listPipelinesHandler = asyncHandler(async (_req: Request, res: Response) => {
   res.json(await listPipelines());
