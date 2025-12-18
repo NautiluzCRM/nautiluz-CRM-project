@@ -13,10 +13,14 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/', requireRole(['admin']), listUsersHandler);
+// Listagem liberada para popular selects/dropdowns
+router.get('/', listUsersHandler);
+
+// Gestão de usuários continua restrita a Admin
 router.post('/', requireRole(['admin']), createUserHandler);
 router.delete('/:id', requireRole(['admin']), deleteUserHandler);
 
+// Ver/Editar perfil específico (pode refinar depois se usuário pode editar a si mesmo)
 router.get('/:id', getUserHandler);
 router.patch('/:id', updateUserHandler);
 
