@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -8,8 +8,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  Modifier,
 } from "@dnd-kit/core";
-import { SortableContext, arrayMove } from "@dnd-kit/sortable";
+import { SortableContext } from "@dnd-kit/sortable";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
 import { Lead, Coluna } from "@/types/crm";
@@ -25,6 +26,8 @@ interface KanbanBoardProps {
 export function KanbanBoard({ colunas, leads, onLeadMove, onLeadUpdate, onLeadClick }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'lead' | 'column' | null>(null);
+  
+  const pipelineContainerRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -33,6 +36,26 @@ export function KanbanBoard({ colunas, leads, onLeadMove, onLeadUpdate, onLeadCl
       },
     })
   );
+
+  const restrictToPipelineArea: Modifier = ({ transform, draggingNodeRect }) => {
+    if (!pipelineContainerRef.current || !draggingNodeRect) {
+      return transform;
+    }
+
+    const containerRect = pipelineContainerRef.current.getBoundingClientRect();
+
+    const minX = containerRect.left - draggingNodeRect.left;
+    const maxX = containerRect.right - draggingNodeRect.right;
+    
+    const minY = containerRect.top - draggingNodeRect.top;
+    const maxY = containerRect.bottom - draggingNodeRect.bottom;
+
+    return {
+      ...transform,
+      x: Math.max(minX, Math.min(transform.x, maxX)),
+      y: Math.max(minY, Math.min(transform.y, maxY)),
+    };
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -84,9 +107,14 @@ export function KanbanBoard({ colunas, leads, onLeadMove, onLeadUpdate, onLeadCl
   const activeLead = activeId ? leads.find(l => l.id === activeId) : null;
 
   return (
-    <div className="h-full flex p-3 sm:p-6 bg-background overflow-x-auto">
+    // A Ref vai aqui no container principal
+    <div 
+      ref={pipelineContainerRef} 
+      className="h-full flex p-3 sm:p-6 bg-background overflow-x-auto relative"
+    >
       <DndContext
         sensors={sensors}
+        modifiers={[restrictToPipelineArea]}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
