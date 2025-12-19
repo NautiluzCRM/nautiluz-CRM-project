@@ -101,14 +101,53 @@ export async function fetchStages(pipelineId: string) {
   return request<any[]>(`/pipelines/${pipelineId}/stages`);
 }
 
+export async function createLeadApi(data: any) {
+  const payload = {
+    name: data.nome,
+    email: data.email,
+    phone: data.celular,
+    origin: data.origem || "Indicação",
+    pipelineId: data.pipelineId,
+    stageId: data.stageId,
+    
+    company: data.empresa,
+    livesCount: Number(data.quantidadeVidas || 0),
+    avgPrice: Number(data.valorMedio || 0),
+    hasCnpj: Boolean(data.possuiCnpj),
+    
+    cnpjType: data.possuiCnpj ? data.tipoCnpj : undefined,
+    owners: data.owners, // Envia array de IDs
+
+    hasCurrentPlan: Boolean(data.possuiPlano),
+    currentPlan: data.planoAtual,
+    ageBuckets: data.idades,
+    city: data.cidade,
+    state: data.uf,
+    createdAt: data.dataCriacao ? new Date(data.dataCriacao).toISOString() : undefined,
+
+    notes: data.observacoes,
+    preferredHospitals: data.hospitaisPreferencia
+  };
+
+  return request("/leads", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchLeads() {
   return request<any[]>("/leads");
 }
 
-export async function moveLeadApi(leadId: string, toStageId: string) {
-  return request(`/kanban/move`, {
+export async function moveLeadApi(
+  leadId: string, 
+  toStageId: string, 
+  beforeId?: string, 
+  afterId?: string
+) {
+  return request("/kanban/move", {
     method: "POST",
-    body: JSON.stringify({ leadId, toStageId }),
+    body: JSON.stringify({ leadId, toStageId, beforeId, afterId }),
   });
 }
 
@@ -119,6 +158,12 @@ export async function updateLeadApi(leadId: string, payload: Partial<Lead>) {
   });
 }
 
+export async function deleteLeadApi(leadId: string) {
+  return request(`/leads/${leadId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function exportLeadsXlsx(filter: Record<string, unknown> = {}) {
   return request<{ url: string; file: string }>("/exports/xlsx", {
     method: "POST",
@@ -126,7 +171,6 @@ export async function exportLeadsXlsx(filter: Record<string, unknown> = {}) {
   });
 }
 
-// Helpers para adaptar payload do backend aos tipos do frontend
 export function mapApiStageToColuna(stage: any): Coluna {
   return {
     id: stage._id || stage.id,
@@ -139,6 +183,29 @@ export function mapApiStageToColuna(stage: any): Coluna {
 }
 
 export function mapApiLeadToLead(api: any): Lead {
+  // LÓGICA DE MAPEAMENTO DE DONOS (Objetos ou Strings)
+  
+  // 1. Pega o array bruto (pode vir owners ou owner)
+  const rawOwners = api.owners && api.owners.length > 0 ? api.owners : (api.owner ? [api.owner] : []);
+
+  // 2. Normaliza para garantir que temos um array de objetos { id, nome }
+  // Se o backend populou, 'u' é objeto. Se não, 'u' é string (ID).
+  const normalizedOwners = rawOwners.map((u: any) => {
+    if (typeof u === 'string') {
+        return { id: u, nome: "Carregando..." }; // Fallback caso não tenha populado
+    }
+    return { 
+        id: u._id || u.id, 
+        nome: u.name || u.nome || "Sem Nome" 
+    };
+  });
+
+  // 3. Cria uma string de exibição (Ex: "Douglas, João") para lugares simples
+  const responsavelDisplay = normalizedOwners.map((o: any) => o.nome.split(' ')[0]).join(', ');
+
+  // 4. Extrai IDs para uso no formulário de edição (checkboxes)
+  const ownersIds = normalizedOwners.map((o: any) => o.id);
+
   return {
     id: api._id || api.id,
     nome: api.name || api.nome || "Lead",
@@ -157,7 +224,16 @@ export function mapApiLeadToLead(api: any): Lead {
     informacoes: api.notes,
     uf: api.state,
     cidade: api.city,
-    responsavel: api.owner || "",
+    
+    // Passamos a lista de objetos completos para o Modal de Detalhes renderizar Avatars
+    owners: normalizedOwners, 
+    
+    // Passamos a lista de IDs para o Modal de Edição saber quais checkboxes marcar
+    ownersIds: ownersIds,
+
+    // Mantemos compatibilidade visual com string
+    responsavel: responsavelDisplay || "Não atribuído",
+    
     statusQualificacao: api.qualificationStatus || "Qualificado",
     motivoPerda: api.lostReason,
     colunaAtual: api.stageId || api.colunaAtual,
@@ -165,7 +241,7 @@ export function mapApiLeadToLead(api: any): Lead {
     ultimaAtividade: api.lastActivityAt ? new Date(api.lastActivityAt) : new Date(),
     arquivos: [],
     atividades: api.activities || [],
-  };
+  } as unknown as Lead;
 }
 
 export function mapLeadToApiPayload(lead: Partial<Lead>) {
@@ -186,6 +262,10 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
     notes: lead.informacoes,
     state: lead.uf,
     city: lead.cidade,
+    
+    // IMPORTANTE: Aqui pegamos o array de IDs que o CreateLeadModal enviou
+    owners: (lead as any).owners, 
+    
     qualificationStatus: lead.statusQualificacao,
     lostReason: lead.motivoPerda,
     stageId: lead.colunaAtual,
@@ -203,4 +283,96 @@ export async function fetchPipelineData(): Promise<Pipeline> {
     colunas: stages.map(mapApiStageToColuna),
     leads: leads.map(mapApiLeadToLead),
   };
+}
+
+// --- Funções de Usuários ---
+
+export async function fetchUsers() {
+  const data = await request<any[]>("/users");
+  return data.map(mapApiUserToUsuario);
+}
+
+function mapApiUserToUsuario(apiUser: any) {
+  let perfil = 'Vendedor';
+  if (apiUser.role === 'admin') perfil = 'Administrador';
+  else if (apiUser.role === 'financial') perfil = 'Financeiro';
+
+  return {
+    id: apiUser._id || apiUser.id,
+    nome: apiUser.name || apiUser.nome || "Sem Nome",
+    email: apiUser.email,
+    perfil: perfil as "Administrador" | "Financeiro" | "Vendedor",
+    ativo: apiUser.active !== false,
+    foto: apiUser.photoUrl || apiUser.avatar || null,
+    ultimoAcesso: apiUser.lastLoginAt ? new Date(apiUser.lastLoginAt) : new Date(),
+    phone: apiUser.phone,
+    jobTitle: apiUser.jobTitle,
+    emailSignature: apiUser.emailSignature
+  };
+}
+
+export async function createUserApi(dados: {
+  nome: string;
+  email: string;
+  perfil: string;
+  telefone?: string;
+  cargo?: string;
+  assinatura?: string;
+}) {
+  const payload = {
+    name: dados.nome,
+    email: dados.email,
+    password: "demo123",
+    role: dados.perfil === 'Administrador' ? 'admin' : 
+          dados.perfil === 'Financeiro' ? 'financeiro' : 'vendedor',
+    active: true,
+    phone: dados.telefone,
+    jobTitle: dados.cargo,
+    emailSignature: dados.assinatura
+  };
+
+  return request("/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateUserApi(id: string, dados: { 
+  nome?: string; 
+  email?: string; 
+  perfil?: string; 
+  ativo?: boolean;
+  senha?: string;
+  senhaAtual?: string;
+  foto?: string;
+  telefone?: string;
+  cargo?: string;
+  assinatura?: string;
+}) {
+  const payload: any = {};
+  if (dados.nome) payload.name = dados.nome;
+  if (dados.email) payload.email = dados.email;
+  if (dados.ativo !== undefined) payload.active = dados.ativo;
+  if (dados.senha) payload.password = dados.senha;
+  if (dados.senhaAtual) payload.currentPassword = dados.senhaAtual;
+  if (dados.foto !== undefined) payload.photoUrl = dados.foto;
+  if (dados.telefone !== undefined) payload.phone = dados.telefone;
+  if (dados.cargo !== undefined) payload.jobTitle = dados.cargo;
+  if (dados.assinatura !== undefined) payload.emailSignature = dados.assinatura;
+  
+  if (dados.perfil) {
+    payload.role = dados.perfil.toLowerCase() === 'administrador' ? 'admin' : 
+                   dados.perfil.toLowerCase() === 'financeiro' ? 'financeiro' : 'vendedor';
+  }
+
+  return request(`/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteUserApi(id: string) {
+  return request(`/users/${id}`, {
+    method: "DELETE",
+  });
 }

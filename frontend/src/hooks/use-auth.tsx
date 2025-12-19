@@ -15,6 +15,7 @@ type AuthContextValue = {
   loading: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<AuthUser>;
   logout: () => void;
+  updateUserLocal: (dados: Partial<AuthUser>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -79,6 +80,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAuth({ token: null, refresh: null, user: null });
   }, []);
 
+  const updateUserLocal = useCallback((dados: Partial<AuthUser>) => {
+    setAuth((current) => {
+      if (!current.user) return current;
+
+      const newUser = { ...current.user, ...dados };
+
+      if (localStorage.getItem("authUser")) {
+        localStorage.setItem("authUser", JSON.stringify(newUser));
+      }
+      if (sessionStorage.getItem("authUser")) {
+        sessionStorage.setItem("authUser", JSON.stringify(newUser));
+      }
+
+      return { ...current, user: newUser };
+    });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -86,8 +104,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading,
       login,
       logout,
+      updateUserLocal,
     }),
-    [token, user, loading, login, logout]
+    [token, user, loading, login, logout, updateUserLocal]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

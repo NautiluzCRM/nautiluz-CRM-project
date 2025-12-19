@@ -7,28 +7,66 @@ import { StatusCodes } from 'http-status-codes';
 import { randomUUID } from 'crypto';
 
 export function listLeads(filter: any = {}) {
-  return LeadModel.find(filter).sort({ createdAt: -1 });
+  // ALTERAÇÃO: Adicionado .populate para trazer os dados dos responsáveis
+  return LeadModel.find(filter)
+    .sort({ createdAt: -1 })
+    .populate('owners', 'name email') 
+    .populate('owner', 'name email'); // Mantém legado
 }
 
 export function getLead(id: string) {
-  return LeadModel.findById(id);
+  // ALTERAÇÃO: Adicionado .populate
+  return LeadModel.findById(id)
+    .populate('owners', 'name email')
+    .populate('owner', 'name email');
 }
 
 export async function createLead(input: any, userId?: string) {
   const pipeline = await PipelineModel.findById(input.pipelineId);
   if (!pipeline) throw new AppError('Pipeline inválido', StatusCodes.BAD_REQUEST);
+  
   const stage = await StageModel.findById(input.stageId);
   if (!stage) throw new AppError('Stage inválido', StatusCodes.BAD_REQUEST);
-  const rank = input.rank || randomUUID();
-  const lead = await LeadModel.create({ ...input, rank, createdBy: userId });
-  await ActivityModel.create({ leadId: lead._id, type: 'create', payload: input, userId });
+
+  const rank = input.rank || '0|hzzzzz:';
+
+  const lead = await LeadModel.create({ 
+    ...input, 
+    rank, 
+    createdBy: userId,
+    active: true,
+    createdAt: input.createdAt || new Date(),
+    lastActivity: input.createdAt || new Date()
+  });
+
+  await ActivityModel.create({ 
+    leadId: lead._id, 
+    type: 'Sistema',        
+    descricao: 'Lead criado no sistema', 
+    usuario: userId || 'Sistema',
+    data: input.createdAt || new Date()
+  });
+
   return lead;
 }
 
 export async function updateLead(id: string, input: any, userId?: string) {
-  const lead = await LeadModel.findByIdAndUpdate(id, { ...input, updatedBy: userId }, { new: true });
+  // ALTERAÇÃO: Adicionado .populate no retorno para o frontend receber o nome imediatamente após editar
+  const lead = await LeadModel.findByIdAndUpdate(id, { ...input, updatedBy: userId }, { new: true })
+    .populate('owners', 'name email')
+    .populate('owner', 'name email');
+
   if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
-  await ActivityModel.create({ leadId: lead._id, type: 'update', payload: input, userId });
+  
+  await ActivityModel.create({ 
+    leadId: lead._id, 
+    type: 'Alteração', 
+    descricao: 'Dados do lead atualizados', 
+    payload: input, 
+    usuario: userId || 'Sistema',
+    data: new Date()
+  });
+  
   return lead;
 }
 
@@ -39,5 +77,15 @@ export function deleteLead(id: string) {
 export async function addActivity(leadId: string, type: string, payload: any, userId?: string) {
   const lead = await LeadModel.findById(leadId);
   if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
-  return ActivityModel.create({ leadId, type, payload, userId });
+  
+  const descricao = payload.description || payload.descricao || 'Nova atividade registrada';
+
+  return ActivityModel.create({ 
+    leadId, 
+    type,       
+    descricao,  
+    payload, 
+    usuario: userId || 'Sistema',
+    data: new Date()
+  });
 }

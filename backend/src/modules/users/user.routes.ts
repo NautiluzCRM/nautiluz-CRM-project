@@ -10,13 +10,18 @@ import { authenticate } from '../../rbac/rbac.middleware.js';
 import { requireRole } from '../../rbac/rbac.guard.js';
 
 const router = Router();
-router.use(authenticate);
-router.use(requireRole(['admin']));
 
+router.use(authenticate);
+
+// Listagem liberada para popular selects/dropdowns
 router.get('/', listUsersHandler);
-router.post('/', createUserHandler);
+
+// Gestão de usuários continua restrita a Admin
+router.post('/', requireRole(['admin']), createUserHandler);
+router.delete('/:id', requireRole(['admin']), deleteUserHandler);
+
+// Ver/Editar perfil específico (pode refinar depois se usuário pode editar a si mesmo)
 router.get('/:id', getUserHandler);
 router.patch('/:id', updateUserHandler);
-router.delete('/:id', deleteUserHandler);
 
 export default router;

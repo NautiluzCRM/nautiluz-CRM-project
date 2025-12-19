@@ -8,38 +8,64 @@ import { Plus, Filter, Download, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fetchPipelineData, moveLeadApi, updateLeadApi } from "@/lib/api";
+import { CreateLeadModal } from "@/components/CreateLeadModal";
 
 const Index = () => {
   const [pipeline, setPipeline] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Estado para o Modal de Detalhes
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Estado para o Modal de Criação/Edição
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null); // NOVO: Controla quem está sendo editado
+
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await fetchPipelineData();
-        setPipeline(data);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, []);
-
-  const handleLeadMove = async (leadId: string, novaColuna: string) => {
-    await moveLeadApi(leadId, novaColuna);
-    setPipeline((prev: any) => ({
-      ...prev,
-      leads: prev.leads.map((lead: Lead) =>
-        lead.id === leadId
-          ? { ...lead, colunaAtual: novaColuna, ultimaAtividade: new Date() }
-          : lead
-      )
-    }));
+  // Função para recarregar os dados do Kanban
+  const loadPipeline = async () => {
+    try {
+      const data = await fetchPipelineData();
+      setPipeline(data);
+    } catch (error) {
+      console.error("Erro ao carregar pipeline", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  useEffect(() => {
+    loadPipeline();
+  }, []);
+
+  const handleLeadMove = async (
+    leadId: string, 
+    novaColuna: string, 
+    beforeId?: string, 
+    afterId?: string
+  ) => {
+    // Atualização Otimista
+    setPipeline((prev: any) => {
+      const newLeads = prev.leads.map((lead: Lead) => {
+        if (lead.id === leadId) {
+          return { ...lead, colunaAtual: novaColuna };
+        }
+        return lead;
+      });
+      return { ...prev, leads: newLeads };
+    });
+
+    try {
+      await moveLeadApi(leadId, novaColuna, beforeId, afterId);
+    } catch (error) {
+      console.error("Erro ao mover lead:", error);
+      loadPipeline(); // Reverte em caso de erro
+    }
+  };
+
+  // Essa função lida apenas com atualizações rápidas (ex: drag and drop interno se houvesse)
   const handleLeadUpdate = async (updatedLead: Lead) => {
     await updateLeadApi(updatedLead.id, updatedLead);
     setPipeline((prev: any) => ({
@@ -48,6 +74,19 @@ const Index = () => {
         lead.id === updatedLead.id ? updatedLead : lead
       )
     }));
+  };
+
+  // NOVO: Função chamada ao clicar no botão "Editar" dentro do Modal de Detalhes
+  const handleEditStart = (lead: Lead) => {
+    setLeadToEdit(lead);      // Define qual lead será editado
+    setIsModalOpen(false);    // Fecha o modal de visualização
+    setIsCreateModalOpen(true); // Abre o formulário
+  };
+
+  // NOVO: Função chamada ao clicar no botão "Novo Lead"
+  const handleNewLead = () => {
+    setLeadToEdit(null);      // Garante que o formulário venha vazio
+    setIsCreateModalOpen(true);
   };
 
   const filteredLeads = pipeline?.leads?.filter((lead: Lead) => 
@@ -77,7 +116,10 @@ const Index = () => {
                 Gestão de leads e oportunidades - NAUTILUZ CRM
               </p>
             </div>
-            <Button className="bg-gradient-primary hover:bg-primary-hover w-full sm:w-auto">
+            
+            {/* Botão Novo Lead Atualizado */}
+            <Button onClick={handleNewLead}
+              className="bg-gradient-primary hover:bg-primary-hover w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Novo Lead
             </Button>
@@ -136,12 +178,24 @@ const Index = () => {
         </div>
       </div>
 
+      {/* Modal de Detalhes - Agora usa handleEditStart */}
       <LeadDetailsModal
         lead={selectedLead}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onEdit={handleLeadUpdate}
+        onEdit={handleEditStart} 
       />
+
+      {/* Modal de Criação/Edição - Agora recebe leadToEdit */}
+      <CreateLeadModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        leadToEdit={leadToEdit} 
+        onSuccess={() => {
+          loadPipeline(); // Recarrega os dados após criar ou editar
+        }}
+      />
+
     </Layout>
   );
 };

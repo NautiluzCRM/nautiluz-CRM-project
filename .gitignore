@@ -10,6 +10,7 @@ lerna-debug.log*
 #backend
 backend/node_modules
 backend/dist
+*.env
 
 #frontend
 frontend/node_modules
@@ -32,3 +33,6 @@ dist-ssr
 
 # Ignorar o componente Teste.tsx
 frontend/src/pages/Teste.tsx
+
+#Zuco
+WORKLOG.md
