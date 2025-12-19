@@ -33,3 +33,15 @@ export function updateStage(id: string, input: Partial<{ name: string; order: nu
 export function deleteStage(id: string) {
   return StageModel.findByIdAndDelete(id);
 }
+
+export async function reorderStages(pipelineId: string, orderedIds: string[]) {
+  const updates = orderedIds.map((id, index) => {
+    return StageModel.updateOne(
+      { _id: id, pipelineId },
+      { order: index + 1 }
+    );
+  });
+  
+  await Promise.all(updates);
+  return listStages(pipelineId);
+}

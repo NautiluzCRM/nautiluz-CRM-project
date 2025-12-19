@@ -409,3 +409,10 @@ export async function deleteStageApi(stageId: string) {
     method: "DELETE",
   });
 }
+
+export async function reorderStagesApi(pipelineId: string, orderedIds: string[]) {
+  return request(`/pipelines/${pipelineId}/stages/reorder`, {
+    method: "PUT",
+    body: JSON.stringify({ ids: orderedIds }),
+  });
+}

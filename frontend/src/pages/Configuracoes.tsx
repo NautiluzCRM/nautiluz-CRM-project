@@ -23,6 +23,7 @@ import {
   createStageApi,
   updateStageApi,
   deleteStageApi,
+  reorderStagesApi,
   mapApiStageToColuna
 } from "@/lib/api";
 import { Coluna } from "@/types/crm";
@@ -488,20 +489,37 @@ const Configuracoes = () => {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
-      setStages((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over?.id);
-
-        // Reordena o array visualmente
-        const newOrder = arrayMove(items, oldIndex, newIndex);
-
-        // AQUI CHAMAREMOS A API DEPOIS
-        // salvarNovaOrdemApi(newOrder); 
-
-        return newOrder;
-      });
+    if (!over || active.id === over.id) {
+      return;
     }
+
+    // 1. Atualiza visualmente primeiro
+    setStages((items) => {
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      
+      const newOrder = arrayMove(items, oldIndex, newIndex);
+      
+      // 2. Chama a API em background para salvar a nova ordem
+      if (selectedPipelineId) {
+        const idsOrdenados = newOrder.map(s => s.id);
+        
+        reorderStagesApi(selectedPipelineId, idsOrdenados)
+          .then(() => {
+            console.log("Ordem salva com sucesso");
+          })
+          .catch((err) => {
+            console.error("Erro ao salvar ordem", err);
+            toast({
+              variant: "destructive",
+              title: "Erro de Sincronização",
+              description: "A nova ordem não pode ser salva. Recarregue a página."
+            });
+          });
+      }
+
+      return newOrder;
+    });
   };
 
 

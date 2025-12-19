@@ -9,7 +9,8 @@ import {
   listPipelines,
   listStages,
   updatePipeline,
-  updateStage
+  updateStage,
+  reorderStages
 } from './pipelines.service.js';
 
 const pipelineSchema = z.object({ name: z.string(), key: z.string(), description: z.string().optional() });
@@ -19,6 +20,10 @@ const stageSchema = z.object({
   key: z.string(),
   color: z.string().optional(),
   sla: z.number().optional()
+});
+
+const reorderSchema = z.object({
+  ids: z.array(z.string())
 });
 
 export const listPipelinesHandler = asyncHandler(async (_req: Request, res: Response) => {
@@ -65,4 +70,10 @@ export const deleteStageHandler = asyncHandler(async (req: Request, res: Respons
   const stage = await deleteStage(req.params.id);
   if (!stage) return res.status(404).json({ message: 'Stage not found' });
   res.json({ ok: true });
+});
+
+export const reorderStagesHandler = asyncHandler(async (req: Request, res: Response) => {
+  const body = reorderSchema.parse(req.body);
+  const stages = await reorderStages(req.params.id, body.ids);
+  res.json(stages);
 });
