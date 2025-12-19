@@ -5,15 +5,18 @@ import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
 
+import mongoose from 'mongoose';
+
 interface UserAuth {
   sub: string;
   role: string;
 }
 
 export async function listLeads(filter: any = {}, user?: UserAuth) {
-  const query = { ...filter };
+  const query: any = {};
+
   if (filter.owners) {
-     query.owners = filter.owners;
+    query.owners = filter.owners;
   }
 
   return LeadModel.find(query)

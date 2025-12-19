@@ -136,8 +136,16 @@ export async function createLeadApi(data: any) {
 }
 
 export async function fetchLeads(filters?: Record<string, string>) {
-  const queryParams = new URLSearchParams(filters).toString();
-  const endpoint = queryParams ? `/leads?${queryParams}` : "/leads";
+  const params = new URLSearchParams();
+  
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+  }
+
+  const queryString = params.toString();
+  const endpoint = queryString ? `/leads?${queryString}` : "/leads";
   
   return request<any[]>(endpoint);
 }

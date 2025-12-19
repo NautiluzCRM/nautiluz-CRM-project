@@ -1,5 +1,3 @@
-// frontend/src/pages/Leads.tsx
-
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
@@ -10,51 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table as TableComponent,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Plus,
-  Search,
-  Grid,
-  List,
-  Download,
-  Phone,
-  MessageCircle,
-  Mail,
-  Building,
-  Users,
-  Calendar,
-  Loader2
-} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table as TableComponent, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Search, Grid, List, Download, Phone, MessageCircle, Mail, Building, Users, Calendar, Loader2, UserCheck } from "lucide-react";
 import { fetchLeads, mapApiLeadToLead } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
 const Leads = () => {
   const { toast } = useToast();
-  const { user } = useAuth(); // (Não estamos usando user direto aqui, mas é bom manter)
+  const { user } = useAuth();
+  
+  // REGRA: Admin e Financeiro são "Privilegiados"
+  const isPrivileged = user?.role === 'admin' || user?.role === 'financial';
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   
-  // --- ESTADOS DOS MODAIS ---
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null); // <--- CONTROLADOR DE EDIÇÃO
-  // --------------------------
+  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
+
+  const [showMine, setShowMine] = useState(!isPrivileged);
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchTerm, setSearchTerm] = useState("");
@@ -62,11 +37,30 @@ const Leads = () => {
   const [origemFilter, setOrigemFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
 
+  useEffect(() => {
+    if (!isPrivileged) {
+      setShowMine(true);
+    }
+  }, [isPrivileged]);
+
   const loadLeads = async () => {
     setIsLoading(true);
     try {
-      // Busca leads aplicando filtros (se necessário)
-      const data = await fetchLeads();
+      const filters: Record<string, string> = {};
+      const userId = user?.id || (user as any)?._id || (user as any)?.sub;
+
+      if (showMine) {
+        if (userId) {
+          filters.owners = userId;
+          console.log("Filtro aplicado: owners =", userId);
+        } else {
+          console.error("ERRO: showMine está true, mas não encontrei ID no usuário!");
+        }
+      } else {
+        console.log("Filtro desligado (Admin vendo tudo)");
+      }
+
+      const data = await fetchLeads(filters);
       setLeads(data.map(mapApiLeadToLead));
     } catch (error) {
       console.error("Erro ao carregar leads", error);
@@ -82,7 +76,7 @@ const Leads = () => {
 
   useEffect(() => {
     loadLeads();
-  }, []);
+  }, [showMine]);
 
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = 
@@ -96,42 +90,30 @@ const Leads = () => {
     return matchesSearch && matchesStatus && matchesOrigem;
   });
 
+  // ... (Funções de clique e modais idênticas às anteriores)
   const handleLeadClick = (lead: Lead) => {
     setSelectedLead(lead);
     setIsDetailsOpen(true);
   };
 
-  // --- AÇÕES DO USUÁRIO ---
-  
-  // 1. Botão "Novo Lead" (Header)
   const handleNewLead = () => {
-    setLeadToEdit(null); // Garante que o formulário vem vazio
+    setLeadToEdit(null);
     setIsCreateOpen(true);
   };
 
-  // 2. Botão "Editar" (Dentro do Modal Detalhes)
   const handleEditClick = (lead: Lead) => {
     setSelectedLead(lead); 
-    setLeadToEdit(lead); // Preenche o formulário com dados deste lead
+    setLeadToEdit(lead);
     setIsDetailsOpen(false); 
-    setIsCreateOpen(true); // Abre o CreateLeadModal em modo de edição
+    setIsCreateOpen(true);
   };
 
-  // 3. Callback de Sucesso (do Modal de Criação/Edição)
   const handleSuccess = () => {
-    loadLeads(); // Recarrega tudo do backend para atualizar a lista
+    loadLeads();
     setIsCreateOpen(false);
     setLeadToEdit(null);
-    
-    // Se estava editando, reabre o detalhes com os dados novos (opcional)
-    if (leadToEdit) {
-      // Como loadLeads é assíncrono, o ideal seria buscar o lead específico,
-      // mas fechar tudo é uma UX segura também.
-      setIsDetailsOpen(false);
-    }
+    if (leadToEdit) setIsDetailsOpen(false);
   };
-
-  // -------------------------
 
   // Helpers de Cor
   const getOrigemColor = (origem: string) => {
@@ -176,7 +158,6 @@ const Leads = () => {
             </Button>
           </div>
 
-          {/* Filtros */}
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-1 min-w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -188,8 +169,21 @@ const Leads = () => {
               />
             </div>
             
+            {/* BOTÃO DE FILTRO COM LÓGICA DE TRAVA */}
+            <Button
+              variant={showMine ? "default" : "outline"}
+              onClick={() => isPrivileged && setShowMine(!showMine)}
+              className={`gap-2 ${!isPrivileged ? "opacity-100 cursor-not-allowed bg-primary/90 text-primary-foreground" : ""}`}
+              title={!isPrivileged ? "Filtro obrigatório para vendedores" : "Filtrar por meus leads"}
+            >
+              <UserCheck className="h-4 w-4" />
+              Meus Leads
+              {/* Se não for admin, mostra badge sutil dizendo que é fixo */}
+              {!isPrivileged && <span className="text-[10px] ml-1 bg-black/20 px-1 rounded">FIXO</span>}
+            </Button>
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -202,7 +196,7 @@ const Leads = () => {
             </Select>
 
             <Select value={origemFilter} onValueChange={setOrigemFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="Origem" />
               </SelectTrigger>
               <SelectContent>
@@ -214,17 +208,19 @@ const Leads = () => {
               </SelectContent>
             </Select>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 border-l pl-4 ml-2">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="sm"
+                size="icon"
+                className="h-9 w-9"
                 onClick={() => setViewMode('grid')}
               >
                 <Grid className="h-4 w-4" />
               </Button>
               <Button
                 variant={viewMode === 'table' ? 'default' : 'outline'}
-                size="sm"
+                size="icon"
+                className="h-9 w-9"
                 onClick={() => setViewMode('table')}
               >
                 <List className="h-4 w-4" />
@@ -423,7 +419,6 @@ const Leads = () => {
         </div>
       </div>
 
-      {/* Modal de Detalhes (Visualização) */}
       <LeadDetailsModal
         lead={selectedLead}
         isOpen={isDetailsOpen}
@@ -431,15 +426,14 @@ const Leads = () => {
         onEdit={handleEditClick} 
       />
 
-      {/* Modal de Criação e Edição (REUTILIZADO) */}
       <CreateLeadModal 
         isOpen={isCreateOpen}
         onClose={() => {
           setIsCreateOpen(false);
-          setLeadToEdit(null); // Limpa ao fechar
+          setLeadToEdit(null);
         }}
         onSuccess={handleSuccess}
-        leadToEdit={leadToEdit} // <--- Passa o lead para o modal preencher o formulário
+        leadToEdit={leadToEdit}
       />
     </Layout>
   );
