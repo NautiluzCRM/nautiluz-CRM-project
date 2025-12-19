@@ -446,6 +446,15 @@ const Configuracoes = () => {
 
   // 3. Salvar Edição (Nome, Cor, SLA)
   const handleSalvarEdicaoEtapa = async (stage: Coluna) => {
+    if (editForm.nome !== undefined && editForm.nome.trim() === "") {
+      toast({ 
+        variant: "destructive", 
+        title: "Nome inválido", 
+        description: "O nome da etapa não pode ficar vazio." 
+      });
+      return;
+    }
+
     try {
       await updateStageApi(stage.id, {
         name: editForm.nome,
@@ -469,15 +478,26 @@ const Configuracoes = () => {
       await deleteStageApi(stageParaExcluir.id);
       toast({ title: "Excluída", description: "Etapa removida com sucesso." });
       if (selectedPipelineId) carregarEtapas(selectedPipelineId);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir (verifique se há leads)." });
+    } catch (error: any) {
+      let msg = "Não foi possível excluir.";
+      try {
+         const parsed = JSON.parse(error.message); 
+         if (parsed.message) msg = parsed.message;
+      } catch (e) {
+         if (error.message) msg = error.message;
+      }
+
+      toast({ 
+        variant: "destructive", 
+        title: "Operação Bloqueada", 
+        description: msg
+      });
     } finally {
       setAlertExclusaoEtapaOpen(false);
       setStageParaExcluir(null);
     }
   };
 
-  // ... seus states (stages, loading, etc) ...
 
   // Configuração dos Sensores (Copiado/Adaptado do seu Kanban)
   const sensors = useSensors(
