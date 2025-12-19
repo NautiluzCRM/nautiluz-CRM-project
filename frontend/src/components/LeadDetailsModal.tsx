@@ -25,8 +25,8 @@ import {
   CheckCircle,
   Briefcase
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
-// Faixas Padrão ANS
 const FAIXAS_LABELS = [
   "0-18", "19-23", "24-28", "29-33", "34-38",
   "39-43", "44-48", "49-53", "54-58", "59+"
@@ -40,9 +40,26 @@ interface LeadDetailsModalProps {
 }
 
 export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsModalProps) {
+  const { user } = useAuth();
+
   if (!lead) return null;
 
-  const leadData = lead as any; // Acesso aos campos novos mapeados no api.ts (owners, etc)
+  const leadData = lead as any;
+
+  // --- CORREÇÃO DA PERMISSÃO DE EDIÇÃO ---
+  const isAdmin = user?.role === 'admin';
+  
+  // 1. Pega o ID do usuário de forma segura (id ou _id)
+  const currentUserId = user?.id || (user as any)?._id;
+  
+  // 2. Verifica se o ID está na lista de donos
+  const isOwner = (lead.ownersIds || []).some(id => id === currentUserId);
+  
+  // 3. Fallback: Se não tiver lista de IDs, verifica pelo nome (sistema antigo)
+  const isLegacyOwner = (!lead.ownersIds || lead.ownersIds.length === 0) && lead.responsavel === user?.name;
+
+  const canEdit = isAdmin || isOwner || isLegacyOwner;
+  // ---------------------------------------
 
   const getOrigemColor = (origem: string) => {
     const colors: Record<string, string> = {
@@ -93,22 +110,25 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 </p>
               </div>
             </div>
-            <Button
-              onClick={() => onEdit?.(lead)}
-              size="sm"
-              className="bg-primary hover:bg-primary/90 text-white"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Editar
-            </Button>
+            
+            {/* Botão Editar (Agora aparece corretamente para o dono) */}
+            {canEdit && (
+              <Button
+                onClick={() => onEdit?.(lead)}
+                size="sm"
+                className="bg-primary hover:bg-primary/90 text-white"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+            )}
+
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {/* Coluna Principal */}
           <div className="md:col-span-2 space-y-6">
-            
-            {/* Badges de Status */}
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className={getOrigemColor(lead.origem)}>
                 {lead.origem}
@@ -126,7 +146,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               )}
             </div>
 
-            {/* Contato */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Phone className="h-4 w-4" />
@@ -160,7 +179,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
 
             <Separator />
 
-            {/* Plano */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -250,7 +268,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 <Activity className="h-4 w-4" />
                 Responsável
               </h3>
-              {/* LÓGICA CORRIGIDA: Exibe lista se houver array 'owners', senão fallback */}
               {leadData.owners && leadData.owners.length > 0 ? (
                 <div className="flex flex-col gap-2">
                   {leadData.owners.map((owner: any) => (
@@ -269,7 +286,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                   ))}
                 </div>
               ) : (
-                // Fallback legado
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="" alt={lead.responsavel || "Vendedor"} />

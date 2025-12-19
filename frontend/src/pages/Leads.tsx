@@ -1,6 +1,9 @@
+// frontend/src/pages/Leads.tsx
+
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
+import { CreateLeadModal } from "@/components/CreateLeadModal";
 import { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +18,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
   Table as TableComponent,
   TableBody,
   TableCell,
@@ -26,39 +28,60 @@ import {
 import {
   Plus,
   Search,
-  Filter,
+  Grid,
+  List,
   Download,
   Phone,
-  Mail,
   MessageCircle,
+  Mail,
   Building,
   Users,
   Calendar,
-  Grid,
-  List,
+  Loader2
 } from "lucide-react";
-import { fetchLeads, mapApiLeadToLead, updateLeadApi } from "@/lib/api";
+import { fetchLeads, mapApiLeadToLead } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 const Leads = () => {
+  const { toast } = useToast();
+  const { user } = useAuth(); // (Não estamos usando user direto aqui, mas é bom manter)
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // --- ESTADOS DOS MODAIS ---
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null); // <--- CONTROLADOR DE EDIÇÃO
+  // --------------------------
+
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [origemFilter, setOrigemFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadLeads = async () => {
+    setIsLoading(true);
+    try {
+      // Busca leads aplicando filtros (se necessário)
+      const data = await fetchLeads();
+      setLeads(data.map(mapApiLeadToLead));
+    } catch (error) {
+      console.error("Erro ao carregar leads", error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível carregar a lista de leads."
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await fetchLeads();
-        setLeads(data.map(mapApiLeadToLead));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
+    loadLeads();
   }, []);
 
   const filteredLeads = leads.filter(lead => {
@@ -75,19 +98,42 @@ const Leads = () => {
 
   const handleLeadClick = (lead: Lead) => {
     setSelectedLead(lead);
-    setIsModalOpen(true);
+    setIsDetailsOpen(true);
   };
 
-  const handleLeadUpdate = async (updatedLead: Lead) => {
-    await updateLeadApi(updatedLead.id, updatedLead);
-    setLeads(prev => 
-      prev.map(lead => 
-        lead.id === updatedLead.id ? updatedLead : lead
-      )
-    );
-    setSelectedLead(updatedLead);
+  // --- AÇÕES DO USUÁRIO ---
+  
+  // 1. Botão "Novo Lead" (Header)
+  const handleNewLead = () => {
+    setLeadToEdit(null); // Garante que o formulário vem vazio
+    setIsCreateOpen(true);
   };
 
+  // 2. Botão "Editar" (Dentro do Modal Detalhes)
+  const handleEditClick = (lead: Lead) => {
+    setSelectedLead(lead); 
+    setLeadToEdit(lead); // Preenche o formulário com dados deste lead
+    setIsDetailsOpen(false); 
+    setIsCreateOpen(true); // Abre o CreateLeadModal em modo de edição
+  };
+
+  // 3. Callback de Sucesso (do Modal de Criação/Edição)
+  const handleSuccess = () => {
+    loadLeads(); // Recarrega tudo do backend para atualizar a lista
+    setIsCreateOpen(false);
+    setLeadToEdit(null);
+    
+    // Se estava editando, reabre o detalhes com os dados novos (opcional)
+    if (leadToEdit) {
+      // Como loadLeads é assíncrono, o ideal seria buscar o lead específico,
+      // mas fechar tudo é uma UX segura também.
+      setIsDetailsOpen(false);
+    }
+  };
+
+  // -------------------------
+
+  // Helpers de Cor
   const getOrigemColor = (origem: string) => {
     const colors = {
       'Instagram': 'bg-purple-100 text-purple-700',
@@ -117,16 +163,20 @@ const Leads = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Gerenciar Leads</h1>
               <p className="text-sm text-muted-foreground">
-                {filteredLeads.length} de {leads.length} leads encontrados
+                {isLoading ? "Carregando..." : `${filteredLeads.length} de ${leads.length} leads encontrados`}
               </p>
             </div>
-            <Button className="bg-gradient-primary hover:bg-primary-hover">
+            
+            <Button 
+              className="bg-gradient-primary hover:bg-primary-hover"
+              onClick={handleNewLead}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Novo Lead
             </Button>
           </div>
 
-          {/* Filters */}
+          {/* Filtros */}
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-1 min-w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -191,9 +241,18 @@ const Leads = () => {
         {/* Content */}
         <div className="flex-1 p-6 overflow-auto">
           {isLoading && (
-            <div className="text-sm text-muted-foreground mb-4">Carregando leads...</div>
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           )}
-          {viewMode === 'grid' ? (
+
+          {!isLoading && filteredLeads.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground">
+              Nenhum lead encontrado com os filtros atuais.
+            </div>
+          )}
+
+          {!isLoading && viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredLeads.map((lead) => (
                 <Card
@@ -252,7 +311,7 @@ const Leads = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 p-0 hover:text-primary"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`tel:${lead.celular}`, '_self');
@@ -263,7 +322,7 @@ const Leads = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 p-0 hover:text-green-600"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank');
@@ -274,7 +333,7 @@ const Leads = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 p-0 hover:text-blue-600"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`mailto:${lead.email}`, '_self');
@@ -293,7 +352,9 @@ const Leads = () => {
                 </Card>
               ))}
             </div>
-          ) : (
+          )}
+
+          {!isLoading && viewMode === 'table' && (
             <Card>
               <TableComponent>
                 <TableHeader>
@@ -362,11 +423,23 @@ const Leads = () => {
         </div>
       </div>
 
+      {/* Modal de Detalhes (Visualização) */}
       <LeadDetailsModal
         lead={selectedLead}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onEdit={handleLeadUpdate}
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        onEdit={handleEditClick} 
+      />
+
+      {/* Modal de Criação e Edição (REUTILIZADO) */}
+      <CreateLeadModal 
+        isOpen={isCreateOpen}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setLeadToEdit(null); // Limpa ao fechar
+        }}
+        onSuccess={handleSuccess}
+        leadToEdit={leadToEdit} // <--- Passa o lead para o modal preencher o formulário
       />
     </Layout>
   );

@@ -135,8 +135,11 @@ export async function createLeadApi(data: any) {
   });
 }
 
-export async function fetchLeads() {
-  return request<any[]>("/leads");
+export async function fetchLeads(filters?: Record<string, string>) {
+  const queryParams = new URLSearchParams(filters).toString();
+  const endpoint = queryParams ? `/leads?${queryParams}` : "/leads";
+  
+  return request<any[]>(endpoint);
 }
 
 export async function moveLeadApi(
