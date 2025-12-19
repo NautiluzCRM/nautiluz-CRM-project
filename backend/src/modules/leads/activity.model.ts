@@ -6,6 +6,8 @@ export interface Activity {
   payload?: any;
   userId?: Types.ObjectId;
   ip?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const activitySchema = new Schema<Activity>({
