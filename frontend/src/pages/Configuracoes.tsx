@@ -56,6 +56,10 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { 
+  restrictToVerticalAxis, 
+  restrictToParentElement 
+} from "@dnd-kit/modifiers";
 
 import { SortableStageRow } from "@/components/ui/sortable-stage-row";
 
@@ -1163,6 +1167,7 @@ const Configuracoes = () => {
                           sensors={sensors}
                           collisionDetection={closestCenter}
                           onDragEnd={handleDragEnd}
+                          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
                         >
                           <SortableContext
                             items={stages.map(s => s.id)}
