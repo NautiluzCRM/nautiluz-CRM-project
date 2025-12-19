@@ -9,8 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fetchPipelineData, moveLeadApi, updateLeadApi } from "@/lib/api";
 import { CreateLeadModal } from "@/components/CreateLeadModal";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const { toast } = useToast();
+
   const [pipeline, setPipeline] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   
@@ -46,22 +49,53 @@ const Index = () => {
     beforeId?: string, 
     afterId?: string
   ) => {
-    // Atualização Otimista
     setPipeline((prev: any) => {
-      const newLeads = prev.leads.map((lead: Lead) => {
-        if (lead.id === leadId) {
-          return { ...lead, colunaAtual: novaColuna };
+      // 1. Cria uma cópia da lista de leads
+      const currentLeads = [...prev.leads];
+      
+      // 2. Encontra e remove o lead da posição original
+      const activeIndex = currentLeads.findIndex(l => l.id === leadId);
+      if (activeIndex === -1) return prev; // Segurança
+      
+      const [movedLead] = currentLeads.splice(activeIndex, 1);
+      
+      // 3. Atualiza a propriedade de coluna
+      movedLead.colunaAtual = novaColuna;
+
+      // 4. Descobre onde inserir na nova lista
+      if (beforeId) {
+        // Se temos um "Vizinho de Cima", inserimos LOGO DEPOIS dele
+        const beforeIndex = currentLeads.findIndex(l => l.id === beforeId);
+        if (beforeIndex !== -1) {
+          currentLeads.splice(beforeIndex + 1, 0, movedLead);
+        } else {
+          // Fallback: se não achou o vizinho, joga pro final
+          currentLeads.push(movedLead);
         }
-        return lead;
-      });
-      return { ...prev, leads: newLeads };
+      } else if (afterId) {
+        const afterIndex = currentLeads.findIndex(l => l.id === afterId);
+        if (afterIndex !== -1) {
+          currentLeads.splice(afterIndex, 0, movedLead);
+        } else {
+          currentLeads.push(movedLead);
+        }
+      } else {
+        currentLeads.push(movedLead);
+      }
+
+      return { ...prev, leads: currentLeads };
     });
 
     try {
       await moveLeadApi(leadId, novaColuna, beforeId, afterId);
     } catch (error) {
       console.error("Erro ao mover lead:", error);
-      loadPipeline(); // Reverte em caso de erro
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: "A nova posição não foi salva no servidor."
+      });
+      loadPipeline();
     }
   };
 
