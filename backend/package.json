@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "seed": "npx tsx src/database/seed.ts",
+    "test:activity": "node --loader ts-node/esm test-activity.ts",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings=0"
   },
   "dependencies": {
