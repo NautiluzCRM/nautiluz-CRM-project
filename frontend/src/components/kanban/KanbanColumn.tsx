@@ -3,7 +3,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { KanbanCard } from "./KanbanCard";
 import { Lead, Coluna } from "@/types/crm";
 import { Badge } from "@/components/ui/badge";
-import { Clock, AlertCircle } from "lucide-react";
+import { Clock, AlertCircle, CalendarClock } from "lucide-react";
 
 interface KanbanColumnProps {
   coluna: Coluna;
@@ -21,9 +21,10 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
     },
   });
 
+  // Calcula leads vencidos apenas se houver SLA definido (> 0)
   const leadsVencidos = leads.filter(lead => {
-    if (!coluna.sla) return false;
-    const horasPassadas = (Date.now() - lead.ultimaAtividade.getTime()) / (1000 * 60 * 60);
+    if (!coluna.sla || coluna.sla <= 0) return false;
+    const horasPassadas = (Date.now() - new Date(lead.ultimaAtividade).getTime()) / (1000 * 60 * 60);
     return horasPassadas > coluna.sla;
   });
 
@@ -54,35 +55,42 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
         </div>
         
         {/* Indicadores de SLA e WIP */}
-        <div className="flex gap-2">
-          {coluna.sla && leadsVencidos.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {/* Badge de Vencidos (Prioridade Alta) */}
+          {(coluna.sla || 0) > 0 && leadsVencidos.length > 0 && (
             <Badge variant="destructive" className="text-xs flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               {leadsVencidos.length} vencido{leadsVencidos.length > 1 ? 's' : ''}
             </Badge>
           )}
           
-          {coluna.sla && (
+          {/* Badge de SLA (Correção do bug do 0) */}
+          {(coluna.sla || 0) > 0 ? (
             <Badge variant="outline" className="text-xs flex items-center gap-1">
               <Clock className="h-3 w-3" />
               SLA: {coluna.sla}h
             </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs flex items-center gap-1 text-muted-foreground bg-muted/50 font-normal">
+              <CalendarClock className="h-3 w-3 opacity-70" />
+              Sem prazo
+            </Badge>
           )}
           
           {isWipExceeded && (
-            <Badge variant="warning" className="text-xs">
-              WIP Excedido ({leads.length}/{coluna.wipLimit})
+            <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-50">
+              Limite WIP ({leads.length}/{coluna.wipLimit})
             </Badge>
           )}
         </div>
       </div>
 
       {/* Lista de Cards */}
-      <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+      <div className="flex-1 p-4 space-y-3 overflow-y-auto min-h-0">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => {
-            const isVencido = coluna.sla && 
-              (Date.now() - lead.ultimaAtividade.getTime()) / (1000 * 60 * 60) > coluna.sla;
+            const isVencido = (coluna.sla || 0) > 0 && 
+              (Date.now() - new Date(lead.ultimaAtividade).getTime()) / (1000 * 60 * 60) > (coluna.sla || 0);
             
             return (
               <KanbanCard
@@ -97,8 +105,8 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
         </SortableContext>
         
         {leads.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <p className="text-sm">Nenhum lead nesta etapa</p>
+          <div className="text-center py-8 text-muted-foreground opacity-50">
+            <p className="text-sm">Vazio</p>
           </div>
         )}
       </div>

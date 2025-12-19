@@ -7,7 +7,8 @@ import {
   listPipelinesHandler,
   listStagesHandler,
   updatePipelineHandler,
-  updateStageHandler
+  updateStageHandler,
+  reorderStagesHandler
 } from './pipelines.controller.js';
 import { authenticate } from '../../rbac/rbac.middleware.js';
 import { requireRole } from '../../rbac/rbac.guard.js';
@@ -19,6 +20,10 @@ router.use(authenticate);
 // Necessário para carregar o Kanban
 router.get('/', listPipelinesHandler);
 router.get('/:id/stages', listStagesHandler);
+router.post('/:id/stages', createStageHandler);
+router.patch('/stages/:id', updateStageHandler);
+router.delete('/stages/:id', deleteStageHandler);
+router.put('/:id/stages/reorder', reorderStagesHandler);
 
 // --- ROTAS PROTEGIDAS (Apenas Admin) ---
 // Configuração do sistema deve ser restrita
