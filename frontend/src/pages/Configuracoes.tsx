@@ -1,4 +1,4 @@
-import { ChangeEvent, useState, useRef, useEffect, useMemo} from "react";
+import { ChangeEvent, useState, useRef, useEffect, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,10 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save, Loader2 } from "lucide-react";
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
-import { 
-  fetchUsers, 
-  createUserApi, 
-  updateUserApi, 
+import {
+  fetchUsers,
+  createUserApi,
+  updateUserApi,
   deleteUserApi,
   fetchPipelines,
   fetchStages,
@@ -39,6 +39,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+
+import { SortableStageRow } from "@/components/ui/sortable-stage-row";
 
 interface Usuario {
   id: string;
@@ -112,7 +130,7 @@ const Configuracoes = () => {
       setPerfilNome(user.name || "");
       setPerfilEmail(user.email || "");
       if (user.photoUrl) setFotoPerfil(user.photoUrl);
-      setPerfilTelefone((user as any).phone || ""); 
+      setPerfilTelefone((user as any).phone || "");
       setPerfilCargo((user as any).jobTitle || "");
       setPerfilAssinatura((user as any).emailSignature || "");
     }
@@ -121,22 +139,22 @@ const Configuracoes = () => {
   // Verifica se algo mudou nos dados
   const temAlteracoesPerfil = useMemo(() => {
     if (!user) return false;
-    
+
     const mudouNome = perfilNome !== (user.name || "");
     const mudouEmail = perfilEmail !== (user.email || "");
     const mudouFoto = fotoPerfil !== (user.photoUrl || null);
-    
+
     const mudouTelefone = perfilTelefone !== ((user as any).phone || "");
     const mudouCargo = perfilCargo !== ((user as any).jobTitle || "");
     const mudouAssinatura = perfilAssinatura !== ((user as any).emailSignature || "");
-    
+
     return mudouNome || mudouEmail || mudouFoto || mudouTelefone || mudouCargo || mudouAssinatura;
   }, [user, perfilNome, perfilEmail, fotoPerfil, perfilTelefone, perfilCargo, perfilAssinatura]);
 
   // Verifica se o formulário de senha está válido
   const podeSalvarSenha = useMemo(() => {
     return (
-      senhaAtual.length > 0 && 
+      senhaAtual.length > 0 &&
       novaSenha.length >= 6 && // Mínimo de 6 caracteres
       senhaAtual !== novaSenha // Nova senha deve ser diferente da atual
     );
@@ -176,14 +194,14 @@ const Configuracoes = () => {
   const handleEditarUsuario = (usuario: Usuario) => {
     setNovoNome(usuario.nome);
     setNovoEmail(usuario.email);
-    const perfilFormatado = usuario.perfil === 'Administrador' ? 'Administrador' : 
-                            usuario.perfil === 'Financeiro' ? 'Financeiro' : 'Vendedor';
+    const perfilFormatado = usuario.perfil === 'Administrador' ? 'Administrador' :
+      usuario.perfil === 'Financeiro' ? 'Financeiro' : 'Vendedor';
     setNovoPerfil(perfilFormatado);
-    
+
     setNovoTelefone(usuario.phone || "");
     setNovoCargo(usuario.jobTitle || "");
     setNovaAssinatura(usuario.emailSignature || "");
-    
+
     setUsuarioEmEdicao(usuario);
     setIsModalOpen(true);
   };
@@ -207,7 +225,7 @@ const Configuracoes = () => {
 
     try {
       await deleteUserApi(id);
-      
+
       toast({
         title: "Usuário Excluído",
         description: `O usuário ${usuarioEmEdicao.nome} foi removido.`
@@ -248,7 +266,7 @@ const Configuracoes = () => {
       });
       return;
     }
-    
+
     // Validação 3: Telefone
     const telLimpo = novoTelefone.replace(/\D/g, "");
     if (telLimpo.length > 0 && telLimpo.length < 10) {
@@ -264,7 +282,7 @@ const Configuracoes = () => {
       if (usuarioEmEdicao) {
         // --- MODO EDIÇÃO ---
         const id = usuarioEmEdicao.id || (usuarioEmEdicao as any)._id;
-        
+
         await updateUserApi(id, {
           nome: novoNome,
           email: novoEmail,
@@ -273,7 +291,7 @@ const Configuracoes = () => {
           cargo: novoCargo,
           assinatura: novaAssinatura
         });
-        
+
         toast({
           title: "Usuário Atualizado",
           description: "As alterações foram salvas com sucesso."
@@ -295,14 +313,14 @@ const Configuracoes = () => {
           description: "Novo acesso liberado com sucesso."
         });
       }
-      
+
       setIsModalOpen(false);
       resetModal();
       carregarUsuarios();
-      
+
     } catch (error: any) {
       console.error(error);
-      
+
       // Tratamento de Erro JSON (igual fizemos na senha)
       let msg = "Não foi possível salvar os dados.";
       try {
@@ -324,13 +342,13 @@ const Configuracoes = () => {
   };
   const confirmarStatus = async () => {
     if (!usuarioParaStatus) return;
-    
+
     const novoStatus = !usuarioParaStatus.ativo;
     const acao = novoStatus ? "ativar" : "inativar";
 
     try {
       await updateUserApi(usuarioParaStatus.id, { ativo: novoStatus });
-      
+
       toast({
         title: `Usuário ${novoStatus ? 'Ativado' : 'Inativado'}`,
         description: `Status de ${usuarioParaStatus.nome} atualizado.`
@@ -453,6 +471,42 @@ const Configuracoes = () => {
       setStageParaExcluir(null);
     }
   };
+
+  // ... seus states (stages, loading, etc) ...
+
+  // Configuração dos Sensores (Copiado/Adaptado do seu Kanban)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 }, // 5px de movimento para iniciar o arrasto
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Função chamada quando solta o item
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      setStages((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over?.id);
+
+        // Reordena o array visualmente
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+
+        // AQUI CHAMAREMOS A API DEPOIS
+        // salvarNovaOrdemApi(newOrder); 
+
+        return newOrder;
+      });
+    }
+  };
+
+
+
+
 
   // Alterar foto de perfil
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -600,7 +654,7 @@ const Configuracoes = () => {
         title: "Senha Alterada",
         description: "Sua senha foi atualizada com sucesso."
       });
-      
+
       setSenhaAtual("");
       setNovaSenha("");
       setConfirmarSenha("");
@@ -616,7 +670,7 @@ const Configuracoes = () => {
         }
       } catch (e) {
       }
-      
+
       // Erro do Backend (Ex: Senha atual incorreta)
       toast({
         variant: "destructive",
@@ -626,13 +680,13 @@ const Configuracoes = () => {
     }
   };
 
-// Função auxiliar para mascarar o telefone: (99) 99999-9999
+  // Função auxiliar para mascarar o telefone: (99) 99999-9999
   const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-    
+
     // Remove tudo que não for número
     value = value.replace(/\D/g, "");
-    
+
     // Limita a 11 números (DDD + 9 dígitos)
     if (value.length > 11) {
       value = value.slice(0, 11);
@@ -696,7 +750,7 @@ const Configuracoes = () => {
                 Sistema
               </TabsTrigger>
 
-             {/* 
+              {/* 
               <TabsTrigger value="seguranca" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
                 Segurança
@@ -736,9 +790,9 @@ const Configuracoes = () => {
 
                     {/* BOTÃO REMOVER (Só aparece se tiver foto) */}
                     {fotoPerfil && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={handleRemoverFoto}
                         title="Remover foto de perfil"
@@ -760,15 +814,15 @@ const Configuracoes = () => {
                       />
                     )}
                   </div>
-                 
+
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="nome">
                         Nome Completo <span className="text-red-500">*</span>
                       </Label>
-                      <Input 
-                        id="nome" 
+                      <Input
+                        id="nome"
                         value={perfilNome}
                         onChange={(e) => setPerfilNome(e.target.value)}
                       />
@@ -777,15 +831,15 @@ const Configuracoes = () => {
                       <Label htmlFor="email">
                         E-mail <span className="text-red-500">*</span>
                       </Label>
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        value={perfilEmail} 
+                      <Input
+                        id="email"
+                        type="email"
+                        value={perfilEmail}
                         onChange={(e) => setPerfilEmail(e.target.value)}
-                        
+
                         disabled={!isAdmin}
                         className={!isAdmin ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
-                        // --------------------
+                      // --------------------
                       />
                       {!isAdmin && (
                         <p className="text-[10px] text-muted-foreground">
@@ -795,9 +849,9 @@ const Configuracoes = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="telefone">Telefone</Label>
-                      <Input 
-                        id="telefone" 
-                        value={perfilTelefone} 
+                      <Input
+                        id="telefone"
+                        value={perfilTelefone}
                         onChange={handleTelefoneChange}
                         placeholder="(99) 99999-9999"
                         maxLength={15}
@@ -805,9 +859,9 @@ const Configuracoes = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="cargo">Cargo</Label>
-                      <Input 
-                        id="cargo" 
-                        value={perfilCargo} 
+                      <Input
+                        id="cargo"
+                        value={perfilCargo}
                         onChange={e => setPerfilCargo(e.target.value)}
                         disabled={!isAdmin}
                         className={!isAdmin ? "bg-muted text-muted-foreground" : ""}
@@ -825,8 +879,8 @@ const Configuracoes = () => {
                     />
                   </div>
                   <div className="flex justify-begin">
-                    <Button 
-                      onClick={handleSalvarDados} 
+                    <Button
+                      onClick={handleSalvarDados}
                       disabled={!temAlteracoesPerfil}
                       className="bg-gradient-primary hover:bg-primary-hover disabled:opacity-50"
                     >
@@ -847,9 +901,9 @@ const Configuracoes = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="senhaAtual">Senha Atual</Label>
-                    <Input 
-                      id="senhaAtual" 
-                      type="password" 
+                    <Input
+                      id="senhaAtual"
+                      type="password"
                       value={senhaAtual}
                       onChange={(e) => setSenhaAtual(e.target.value)}
                     />
@@ -857,26 +911,26 @@ const Configuracoes = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="novaSenha">Nova Senha</Label>
-                      <Input 
-                        id="novaSenha" 
-                        type="password" 
+                      <Input
+                        id="novaSenha"
+                        type="password"
                         value={novaSenha}
                         onChange={(e) => setNovaSenha(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
-                      <Input 
-                        id="confirmarSenha" 
-                        type="password" 
+                      <Input
+                        id="confirmarSenha"
+                        type="password"
                         value={confirmarSenha}
                         onChange={(e) => setConfirmarSenha(e.target.value)}
                       />
                     </div>
                   </div>
-                  
-                  <Button 
-                    variant="outline" 
+
+                  <Button
+                    variant="outline"
                     onClick={handleAlterarSenha}
                     disabled={!podeSalvarSenha}
                   >
@@ -897,8 +951,8 @@ const Configuracoes = () => {
                     </CardTitle>
                     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                       <DialogTrigger asChild>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           className="bg-gradient-primary hover:bg-primary-hover"
                           onClick={handleNovoUsuario}
                         >
@@ -913,13 +967,13 @@ const Configuracoes = () => {
                           </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
-                          
+
                           {/* Linha 1: Nome e Email */}
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label htmlFor="nomeUsuario">Nome <span className="text-red-500">*</span></Label>
-                              <Input 
-                                id="nomeUsuario" 
+                              <Input
+                                id="nomeUsuario"
                                 placeholder="Nome completo"
                                 value={novoNome}
                                 onChange={(e) => setNovoNome(e.target.value)}
@@ -927,9 +981,9 @@ const Configuracoes = () => {
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="emailUsuario">E-mail <span className="text-red-500">*</span></Label>
-                              <Input 
-                                id="emailUsuario" 
-                                type="email" 
+                              <Input
+                                id="emailUsuario"
+                                type="email"
                                 placeholder="email@nautiluz.com.br"
                                 value={novoEmail}
                                 onChange={(e) => setNovoEmail(e.target.value)}
@@ -954,8 +1008,8 @@ const Configuracoes = () => {
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="cargoUsuario">Cargo</Label>
-                              <Input 
-                                id="cargoUsuario" 
+                              <Input
+                                id="cargoUsuario"
                                 placeholder="Ex: Gerente Comercial"
                                 value={novoCargo}
                                 onChange={(e) => setNovoCargo(e.target.value)}
@@ -966,8 +1020,8 @@ const Configuracoes = () => {
                           {/* Linha 3: Telefone */}
                           <div className="space-y-2">
                             <Label htmlFor="telefoneUsuario">Telefone</Label>
-                            <Input 
-                              id="telefoneUsuario" 
+                            <Input
+                              id="telefoneUsuario"
                               placeholder="(99) 99999-9999"
                               value={novoTelefone}
                               onChange={handleNovoTelefoneChange}
@@ -978,8 +1032,8 @@ const Configuracoes = () => {
                           {/* Linha 4: Assinatura */}
                           <div className="space-y-2">
                             <Label htmlFor="assinaturaUsuario">Assinatura de E-mail</Label>
-                            <Textarea 
-                              id="assinaturaUsuario" 
+                            <Textarea
+                              id="assinaturaUsuario"
                               placeholder="Assinatura padrão para e-mails..."
                               value={novaAssinatura}
                               onChange={(e) => setNovaAssinatura(e.target.value)}
@@ -989,7 +1043,7 @@ const Configuracoes = () => {
                           <div className="flex gap-2 justify-end pt-4">
                             {/* Botão de Excluir (Só aparece se estiver editando) */}
                             {usuarioEmEdicao && (
-                              <Button 
+                              <Button
                                 variant="destructive"
                                 type="button"
                                 onClick={handleClickExcluir}
@@ -1000,7 +1054,7 @@ const Configuracoes = () => {
                             )}
 
                             {/* Botão Salvar (Ocupa o resto do espaço ou largura total se for novo) */}
-                            <Button 
+                            <Button
                               className={usuarioEmEdicao ? "flex-1 bg-gradient-primary" : "w-full bg-gradient-primary"}
                               onClick={handleSalvarUsuario}
                             >
@@ -1028,11 +1082,10 @@ const Configuracoes = () => {
                               <p className="text-sm text-muted-foreground">{usuario.email}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-xs text-muted-foreground">{usuario.perfil}</span>
-                                <span className={`text-xs px-2 py-1 rounded-full ${
-                                  usuario.ativo 
-                                    ? 'bg-success/20 text-success' 
-                                    : 'bg-muted text-muted-foreground'
-                                }`}>
+                                <span className={`text-xs px-2 py-1 rounded-full ${usuario.ativo
+                                  ? 'bg-success/20 text-success'
+                                  : 'bg-muted text-muted-foreground'
+                                  }`}>
                                   {usuario.ativo ? 'Ativo' : 'Inativo'}
                                 </span>
                               </div>
@@ -1040,8 +1093,8 @@ const Configuracoes = () => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleEditarUsuario(usuario)}
                             >
@@ -1071,7 +1124,6 @@ const Configuracoes = () => {
             )}
 
             {/* Aba Pipeline */}
-            {/* Aba Pipeline ATUALIZADA */}
             {isAdmin && (
               <TabsContent value="pipeline" className="space-y-6">
                 <Card>
@@ -1082,93 +1134,121 @@ const Configuracoes = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    
+
                     {loadingPipeline ? (
-                      <div className="flex justify-center p-8">
-                        <Loader2 className="animate-spin h-8 w-8 text-primary" />
-                      </div>
+                      <div className="flex justify-center p-8"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
                     ) : (
                       <div className="space-y-4">
-                        {stages.map((stage) => {
-                          const isEditing = editingStageId === stage.id;
-                          
-                          return (
-                            <div key={stage.id} className="flex items-center gap-4 p-4 border border-border rounded-lg transition-all hover:shadow-sm">
-                              
-                              {/* LADO ESQUERDO: Cor e Nome */}
-                              <div className="flex items-center gap-3 flex-1">
-                                {isEditing ? (
-                                  <input 
-                                    type="color" 
-                                    className="h-8 w-8 rounded cursor-pointer border-none p-0 bg-transparent"
-                                    value={editForm.cor || stage.cor}
-                                    onChange={(e) => setEditForm({ ...editForm, cor: e.target.value })}
-                                  />
-                                ) : (
-                                  <div 
-                                    className="w-6 h-6 rounded-full border border-gray-100 shadow-sm"
-                                    style={{ backgroundColor: stage.cor }}
-                                  />
-                                )}
-                                
-                                {isEditing ? (
-                                  <Input 
-                                    value={editForm.nome !== undefined ? editForm.nome : stage.nome}
-                                    onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })} 
-                                    className="flex-1 max-w-[300px]"
-                                    placeholder="Nome da etapa"
-                                  />
-                                ) : (
-                                  <span className="flex-1 font-medium text-foreground">{stage.nome}</span>
-                                )}
 
-                                {/* SLA */}
-                                <div className="flex items-center gap-2">
-                                  <Label className="text-sm whitespace-nowrap">SLA (h):</Label>
-                                  {isEditing ? (
-                                    <Input 
-                                      type="number" 
-                                      value={editForm.sla !== undefined ? editForm.sla : (stage.sla || 0)} 
-                                      onChange={(e) => setEditForm({ ...editForm, sla: Number(e.target.value) })}
-                                      className="w-20 text-center"
-                                    />
-                                  ) : (
-                                    <span className="text-sm font-mono bg-muted px-2 py-1 rounded">{stage.sla || 0}</span>
-                                  )}
-                                </div>
-                              </div>
+                        {/* ENVOLVE A LISTA COM O CONTEXTO DE DRAG AND DROP */}
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleDragEnd}
+                        >
+                          <SortableContext
+                            items={stages.map(s => s.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {stages.map((stage) => {
+                              const isEditing = editingStageId === stage.id;
 
-                              {/* LADO DIREITO: Botões */}
-                              <div className="flex items-center gap-2">
-                                {isEditing ? (
-                                  <Button size="sm" onClick={() => handleSalvarEdicaoEtapa(stage)} className="bg-green-600 hover:bg-green-700 h-8">
-                                    <Save className="h-4 w-4 mr-1" /> Salvar
-                                  </Button>
-                                ) : (
-                                  <>
-                                    <Button variant="ghost" size="sm" onClick={() => {
-                                      setEditingStageId(stage.id);
-                                      setEditForm({ nome: stage.nome, sla: stage.sla, cor: stage.cor });
-                                    }}>
-                                      <Edit className="h-4 w-4 text-gray-500" />
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => {
-                                        setStageParaExcluir(stage);
-                                        setAlertExclusaoEtapaOpen(true);
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                              return (
+                                <SortableStageRow key={stage.id} id={stage.id}>
+
+                                  {/* GRUPO 1: LADO ESQUERDO (Cor + Nome) */}
+                                  {/* flex-1 aqui é crucial: ele diz "ocupe todo o espaço possível", empurrando o resto p/ direita */}
+                                  <div className="flex items-center gap-3 flex-1">
+
+                                    {/* Cor */}
+                                    {isEditing ? (
+                                      <input
+                                        type="color"
+                                        className="h-8 w-8 rounded cursor-pointer border-none p-0 bg-transparent shrink-0"
+                                        value={editForm.cor || stage.cor}
+                                        onChange={(e) => setEditForm({ ...editForm, cor: e.target.value })}
+                                      />
+                                    ) : (
+                                      <div
+                                        className="w-6 h-6 rounded-full border border-gray-100 shadow-sm shrink-0"
+                                        style={{ backgroundColor: stage.cor }}
+                                      />
+                                    )}
+
+                                    {/* Nome */}
+                                    {isEditing ? (
+                                      <Input
+                                        value={editForm.nome !== undefined ? editForm.nome : stage.nome}
+                                        onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
+                                        className="max-w-[300px]"
+                                      // max-w limita o input, mas o pai (div flex-1) continua ocupando a linha toda
+                                      />
+                                    ) : (
+                                      <span className="font-medium text-foreground truncate cursor-default">{stage.nome}</span>
+                                    )}
+                                  </div>
+
+                                  {/* GRUPO 2: LADO DIREITO (SLA + Botões) */}
+                                  {/* ml-auto garante que este bloco fique sempre colado na direita */}
+                                  <div className="flex items-center gap-6 ml-auto pl-4">
+
+                                    {/* SLA */}
+                                    <div className="flex items-center gap-2 whitespace-nowrap">
+                                      <Label className="text-sm text-muted-foreground font-normal">SLA (h):</Label>
+                                      {isEditing ? (
+                                        <Input
+                                          type="number"
+                                          value={editForm.sla !== undefined ? editForm.sla : (stage.sla || 0)}
+                                          onChange={(e) => {
+                                            if (e.target.value.length <= 10) {
+                                              setEditForm({ ...editForm, sla: Number(e.target.value) })
+                                            }
+                                          }}
+                                          className="w-20 text-center h-8"
+                                        />
+                                      ) : (
+                                        <span className="text-sm font-mono bg-muted px-2 py-1 rounded w-20 text-center block cursor-default">
+                                          {stage.sla || 0}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Botões de Ação */}
+                                    <div className="flex items-center gap-2">
+                                      {isEditing ? (
+                                        <Button size="sm" onClick={() => handleSalvarEdicaoEtapa(stage)} className="bg-green-600 hover:bg-green-700 h-8">
+                                          <Save className="h-4 w-4 mr-1" /> Salvar
+                                        </Button>
+                                      ) : (
+                                        <>
+                                          <Button variant="ghost" size="sm" onClick={() => {
+                                            setEditingStageId(stage.id);
+                                            setEditForm({ nome: stage.nome, sla: stage.sla, cor: stage.cor });
+                                          }}>
+                                            <Edit className="h-4 w-4 text-gray-500" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => {
+                                              setStageParaExcluir(stage);
+                                              setAlertExclusaoEtapaOpen(true);
+                                            }}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
+
+                                  </div>
+
+                                </SortableStageRow>
+                              );
+                            })}
+                          </SortableContext>
+                        </DndContext>
                       </div>
                     )}
 
@@ -1307,7 +1387,7 @@ const Configuracoes = () => {
             </TabsContent>
 
             {/* Aba Segurança */}
-            
+
             <TabsContent value="seguranca" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -1355,15 +1435,15 @@ const Configuracoes = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. Isso excluirá permanentemente o usuário 
+              Essa ação não pode ser desfeita. Isso excluirá permanentemente o usuário
               <span className="font-bold text-foreground"> {usuarioEmEdicao?.nome} </span>
               e removerá seus dados dos nossos servidores.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmarExclusao} 
+            <AlertDialogAction
+              onClick={confirmarExclusao}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Sim, excluir usuário
@@ -1380,14 +1460,14 @@ const Configuracoes = () => {
               {usuarioParaStatus?.ativo ? "Inativar Usuário" : "Reativar Usuário"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja {usuarioParaStatus?.ativo ? "inativar" : "ativar"} o acesso de 
+              Tem certeza que deseja {usuarioParaStatus?.ativo ? "inativar" : "ativar"} o acesso de
               <span className="font-bold text-foreground"> {usuarioParaStatus?.nome}</span>?
               {usuarioParaStatus?.ativo && " Ele perderá o acesso ao sistema imediatamente."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmarStatus}
               className={usuarioParaStatus?.ativo ? "bg-destructive hover:bg-destructive/90" : "bg-green-600 hover:bg-green-700"}
             >
@@ -1404,13 +1484,13 @@ const Configuracoes = () => {
             <AlertDialogTitle>Excluir Etapa do Pipeline</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir a etapa <strong>{stageParaExcluir?.nome}</strong>?
-              <br/>
+              <br />
               <span className="text-red-500 font-bold">Atenção:</span> Se houver leads nesta etapa, a exclusão será bloqueada pelo sistema.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmarExclusaoEtapa}
               className="bg-red-600 hover:bg-red-700"
             >
