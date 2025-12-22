@@ -9,25 +9,38 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fetchPipelineData, moveLeadApi, updateLeadApi } from "@/lib/api";
 import { CreateLeadModal } from "@/components/CreateLeadModal";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const { toast } = useToast();
+
   const [pipeline, setPipeline] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Estado para o Modal de Detalhes
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Estado para o Modal de Criação/Edição
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null); // NOVO: Controla quem está sendo editado
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Função para recarregar os dados do Kanban
+  const loadPipeline = async () => {
+    try {
+      const data = await fetchPipelineData();
+      setPipeline(data);
+    } catch (error) {
+      console.error("Erro ao carregar pipeline", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await fetchPipelineData();
-        setPipeline(data);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
+    loadPipeline();
   }, []);
 
   const handleLeadMove = async (
@@ -36,31 +49,57 @@ const Index = () => {
     beforeId?: string, 
     afterId?: string
   ) => {
-    // Atualização Otimista (Frontend muda antes do Backend responder)
     setPipeline((prev: any) => {
-      // Cria uma cópia profunda dos leads para não mutar estado direto
-      const newLeads = prev.leads.map((lead: Lead) => {
-        if (lead.id === leadId) {
-          return { ...lead, colunaAtual: novaColuna };
+      // 1. Cria uma cópia da lista de leads
+      const currentLeads = [...prev.leads];
+      
+      // 2. Encontra e remove o lead da posição original
+      const activeIndex = currentLeads.findIndex(l => l.id === leadId);
+      if (activeIndex === -1) return prev; // Segurança
+      
+      const [movedLead] = currentLeads.splice(activeIndex, 1);
+      
+      // 3. Atualiza a propriedade de coluna
+      movedLead.colunaAtual = novaColuna;
+
+      // 4. Descobre onde inserir na nova lista
+      if (beforeId) {
+        // Se temos um "Vizinho de Cima", inserimos LOGO DEPOIS dele
+        const beforeIndex = currentLeads.findIndex(l => l.id === beforeId);
+        if (beforeIndex !== -1) {
+          currentLeads.splice(beforeIndex + 1, 0, movedLead);
+        } else {
+          // Fallback: se não achou o vizinho, joga pro final
+          currentLeads.push(movedLead);
         }
-        return lead;
-      });
-      return { ...prev, leads: newLeads };
+      } else if (afterId) {
+        const afterIndex = currentLeads.findIndex(l => l.id === afterId);
+        if (afterIndex !== -1) {
+          currentLeads.splice(afterIndex, 0, movedLead);
+        } else {
+          currentLeads.push(movedLead);
+        }
+      } else {
+        currentLeads.push(movedLead);
+      }
+
+      return { ...prev, leads: currentLeads };
     });
 
     try {
-      // Chama a API nova que criamos no Passo 1
       await moveLeadApi(leadId, novaColuna, beforeId, afterId);
-      
-      // Opcional: Recarregar dados para garantir sincronia total (ranks, etc)
-      // const data = await fetchPipelineData();
-      // setPipeline(data);
     } catch (error) {
       console.error("Erro ao mover lead:", error);
-      // Aqui você poderia adicionar um toast de erro e reverter a mudança
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: "A nova posição não foi salva no servidor."
+      });
+      loadPipeline();
     }
   };
 
+  // Essa função lida apenas com atualizações rápidas (ex: drag and drop interno se houvesse)
   const handleLeadUpdate = async (updatedLead: Lead) => {
     await updateLeadApi(updatedLead.id, updatedLead);
     setPipeline((prev: any) => ({
@@ -69,6 +108,19 @@ const Index = () => {
         lead.id === updatedLead.id ? updatedLead : lead
       )
     }));
+  };
+
+  // NOVO: Função chamada ao clicar no botão "Editar" dentro do Modal de Detalhes
+  const handleEditStart = (lead: Lead) => {
+    setLeadToEdit(lead);      // Define qual lead será editado
+    setIsModalOpen(false);    // Fecha o modal de visualização
+    setIsCreateModalOpen(true); // Abre o formulário
+  };
+
+  // NOVO: Função chamada ao clicar no botão "Novo Lead"
+  const handleNewLead = () => {
+    setLeadToEdit(null);      // Garante que o formulário venha vazio
+    setIsCreateModalOpen(true);
   };
 
   const filteredLeads = pipeline?.leads?.filter((lead: Lead) => 
@@ -98,7 +150,9 @@ const Index = () => {
                 Gestão de leads e oportunidades - NAUTILUZ CRM
               </p>
             </div>
-            <Button onClick={() => setIsCreateModalOpen(true)}
+            
+            {/* Botão Novo Lead Atualizado */}
+            <Button onClick={handleNewLead}
               className="bg-gradient-primary hover:bg-primary-hover w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Novo Lead
@@ -158,25 +212,23 @@ const Index = () => {
         </div>
       </div>
 
+      {/* Modal de Detalhes - Agora usa handleEditStart */}
       <LeadDetailsModal
         lead={selectedLead}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onEdit={handleLeadUpdate}
+        onEdit={handleEditStart} 
       />
 
+      {/* Modal de Criação/Edição - Agora recebe leadToEdit */}
       <CreateLeadModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        leadToEdit={leadToEdit} 
         onSuccess={() => {
-          // Essa função já existe no seu Index.tsx, ela recarrega o Kanban
-          const load = async () => {
-            const data = await fetchPipelineData();
-            setPipeline(data);
-          };
-          load();
-      }}
-    />
+          loadPipeline(); // Recarrega os dados após criar ou editar
+        }}
+      />
 
     </Layout>
   );

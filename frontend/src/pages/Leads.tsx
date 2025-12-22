@@ -1,48 +1,36 @@
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
+import { CreateLeadModal } from "@/components/CreateLeadModal";
 import { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  Table as TableComponent,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Plus,
-  Search,
-  Filter,
-  Download,
-  Phone,
-  Mail,
-  MessageCircle,
-  Building,
-  Users,
-  Calendar,
-  Grid,
-  List,
-} from "lucide-react";
-import { fetchLeads, mapApiLeadToLead, updateLeadApi } from "@/lib/api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table as TableComponent, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Search, Grid, List, Download, Phone, MessageCircle, Mail, Building, Users, Calendar, Loader2, UserCheck } from "lucide-react";
+import { fetchLeads, mapApiLeadToLead } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 const Leads = () => {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // REGRA: Admin e Financeiro são "Privilegiados"
+  const isPrivileged = user?.role === 'admin' || user?.role === 'financial';
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
+
+  const [showMine, setShowMine] = useState(!isPrivileged);
+
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -50,16 +38,45 @@ const Leads = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await fetchLeads();
-        setLeads(data.map(mapApiLeadToLead));
-      } finally {
-        setIsLoading(false);
+    if (!isPrivileged) {
+      setShowMine(true);
+    }
+  }, [isPrivileged]);
+
+  const loadLeads = async () => {
+    setIsLoading(true);
+    try {
+      const filters: Record<string, string> = {};
+      const userId = user?.id || (user as any)?._id || (user as any)?.sub;
+
+      if (showMine) {
+        if (userId) {
+          filters.owners = userId;
+          console.log("Filtro aplicado: owners =", userId);
+        } else {
+          console.error("ERRO: showMine está true, mas não encontrei ID no usuário!");
+        }
+      } else {
+        console.log("Filtro desligado (Admin vendo tudo)");
       }
-    };
-    load();
-  }, []);
+
+      const data = await fetchLeads(filters);
+      setLeads(data.map(mapApiLeadToLead));
+    } catch (error) {
+      console.error("Erro ao carregar leads", error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível carregar a lista de leads."
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLeads();
+  }, [showMine]);
 
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = 
@@ -73,21 +90,32 @@ const Leads = () => {
     return matchesSearch && matchesStatus && matchesOrigem;
   });
 
+  // ... (Funções de clique e modais idênticas às anteriores)
   const handleLeadClick = (lead: Lead) => {
     setSelectedLead(lead);
-    setIsModalOpen(true);
+    setIsDetailsOpen(true);
   };
 
-  const handleLeadUpdate = async (updatedLead: Lead) => {
-    await updateLeadApi(updatedLead.id, updatedLead);
-    setLeads(prev => 
-      prev.map(lead => 
-        lead.id === updatedLead.id ? updatedLead : lead
-      )
-    );
-    setSelectedLead(updatedLead);
+  const handleNewLead = () => {
+    setLeadToEdit(null);
+    setIsCreateOpen(true);
   };
 
+  const handleEditClick = (lead: Lead) => {
+    setSelectedLead(lead); 
+    setLeadToEdit(lead);
+    setIsDetailsOpen(false); 
+    setIsCreateOpen(true);
+  };
+
+  const handleSuccess = () => {
+    loadLeads();
+    setIsCreateOpen(false);
+    setLeadToEdit(null);
+    if (leadToEdit) setIsDetailsOpen(false);
+  };
+
+  // Helpers de Cor
   const getOrigemColor = (origem: string) => {
     const colors = {
       'Instagram': 'bg-purple-100 text-purple-700',
@@ -117,16 +145,19 @@ const Leads = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Gerenciar Leads</h1>
               <p className="text-sm text-muted-foreground">
-                {filteredLeads.length} de {leads.length} leads encontrados
+                {isLoading ? "Carregando..." : `${filteredLeads.length} de ${leads.length} leads encontrados`}
               </p>
             </div>
-            <Button className="bg-gradient-primary hover:bg-primary-hover">
+            
+            <Button 
+              className="bg-gradient-primary hover:bg-primary-hover"
+              onClick={handleNewLead}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Novo Lead
             </Button>
           </div>
 
-          {/* Filters */}
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-1 min-w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -138,8 +169,21 @@ const Leads = () => {
               />
             </div>
             
+            {/* BOTÃO DE FILTRO COM LÓGICA DE TRAVA */}
+            <Button
+              variant={showMine ? "default" : "outline"}
+              onClick={() => isPrivileged && setShowMine(!showMine)}
+              className={`gap-2 ${!isPrivileged ? "opacity-100 cursor-not-allowed bg-primary/90 text-primary-foreground" : ""}`}
+              title={!isPrivileged ? "Filtro obrigatório para vendedores" : "Filtrar por meus leads"}
+            >
+              <UserCheck className="h-4 w-4" />
+              Meus Leads
+              {/* Se não for admin, mostra badge sutil dizendo que é fixo */}
+              {!isPrivileged && <span className="text-[10px] ml-1 bg-black/20 px-1 rounded">FIXO</span>}
+            </Button>
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -152,7 +196,7 @@ const Leads = () => {
             </Select>
 
             <Select value={origemFilter} onValueChange={setOrigemFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="Origem" />
               </SelectTrigger>
               <SelectContent>
@@ -164,17 +208,19 @@ const Leads = () => {
               </SelectContent>
             </Select>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 border-l pl-4 ml-2">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="sm"
+                size="icon"
+                className="h-9 w-9"
                 onClick={() => setViewMode('grid')}
               >
                 <Grid className="h-4 w-4" />
               </Button>
               <Button
                 variant={viewMode === 'table' ? 'default' : 'outline'}
-                size="sm"
+                size="icon"
+                className="h-9 w-9"
                 onClick={() => setViewMode('table')}
               >
                 <List className="h-4 w-4" />
@@ -191,9 +237,18 @@ const Leads = () => {
         {/* Content */}
         <div className="flex-1 p-6 overflow-auto">
           {isLoading && (
-            <div className="text-sm text-muted-foreground mb-4">Carregando leads...</div>
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           )}
-          {viewMode === 'grid' ? (
+
+          {!isLoading && filteredLeads.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground">
+              Nenhum lead encontrado com os filtros atuais.
+            </div>
+          )}
+
+          {!isLoading && viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredLeads.map((lead) => (
                 <Card
@@ -252,7 +307,7 @@ const Leads = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 p-0 hover:text-primary"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`tel:${lead.celular}`, '_self');
@@ -263,7 +318,7 @@ const Leads = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 p-0 hover:text-green-600"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank');
@@ -274,7 +329,7 @@ const Leads = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 p-0 hover:text-blue-600"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`mailto:${lead.email}`, '_self');
@@ -293,7 +348,9 @@ const Leads = () => {
                 </Card>
               ))}
             </div>
-          ) : (
+          )}
+
+          {!isLoading && viewMode === 'table' && (
             <Card>
               <TableComponent>
                 <TableHeader>
@@ -364,9 +421,19 @@ const Leads = () => {
 
       <LeadDetailsModal
         lead={selectedLead}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onEdit={handleLeadUpdate}
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        onEdit={handleEditClick} 
+      />
+
+      <CreateLeadModal 
+        isOpen={isCreateOpen}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setLeadToEdit(null);
+        }}
+        onSuccess={handleSuccess}
+        leadToEdit={leadToEdit}
       />
     </Layout>
   );

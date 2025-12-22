@@ -5,10 +5,11 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "npx tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "seed": "ts-node-dev --transpile-only src/database/seed.ts",
+    "seed": "npx tsx src/database/seed.ts",
+    "test:activity": "node --loader ts-node/esm test-activity.ts",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings=0"
   },
   "dependencies": {

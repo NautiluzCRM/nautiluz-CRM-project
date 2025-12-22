@@ -1,5 +1,6 @@
 import { PipelineModel } from './pipeline.model.js';
 import { StageModel } from './stage.model.js';
+import { LeadModel } from '../leads/lead.model.js';
 
 export function listPipelines() {
   return PipelineModel.find();
@@ -22,14 +23,34 @@ export function listStages(pipelineId: string) {
   return StageModel.find({ pipelineId }).sort({ order: 1 });
 }
 
-export function createStage(pipelineId: string, input: { name: string; order: number; key: string }) {
+export function createStage(pipelineId: string, input: { name: string; order: number; key: string; color?: string; sla?: number }) {
   return StageModel.create({ pipelineId, ...input });
 }
 
-export function updateStage(id: string, input: Partial<{ name: string; order: number; key: string }>) {
+export function updateStage(id: string, input: Partial<{ name: string; order: number; key: string; color?: string; sla?: number }>) {
   return StageModel.findByIdAndUpdate(id, input, { new: true });
 }
 
-export function deleteStage(id: string) {
+export async function deleteStage(id: string) {
+  // 1. Verifica se tem leads nessa etapa
+  const leadsCount = await LeadModel.countDocuments({ stageId: id });
+  
+  if (leadsCount > 0) {
+    throw new Error(`Não é possível excluir: existem ${leadsCount} leads nesta etapa.`);
+  }
+
+  // 2. Se não tiver, pode excluir
   return StageModel.findByIdAndDelete(id);
+}
+
+export async function reorderStages(pipelineId: string, orderedIds: string[]) {
+  const updates = orderedIds.map((id, index) => {
+    return StageModel.updateOne(
+      { _id: id, pipelineId },
+      { order: index + 1 }
+    );
+  });
+  
+  await Promise.all(updates);
+  return listStages(pipelineId);
 }

@@ -4,30 +4,51 @@ import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
-import { randomUUID } from 'crypto';
 
-export function listLeads(filter: any = {}) {
-  return LeadModel.find(filter).sort({ createdAt: -1 });
+import mongoose from 'mongoose';
+
+interface UserAuth {
+  sub: string;
+  role: string;
+}
+
+export async function listLeads(filter: any = {}, user?: UserAuth) {
+  const query: any = {};
+
+  if (filter.owners) {
+    query.owners = filter.owners;
+  }
+
+  return LeadModel.find(query)
+    .sort({ createdAt: -1 })
+    .populate('owners', 'name email') 
+    .populate('owner', 'name email');
 }
 
 export function getLead(id: string) {
-  return LeadModel.findById(id);
+  return LeadModel.findById(id)
+    .populate('owners', 'name email')
+    .populate('owner', 'name email');
 }
 
-export async function createLead(input: any, userId?: string) {
-  // 1. Validação de Integridade
+export async function createLead(input: any, user?: UserAuth) {
   const pipeline = await PipelineModel.findById(input.pipelineId);
   if (!pipeline) throw new AppError('Pipeline inválido', StatusCodes.BAD_REQUEST);
   
   const stage = await StageModel.findById(input.stageId);
   if (!stage) throw new AppError('Stage inválido', StatusCodes.BAD_REQUEST);
 
-  // 2. Definição do Rank
   const rank = input.rank || '0|hzzzzz:';
+  const userId = user?.sub;
 
-  // 3. Criação do Lead
+  let ownersList = input.owners;
+  if (!ownersList || ownersList.length === 0) {
+    ownersList = userId ? [userId] : [];
+  }
+
   const lead = await LeadModel.create({ 
     ...input, 
+    owners: ownersList,
     rank, 
     createdBy: userId,
     active: true,
@@ -35,11 +56,9 @@ export async function createLead(input: any, userId?: string) {
     lastActivity: input.createdAt || new Date()
   });
 
-  // 4. Auditoria de Sistema
-  // CORREÇÃO AQUI: Mudamos de 'tipo' para 'type' para satisfazer o Mongoose.
   await ActivityModel.create({ 
     leadId: lead._id, 
-    type: 'Sistema',         // <--- O Banco exige 'type'
+    type: 'Sistema',        
     descricao: 'Lead criado no sistema', 
     usuario: userId || 'Sistema',
     data: input.createdAt || new Date()
@@ -48,24 +67,52 @@ export async function createLead(input: any, userId?: string) {
   return lead;
 }
 
-export async function updateLead(id: string, input: any, userId?: string) {
-  const lead = await LeadModel.findByIdAndUpdate(id, { ...input, updatedBy: userId }, { new: true });
-  if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
+export async function updateLead(id: string, input: any, user?: UserAuth) {
+  const existingLead = await LeadModel.findById(id);
+  if (!existingLead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
+
+  if (user && user.role !== 'admin') {
+    const owners = existingLead.owners || [];
+    const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
+    
+    if (!isOwner) {
+      throw new AppError('Você não tem permissão para editar este lead.', StatusCodes.FORBIDDEN);
+    }
+  }
+
+  const lead = await LeadModel.findByIdAndUpdate(
+      id, 
+      { ...input, updatedBy: user?.sub }, 
+      { new: true }
+    )
+    .populate('owners', 'name email')
+    .populate('owner', 'name email');
   
-  // MELHORIA: Adicionamos 'descricao' e 'usuario' para aparecer bonitinho na Timeline
   await ActivityModel.create({ 
-    leadId: lead._id, 
-    type: 'Alteração', // Ou 'update'
+    leadId: lead!._id, 
+    type: 'Alteração', 
     descricao: 'Dados do lead atualizados', 
     payload: input, 
-    usuario: userId || 'Sistema',
+    usuario: user?.sub || 'Sistema',
     data: new Date()
   });
   
   return lead;
 }
 
-export function deleteLead(id: string) {
+export async function deleteLead(id: string, user?: UserAuth) {
+  const existingLead = await LeadModel.findById(id);
+  if (!existingLead) return; 
+
+  if (user && user.role !== 'admin') {
+     const owners = existingLead.owners || [];
+     const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
+     
+     if (!isOwner) {
+        throw new AppError('Você não tem permissão para excluir este lead.', StatusCodes.FORBIDDEN);
+     }
+  }
+
   return LeadModel.findByIdAndDelete(id);
 }
 
@@ -73,13 +120,12 @@ export async function addActivity(leadId: string, type: string, payload: any, us
   const lead = await LeadModel.findById(leadId);
   if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
   
-  // Se o payload tiver uma mensagem, usa ela, senão usa um padrão
   const descricao = payload.description || payload.descricao || 'Nova atividade registrada';
 
   return ActivityModel.create({ 
     leadId, 
-    type,       // Garante que é 'type' pro banco
-    descricao,  // Garante que tem texto pra timeline
+    type,       
+    descricao,  
     payload, 
     usuario: userId || 'Sistema',
     data: new Date()

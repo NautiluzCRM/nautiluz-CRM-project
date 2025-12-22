@@ -23,10 +23,10 @@ import {
   DollarSign,
   Clock,
   CheckCircle,
-  Briefcase // Adicionado ícone para CNPJ
+  Briefcase
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
-// Faixas Padrão ANS (Mapeiam os índices 0 a 9 do array)
 const FAIXAS_LABELS = [
   "0-18", "19-23", "24-28", "29-33", "34-38",
   "39-43", "44-48", "49-53", "54-58", "59+"
@@ -40,10 +40,26 @@ interface LeadDetailsModalProps {
 }
 
 export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsModalProps) {
+  const { user } = useAuth();
+
   if (!lead) return null;
 
-  // Casting para acessar propriedades novas (cidade, uf, tipoCnpj)
   const leadData = lead as any;
+
+  // --- CORREÇÃO DA PERMISSÃO DE EDIÇÃO ---
+  const isAdmin = user?.role === 'admin';
+  
+  // 1. Pega o ID do usuário de forma segura (id ou _id)
+  const currentUserId = user?.id || (user as any)?._id;
+  
+  // 2. Verifica se o ID está na lista de donos
+  const isOwner = (lead.ownersIds || []).some(id => id === currentUserId);
+  
+  // 3. Fallback: Se não tiver lista de IDs, verifica pelo nome (sistema antigo)
+  const isLegacyOwner = (!lead.ownersIds || lead.ownersIds.length === 0) && lead.responsavel === user?.name;
+
+  const canEdit = isAdmin || isOwner || isLegacyOwner;
+  // ---------------------------------------
 
   const getOrigemColor = (origem: string) => {
     const colors: Record<string, string> = {
@@ -69,7 +85,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
     ? Math.floor((Date.now() - new Date(lead.ultimaAtividade).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  // Mapeia o array de contadores
   const faixasPreenchidas = (lead.idades || []).map((count, index) => ({
     label: FAIXAS_LABELS[index],
     count: count
@@ -89,29 +104,31 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               </Avatar>
               <div>
                 <h2 className="text-xl font-semibold">{lead.nome}</h2>
-                {/* Empresa sempre aparece, se vazio mostra "-" */}
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Building className="h-3 w-3" />
                   {lead.empresa || "-"}
                 </p>
               </div>
             </div>
-            <Button
-              onClick={() => onEdit?.(lead)}
-              size="sm"
-              className="bg-primary hover:bg-primary/90 text-white"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Editar
-            </Button>
+            
+            {/* Botão Editar (Agora aparece corretamente para o dono) */}
+            {canEdit && (
+              <Button
+                onClick={() => onEdit?.(lead)}
+                size="sm"
+                className="bg-primary hover:bg-primary/90 text-white"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+            )}
+
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-          {/* Coluna Principal - Informações de Contato */}
+          {/* Coluna Principal */}
           <div className="md:col-span-2 space-y-6">
-            
-            {/* Badges de Status */}
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className={getOrigemColor(lead.origem)}>
                 {lead.origem}
@@ -129,7 +146,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               )}
             </div>
 
-            {/* Informações de Contato */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Phone className="h-4 w-4" />
@@ -137,42 +153,23 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => lead.celular && window.open(`tel:${lead.celular}`, '_self')}
-                    disabled={!lead.celular}
-                  >
+                  <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.celular && window.open(`tel:${lead.celular}`, '_self')} disabled={!lead.celular}>
                     <Phone className="h-4 w-4 mr-2" />
                     {lead.celular || "-"}
                   </Button>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => lead.email && window.open(`mailto:${lead.email}`, '_self')}
-                    disabled={!lead.email}
-                  >
+                  <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.email && window.open(`mailto:${lead.email}`, '_self')} disabled={!lead.email}>
                     <Mail className="h-4 w-4 mr-2" />
                     {lead.email || "-"}
                   </Button>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full justify-start hover:text-green-600 hover:border-green-600"
-                    onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')}
-                    disabled={!lead.celular}
-                  >
+                  <Button size="sm" variant="outline" className="w-full justify-start hover:text-green-600 hover:border-green-600" onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} disabled={!lead.celular}>
                     <MessageCircle className="h-4 w-4 mr-2" />
                     WhatsApp
                   </Button>
                 </div>
-                {/* Localização sempre aparece */}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 border rounded-md h-9">
                    <MapPin className="h-4 w-4" />
                    {leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}
@@ -182,7 +179,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
 
             <Separator />
 
-            {/* Informações do Plano */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -195,7 +191,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                     {lead.quantidadeVidas} {lead.quantidadeVidas === 1 ? 'vida' : 'vidas'}
                   </Badge>
                 </div>
-                
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Faixas Etárias</p>
                   <div className="flex flex-wrap gap-1">
@@ -212,7 +207,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 </div>
               </div>
 
-              {/* Box Verde (Se existir plano) */}
               {lead.possuiPlano && (
                 <div className="bg-green-50/50 border border-green-100 p-4 rounded-lg space-y-2 mt-4">
                   <p className="text-sm font-medium flex items-center gap-2 text-green-700">
@@ -223,40 +217,29 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 </div>
               )}
 
-              {/* CNPJ e Valor Estimado (Abaixo do box verde) */}
               <div className="grid grid-cols-2 gap-4 pt-2">
                  <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground uppercase">CNPJ</p>
                     <div className="flex items-center gap-2 text-sm">
                        <Briefcase className="h-4 w-4 text-muted-foreground" />
-                       {lead.possuiCnpj ? (
-                          <span>Sim ({leadData.tipoCnpj || "N/A"})</span>
-                       ) : (
-                          <span>Não</span>
-                       )}
+                       {lead.possuiCnpj ? <span>Sim ({leadData.tipoCnpj || "N/A"})</span> : <span>Não</span>}
                     </div>
                  </div>
                  <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground uppercase">Valor Estimado</p>
                     <div className="flex items-center gap-2 text-sm">
                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                       {lead.valorMedio > 0 
-                         ? lead.valorMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
-                         : "-"
-                       }
+                       {lead.valorMedio > 0 ? lead.valorMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : "-"}
                     </div>
                  </div>
               </div>
 
-              {/* Hospitais sempre aparece */}
               <div className="space-y-2 pt-2">
                 <p className="text-sm font-medium text-muted-foreground">Hospitais de Preferência</p>
                 <div className="flex flex-wrap gap-1">
                   {lead.hospitaisPreferencia && lead.hospitaisPreferencia.length > 0 ? (
                     lead.hospitaisPreferencia.map((hospital) => (
-                      <Badge key={hospital} variant="secondary" className="text-xs">
-                        {hospital}
-                      </Badge>
+                      <Badge key={hospital} variant="secondary" className="text-xs">{hospital}</Badge>
                     ))
                   ) : (
                     <span className="text-sm text-muted-foreground">-</span>
@@ -267,7 +250,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
 
             <Separator />
             
-            {/* Observações sempre aparece */}
             <div className="space-y-3">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" />
@@ -277,28 +259,46 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 {lead.informacoes || "-"}
                 </p>
             </div>
-
           </div>
 
-          {/* Sidebar - Atividades e Timeline (Mantido Igual) */}
+          {/* Sidebar */}
           <div className="space-y-6">
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 Responsável
               </h3>
-              <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="" alt={lead.responsavel || "Vendedor"} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    {(lead.responsavel || "VD").substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-medium">{lead.responsavel || "Não atribuído"}</p>
-                  <p className="text-xs text-muted-foreground">Vendedor</p>
+              {leadData.owners && leadData.owners.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {leadData.owners.map((owner: any) => (
+                    <div key={owner.id} className="flex items-center gap-3 p-2 bg-muted/30 border rounded-lg">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src="" alt={owner.nome} />
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                          {owner.nome.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="overflow-hidden">
+                        <p className="text-sm font-medium truncate">{owner.nome}</p>
+                        <p className="text-[10px] text-muted-foreground">Vendedor</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src="" alt={lead.responsavel || "Vendedor"} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                      {(lead.responsavel || "VD").substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-medium">{lead.responsavel || "Não atribuído"}</p>
+                    <p className="text-xs text-muted-foreground">Vendedor</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">

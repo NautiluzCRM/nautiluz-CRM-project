@@ -94,7 +94,6 @@ export async function loginApi(email: string, password: string, remember = false
 }
 
 export async function fetchPipelines() {
-  // O 'request' lida automaticamente com o cabeçalho Authorization e erro 401
   return request<any[]>("/pipelines");
 }
 
@@ -116,8 +115,8 @@ export async function createLeadApi(data: any) {
     avgPrice: Number(data.valorMedio || 0),
     hasCnpj: Boolean(data.possuiCnpj),
     
-    // NOVO: Mapeia o Tipo de CNPJ apenas se tiver CNPJ marcado
     cnpjType: data.possuiCnpj ? data.tipoCnpj : undefined,
+    owners: data.owners, // Envia array de IDs
 
     hasCurrentPlan: Boolean(data.possuiPlano),
     currentPlan: data.planoAtual,
@@ -136,8 +135,19 @@ export async function createLeadApi(data: any) {
   });
 }
 
-export async function fetchLeads() {
-  return request<any[]>("/leads");
+export async function fetchLeads(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+  }
+
+  const queryString = params.toString();
+  const endpoint = queryString ? `/leads?${queryString}` : "/leads";
+  
+  return request<any[]>(endpoint);
 }
 
 export async function moveLeadApi(
@@ -159,6 +169,12 @@ export async function updateLeadApi(leadId: string, payload: Partial<Lead>) {
   });
 }
 
+export async function deleteLeadApi(leadId: string) {
+  return request(`/leads/${leadId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function exportLeadsXlsx(filter: Record<string, unknown> = {}) {
   return request<{ url: string; file: string }>("/exports/xlsx", {
     method: "POST",
@@ -166,12 +182,11 @@ export async function exportLeadsXlsx(filter: Record<string, unknown> = {}) {
   });
 }
 
-// Helpers para adaptar payload do backend aos tipos do frontend
 export function mapApiStageToColuna(stage: any): Coluna {
   return {
     id: stage._id || stage.id,
     nome: stage.name,
-    cor: "#3B82F6",
+    cor: stage.color || "#3B82F6",
     ordem: stage.order,
     wipLimit: stage.wipLimit,
     sla: stage.sla,
@@ -179,6 +194,29 @@ export function mapApiStageToColuna(stage: any): Coluna {
 }
 
 export function mapApiLeadToLead(api: any): Lead {
+  // LÓGICA DE MAPEAMENTO DE DONOS (Objetos ou Strings)
+  
+  // 1. Pega o array bruto (pode vir owners ou owner)
+  const rawOwners = api.owners && api.owners.length > 0 ? api.owners : (api.owner ? [api.owner] : []);
+
+  // 2. Normaliza para garantir que temos um array de objetos { id, nome }
+  // Se o backend populou, 'u' é objeto. Se não, 'u' é string (ID).
+  const normalizedOwners = rawOwners.map((u: any) => {
+    if (typeof u === 'string') {
+        return { id: u, nome: "Carregando..." }; // Fallback caso não tenha populado
+    }
+    return { 
+        id: u._id || u.id, 
+        nome: u.name || u.nome || "Sem Nome" 
+    };
+  });
+
+  // 3. Cria uma string de exibição (Ex: "Douglas, João") para lugares simples
+  const responsavelDisplay = normalizedOwners.map((o: any) => o.nome.split(' ')[0]).join(', ');
+
+  // 4. Extrai IDs para uso no formulário de edição (checkboxes)
+  const ownersIds = normalizedOwners.map((o: any) => o.id);
+
   return {
     id: api._id || api.id,
     nome: api.name || api.nome || "Lead",
@@ -197,7 +235,16 @@ export function mapApiLeadToLead(api: any): Lead {
     informacoes: api.notes,
     uf: api.state,
     cidade: api.city,
-    responsavel: api.owner || "",
+    
+    // Passamos a lista de objetos completos para o Modal de Detalhes renderizar Avatars
+    owners: normalizedOwners, 
+    
+    // Passamos a lista de IDs para o Modal de Edição saber quais checkboxes marcar
+    ownersIds: ownersIds,
+
+    // Mantemos compatibilidade visual com string
+    responsavel: responsavelDisplay || "Não atribuído",
+    
     statusQualificacao: api.qualificationStatus || "Qualificado",
     motivoPerda: api.lostReason,
     colunaAtual: api.stageId || api.colunaAtual,
@@ -205,7 +252,7 @@ export function mapApiLeadToLead(api: any): Lead {
     ultimaAtividade: api.lastActivityAt ? new Date(api.lastActivityAt) : new Date(),
     arquivos: [],
     atividades: api.activities || [],
-  };
+  } as unknown as Lead;
 }
 
 export function mapLeadToApiPayload(lead: Partial<Lead>) {
@@ -226,6 +273,10 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
     notes: lead.informacoes,
     state: lead.uf,
     city: lead.cidade,
+    
+    // IMPORTANTE: Aqui pegamos o array de IDs que o CreateLeadModal enviou
+    owners: (lead as any).owners, 
+    
     qualificationStatus: lead.statusQualificacao,
     lostReason: lead.motivoPerda,
     stageId: lead.colunaAtual,
@@ -244,6 +295,8 @@ export async function fetchPipelineData(): Promise<Pipeline> {
     leads: leads.map(mapApiLeadToLead),
   };
 }
+
+// --- Funções de Usuários ---
 
 export async function fetchUsers() {
   const data = await request<any[]>("/users");
@@ -308,15 +361,12 @@ export async function updateUserApi(id: string, dados: {
   assinatura?: string;
 }) {
   const payload: any = {};
-  
-  // Mapeia os campos simples
   if (dados.nome) payload.name = dados.nome;
   if (dados.email) payload.email = dados.email;
   if (dados.ativo !== undefined) payload.active = dados.ativo;
   if (dados.senha) payload.password = dados.senha;
   if (dados.senhaAtual) payload.currentPassword = dados.senhaAtual;
   if (dados.foto !== undefined) payload.photoUrl = dados.foto;
-
   if (dados.telefone !== undefined) payload.phone = dados.telefone;
   if (dados.cargo !== undefined) payload.jobTitle = dados.cargo;
   if (dados.assinatura !== undefined) payload.emailSignature = dados.assinatura;
@@ -335,5 +385,45 @@ export async function updateUserApi(id: string, dados: {
 export async function deleteUserApi(id: string) {
   return request(`/users/${id}`, {
     method: "DELETE",
+  });
+}
+
+// --- Funções de Pipeline / Etapas ---
+
+export async function createStageApi(pipelineId: string, dados: { 
+  name: string; 
+  order: number; 
+  key: string; 
+  color: string; 
+  sla: number 
+}) {
+  return request(`/pipelines/${pipelineId}/stages`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function updateStageApi(stageId: string, dados: { 
+  name?: string; 
+  order?: number; 
+  color?: string; 
+  sla?: number 
+}) {
+  return request(`/pipelines/stages/${stageId}`, {
+    method: "PATCH",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function deleteStageApi(stageId: string) {
+  return request(`/pipelines/stages/${stageId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function reorderStagesApi(pipelineId: string, orderedIds: string[]) {
+  return request(`/pipelines/${pipelineId}/stages/reorder`, {
+    method: "PUT",
+    body: JSON.stringify({ ids: orderedIds }),
   });
 }
