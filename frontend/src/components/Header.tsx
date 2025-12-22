@@ -4,7 +4,7 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger,
+  DropdownMenuTrigger, 
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
 import { Bell, Settings, LogOut, Menu } from "lucide-react";
@@ -35,9 +35,14 @@ export function Header() {
         </Button>
         
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-            <span className="text-sm font-bold text-white">N</span>
-          </div>
+          {/* --- LOGO ALTERADA AQUI --- */}
+          {/* Substituído o quadrado azul pela imagem da logo */}
+          <img 
+            src="/nautiluz.png" 
+            alt="Nautiluz CRM" 
+            className="h-8 w-8 object-contain rounded-md bg-white" 
+          />
+          
           <div>
             <h1 className="text-lg font-semibold text-foreground">NAUTILUZ CRM</h1>
             <p className="text-xs text-muted-foreground">Sistema de Gestão de Leads</p>

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Lock, Mail, Anchor } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react"; // Removi 'Anchor' daqui
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -43,9 +43,13 @@ const Login = () => {
         {/* Logo e Cabeçalho */}
         <div className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-lg">
-              <Anchor className="h-8 w-8 text-white" />
-            </div>
+            {/* --- LOGO ALTERADA AQUI --- */}
+            {/* Substituí o container da âncora pela Imagem da Logo */}
+            <img 
+              src="/nautiluz.png" 
+              alt="Nautiluz CRM" 
+              className="h-24 w-auto object-contain drop-shadow-sm" 
+            />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-foreground">NAUTILUZ CRM</h1>
@@ -154,7 +158,7 @@ const Login = () => {
 
         {/* Rodapé */}
         <div className="text-center text-sm text-muted-foreground">
-          <p>© 2024 NAUTILUZ - Consultoria em Seguros</p>
+          <p>© 2025 NAUTILUZ - Consultoria em Seguros</p>
         </div>
       </div>
     </div>

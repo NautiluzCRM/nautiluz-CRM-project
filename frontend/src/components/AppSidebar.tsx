@@ -53,9 +53,15 @@ export function AppSidebar() {
           ${isCollapsed ? 'justify-center' : ''}
         `}
       >
-        <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-sm font-bold text-white">N</span>
-        </div>
+        {/* --- LOGO ALTERADA AQUI --- */}
+        {/* Substituímos a div com o "N" pela imagem */}
+        <img 
+          src="/nautiluz.png" 
+          alt="Nautiluz Logo" 
+          className="w-8 h-8 rounded-lg flex-shrink-0 object-contain bg-white" 
+          // Adicionei bg-white caso sua logo tenha fundo transparente, para destacar no fundo escuro/gradiente
+        />
+        
         {!isCollapsed && (
           <div>
             <h2 className="text-sm font-semibold text-sidebar-primary">
