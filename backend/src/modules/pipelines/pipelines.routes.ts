@@ -20,10 +20,6 @@ router.use(authenticate);
 // Necessário para carregar o Kanban
 router.get('/', listPipelinesHandler);
 router.get('/:id/stages', listStagesHandler);
-router.post('/:id/stages', createStageHandler);
-router.patch('/stages/:id', updateStageHandler);
-router.delete('/stages/:id', deleteStageHandler);
-router.put('/:id/stages/reorder', reorderStagesHandler);
 
 // --- ROTAS PROTEGIDAS (Apenas Admin) ---
 // Configuração do sistema deve ser restrita
@@ -34,5 +30,6 @@ router.delete('/:id', requireRole(['admin']), deletePipelineHandler);
 router.post('/:id/stages', requireRole(['admin']), createStageHandler);
 router.patch('/stages/:id', requireRole(['admin']), updateStageHandler);
 router.delete('/stages/:id', requireRole(['admin']), deleteStageHandler);
+router.put('/:id/stages/reorder', requireRole(['admin']), reorderStagesHandler);
 
 export default router;
