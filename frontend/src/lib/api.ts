@@ -286,6 +286,16 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
 export async function fetchPipelineData(): Promise<Pipeline> {
   const [pipelines, leads] = await Promise.all([fetchPipelines(), fetchLeads()]);
   const pipeline = pipelines[0];
+
+  if (!pipeline) {
+    return {
+      id: '',
+      nome: 'Pipeline não configurado',
+      colunas: [],
+      leads: [],
+    };
+  }
+
   const stages = await fetchStages(pipeline._id || pipeline.id);
 
   return {
