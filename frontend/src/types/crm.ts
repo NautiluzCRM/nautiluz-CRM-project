@@ -1,3 +1,8 @@
+export interface LeadOwner {
+  id: string;
+  nome: string;
+}
+
 export interface Lead {
   id: string;
   nome: string;
@@ -16,7 +21,9 @@ export interface Lead {
   informacoes?: string;
   uf?: string;
   cidade?: string;
-  responsavel: string;
+  responsavel: string; // Mantido para compatibilidade visual simples
+  owners?: LeadOwner[]; // Lista de objetos com ID e Nome (para Avatars)
+  ownersIds?: string[]; // Lista de IDs (para checagem rápida de permissão)
   statusQualificacao: 'Qualificado' | 'Incompleto' | 'Duplicado' | 'Sem interesse';
   motivoPerda?: string;
   colunaAtual: string;
@@ -28,7 +35,7 @@ export interface Lead {
 
 export interface Atividade {
   id: string;
-  tipo: 'Ligação' | 'WhatsApp' | 'Email' | 'Reunião' | 'Observação';
+  tipo: 'Ligação' | 'WhatsApp' | 'Email' | 'Reunião' | 'Observação' | 'Sistema' | 'Alteração'; // Adicionei Sistema/Alteração que o backend usa
   descricao: string;
   data: Date;
   usuario: string;

@@ -45,13 +45,15 @@ const leadSchema = z.object({
 });
 
 export const listLeadsHandler = asyncHandler(async (req: Request, res: Response) => {
-  const leads = await listLeads(req.query);
+  const user = (req as any).user; 
+  const leads = await listLeads(req.query, user);
   res.json(leads);
 });
 
 export const createLeadHandler = asyncHandler(async (req: Request, res: Response) => {
   const body = leadSchema.parse(req.body);
-  const lead = await createLead(body, (req as any).user?.sub);
+  const user = (req as any).user;
+  const lead = await createLead(body, user);
   res.status(201).json(lead);
 });
 
@@ -63,18 +65,21 @@ export const getLeadHandler = asyncHandler(async (req: Request, res: Response) =
 
 export const updateLeadHandler = asyncHandler(async (req: Request, res: Response) => {
   const body = leadSchema.partial().parse(req.body);
-  const lead = await updateLead(req.params.id, body, (req as any).user?.sub);
+  const user = (req as any).user;
+  const lead = await updateLead(req.params.id, body, user);
   res.json(lead);
 });
 
 export const deleteLeadHandler = asyncHandler(async (req: Request, res: Response) => {
-  await deleteLead(req.params.id);
+  const user = (req as any).user;
+  await deleteLead(req.params.id, user);
   res.json({ ok: true });
 });
 
 export const addActivityHandler = asyncHandler(async (req: Request, res: Response) => {
   const schema = z.object({ type: z.string(), payload: z.any().optional() });
   const body = schema.parse(req.body);
-  const activity = await addActivity(req.params.id, body.type, body.payload, (req as any).user?.sub);
+  const user = (req as any).user;
+  const activity = await addActivity(req.params.id, body.type, body.payload, user?.sub);
   res.status(201).json(activity);
 });

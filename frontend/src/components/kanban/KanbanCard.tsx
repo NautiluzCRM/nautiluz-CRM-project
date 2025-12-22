@@ -10,11 +10,12 @@ import {
   Mail, 
   Building, 
   Users, 
-  Calendar,
   MessageCircle,
   AlertCircle,
-  Clock
+  Clock,
+  Lock // Ícone de cadeado para indicar visualmente
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth"; // <--- Import do Auth
 
 interface KanbanCardProps {
   lead: Lead;
@@ -24,7 +25,22 @@ interface KanbanCardProps {
   isOverdue?: boolean;
 }
 
-export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false, isOverdue = false }: KanbanCardProps) {
+export function KanbanCard({ lead, onLeadClick, isDragging = false, isOverdue = false }: KanbanCardProps) {
+  const { user } = useAuth();
+
+  const isAdmin = user?.role === 'admin';
+  
+  // Tenta pegar o ID de todas as formas possíveis (id ou _id)
+  const currentUserId = user?.id || (user as any)?._id;
+  
+  // Verifica se o ID do usuário está na lista de donos
+  const isOwner = (lead.ownersIds || []).some(id => id === currentUserId);
+  
+  // Fallback para legado: verifica se bate com o nome ou ID antigo se o array estiver vazio
+  const isLegacyOwner = !lead.ownersIds?.length && lead.responsavel === user?.name;
+
+  const canMove = isAdmin || isOwner || isLegacyOwner;
+
   const {
     attributes,
     listeners,
@@ -37,6 +53,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
       type: 'lead',
       lead,
     },
+    disabled: !canMove, // <--- BLOQUEIA O ARRASTO AQUI
   });
 
   const style = {
@@ -64,9 +81,9 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
     return colors[status as keyof typeof colors] || colors['Incompleto'];
   };
 
-  const diasSemAtividade = Math.floor(
-    (Date.now() - lead.ultimaAtividade.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const diasSemAtividade = lead.ultimaAtividade 
+  ? Math.floor((Date.now() - new Date(lead.ultimaAtividade).getTime()) / (1000 * 60 * 60 * 24))
+  : 0;
 
   return (
     <Card
@@ -76,16 +93,25 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
       {...listeners}
       onClick={() => onLeadClick?.(lead)}
       className={`
-        cursor-grab active:cursor-grabbing shadow-kanban-card hover:shadow-lg
+        relative group
+        ${canMove ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default opacity-90'} 
+        shadow-kanban-card 
         transition-all duration-200 border-l-4 border-l-primary
         ${isDragging ? 'opacity-50 rotate-2 scale-105' : ''}
         ${isOverdue ? 'border-l-destructive bg-destructive/5' : ''}
       `}
     >
+      {/* Indicador visual de bloqueio (opcional, mas bom pra UX) */}
+      {!canMove && (
+        <div className="absolute top-2 right-2 text-muted-foreground/20">
+          <Lock className="h-4 w-4" />
+        </div>
+      )}
+
       <CardContent className="p-4 space-y-3">
         {/* Header com nome e empresa */}
         <div className="space-y-1">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between pr-4">
             <h4 className="font-medium text-foreground text-sm line-clamp-1">
               {lead.nome}
             </h4>
@@ -133,9 +159,10 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
           )}
         </div>
 
-        {/* Ações rápidas */}
+        {/* Footer com Ações e Avatar */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <div className="flex gap-1">
+            {/* Botões de ação rápida (Phone, Whats, Mail) */}
             <Button
               size="sm"
               variant="ghost"
@@ -178,12 +205,24 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
                 <span>{diasSemAtividade}d</span>
               </div>
             )}
-            <Avatar className="h-6 w-6">
-              <AvatarImage src="" alt={lead.responsavel} />
-              <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                {lead.responsavel.split(' ').map(n => n[0]).join('').substring(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+            
+            {/* Avatar do Responsável */}
+            <div className="flex -space-x-2 overflow-hidden">
+               {lead.owners && lead.owners.length > 0 ? (
+                  lead.owners.slice(0, 2).map((owner: any) => (
+                    <Avatar key={owner.id} className="h-6 w-6 border-2 border-background ring-1 ring-background">
+                      <AvatarImage src="" />
+                      <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">
+                        {owner.nome.substring(0, 1)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))
+               ) : (
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-[10px] bg-muted">?</AvatarFallback>
+                  </Avatar>
+               )}
+            </div>
           </div>
         </div>
       </CardContent>
