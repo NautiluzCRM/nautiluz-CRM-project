@@ -748,11 +748,11 @@ const Configuracoes = () => {
     <Layout>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="bg-card border-b border-border p-6 shadow-card">
+        <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground">Configurações</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Gerencie as configurações do sistema e usuários
               </p>
             </div>
@@ -760,36 +760,36 @@ const Configuracoes = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6 overflow-auto">
-          <Tabs defaultValue="perfil" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="perfil" className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Perfil
+        <div className="flex-1 p-4 sm:p-6 overflow-auto">
+          <Tabs defaultValue="perfil" className="space-y-4 sm:space-y-6">
+            <TabsList className="flex flex-wrap h-auto gap-1 sm:gap-0 sm:grid sm:w-full sm:grid-cols-6 overflow-x-auto">
+              <TabsTrigger value="perfil" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Perfil</span>
               </TabsTrigger>
 
               {isAdmin && (
-                <TabsTrigger value="usuarios" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Usuários
+                <TabsTrigger value="usuarios" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                  <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Usuários</span>
                 </TabsTrigger>
               )}
 
               {isAdmin && (
-                <TabsTrigger value="pipeline" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Pipeline
+                <TabsTrigger value="pipeline" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                  <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Pipeline</span>
                 </TabsTrigger>
               )}
 
-              <TabsTrigger value="notificacoes" className="flex items-center gap-2">
-                <Bell className="h-4 w-4" />
-                Notificações
+              <TabsTrigger value="notificacoes" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Notificações</span>
               </TabsTrigger>
 
-              <TabsTrigger value="sistema" className="flex items-center gap-2">
-                <Database className="h-4 w-4" />
-                Sistema
+              <TabsTrigger value="sistema" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Sistema</span>
               </TabsTrigger>
 
               {/* 
@@ -801,23 +801,23 @@ const Configuracoes = () => {
             </TabsList>
 
             {/* Aba Perfil */}
-            <TabsContent value="perfil" className="space-y-6">
+            <TabsContent value="perfil" className="space-y-4 sm:space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <User className="h-4 w-4 sm:h-5 sm:w-5" />
                     Informações do Perfil
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6 pt-0">
 
-                  <Avatar className="h-20 w-20">
+                  <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
                     <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" />
-                    <AvatarFallback className="text-lg bg-primary text-primary-foreground">
+                    <AvatarFallback className="text-base sm:text-lg bg-primary text-primary-foreground">
                       {(user?.name || "N").slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -826,7 +826,7 @@ const Configuracoes = () => {
                       onChange={handleFileChange}
                     />
 
-                    <Button variant="outline" size="sm" onClick={handleButtonClick}>
+                    <Button variant="outline" size="sm" onClick={handleButtonClick} className="h-8 text-xs sm:text-sm">
                       Alterar Foto
                     </Button>
 
@@ -835,7 +835,7 @@ const Configuracoes = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
                         onClick={handleRemoverFoto}
                         title="Remover foto de perfil"
                       >
@@ -843,7 +843,7 @@ const Configuracoes = () => {
                       </Button>
                     )}
 
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground w-full sm:w-auto">
                       JPG, PNG ou GIF. Máximo 2MB.
                     </p>
 

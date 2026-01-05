@@ -1,74 +1,281 @@
 import mongoose, { Schema, Types } from 'mongoose';
 
+/**
+ * Faixas etárias para distribuição de vidas
+ * Conforme documento de requisitos: 0-18, 19-23, 24-28, 29-33, 34-38, 39-43, 44-48, 49-53, 54-58, 59+
+ */
+export interface FaixasEtarias {
+  ate18: number;
+  de19a23: number;
+  de24a28: number;
+  de29a33: number;
+  de34a38: number;
+  de39a43: number;
+  de44a48: number;
+  de49a53: number;
+  de54a58: number;
+  acima59: number;
+}
+
+/**
+ * Origens possíveis do lead
+ */
+export const leadOrigins = [
+  'Meta Ads',
+  'Google Ads', 
+  'Indicação',
+  'Site',
+  'WhatsApp',
+  'Telefone',
+  'Email',
+  'Evento',
+  'LinkedIn',
+  'Parceiro',
+  'Outro'
+] as const;
+export type LeadOrigin = typeof leadOrigins[number];
+
+/**
+ * Status de qualificação do lead
+ */
+export const qualificationStatuses = [
+  'novo',
+  'em_contato',
+  'qualificado',
+  'proposta_enviada',
+  'negociacao',
+  'fechado_ganho',
+  'fechado_perdido',
+  'sem_interesse',
+  'aguardando_retorno'
+] as const;
+export type QualificationStatus = typeof qualificationStatuses[number];
+
+/**
+ * Tipos de CNPJ
+ */
+export const cnpjTypes = ['MEI', 'ME', 'EPP', 'Média', 'Grande', 'Outro'] as const;
+export type CnpjType = typeof cnpjTypes[number];
+
+/**
+ * Prioridades do lead
+ */
+export const leadPriorities = ['baixa', 'media', 'alta', 'urgente'] as const;
+export type LeadPriority = typeof leadPriorities[number];
+
 export interface Lead {
+  // Dados básicos
   name: string;
   company?: string;
   phone?: string;
+  phoneSecondary?: string;
+  whatsapp?: string;
   email?: string;
+  emailSecondary?: string;
+  
+  // Dados da empresa
   hasCnpj?: boolean;
-  cnpjType?: string;
+  cnpj?: string;
+  cnpjType?: CnpjType;
+  razaoSocial?: string;
+  nomeFantasia?: string;
+  
+  // Vidas e faixas etárias
   livesCount?: number;
-  ageBuckets?: number[];
+  faixasEtarias?: FaixasEtarias;
+  
+  // Plano atual
   hasCurrentPlan?: boolean;
   currentPlan?: string;
+  currentOperadora?: string;
+  dataVencimentoPlanoAtual?: Date;
+  
+  // Valores
   avgPrice?: number;
+  valorProposta?: number;
+  valorFechado?: number;
+  
+  // Preferências
   preferredHospitals?: string[];
+  preferenciaCoparticipacao?: boolean;
+  preferenciaEnfermaria?: boolean;
+  
+  // Localização
   state?: string;
   city?: string;
-  origin: string;
+  cep?: string;
+  endereco?: string;
   
+  // Origem e rastreamento
+  origin: LeadOrigin | string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmTerm?: string;
+  
+  // Responsáveis
   owner?: Types.ObjectId;       // Mantido para legado
-  owners?: Types.ObjectId[];    // NOVO: Array de responsáveis
+  owners?: Types.ObjectId[];    // Array de responsáveis
   
+  // Pipeline
   pipelineId: Types.ObjectId;
   stageId: Types.ObjectId;
   rank: string;
-  qualificationStatus?: string;
+  
+  // Status e qualificação
+  qualificationStatus?: QualificationStatus;
+  priority?: LeadPriority;
+  score?: number; // 0-100 pontuação do lead
+  
+  // Resultado
   lostReason?: string;
+  wonAt?: Date;
+  lostAt?: Date;
+  
+  // Observações e notas
   notes?: string;
+  observacoesInternas?: string;
+  
+  // Próximo contato
+  proximoContato?: Date;
+  lembreteContato?: string;
+  
+  // Apólice vinculada (quando fechado)
+  apoliceId?: Types.ObjectId;
+  
+  // Audit
   createdBy?: Types.ObjectId;
   updatedBy?: Types.ObjectId;
   lastActivityAt?: Date;
-  wonAt?: Date;
-  lostAt?: Date;
+  lastContactAt?: Date;
+  
+  // Timestamps
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
+const faixasEtariasSchema = new Schema<FaixasEtarias>({
+  ate18: { type: Number, default: 0 },
+  de19a23: { type: Number, default: 0 },
+  de24a28: { type: Number, default: 0 },
+  de29a33: { type: Number, default: 0 },
+  de34a38: { type: Number, default: 0 },
+  de39a43: { type: Number, default: 0 },
+  de44a48: { type: Number, default: 0 },
+  de49a53: { type: Number, default: 0 },
+  de54a58: { type: Number, default: 0 },
+  acima59: { type: Number, default: 0 }
+}, { _id: false });
+
 const leadSchema = new Schema<Lead>({
-  name: { type: String, required: true },
-  company: String,
+  // Dados básicos
+  name: { type: String, required: true, index: true },
+  company: { type: String, index: true },
   phone: String,
+  phoneSecondary: String,
+  whatsapp: String,
   email: { type: String, index: true },
+  emailSecondary: String,
+  
+  // Dados da empresa
   hasCnpj: Boolean,
-  cnpjType: String,
-  livesCount: Number,
-  ageBuckets: [Number],
+  cnpj: { type: String, index: true },
+  cnpjType: { type: String, enum: cnpjTypes },
+  razaoSocial: String,
+  nomeFantasia: String,
+  
+  // Vidas e faixas etárias
+  livesCount: { type: Number, min: 1 },
+  faixasEtarias: faixasEtariasSchema,
+  
+  // Plano atual
   hasCurrentPlan: Boolean,
   currentPlan: String,
+  currentOperadora: String,
+  dataVencimentoPlanoAtual: Date,
+  
+  // Valores
   avgPrice: Number,
+  valorProposta: Number,
+  valorFechado: Number,
+  
+  // Preferências
   preferredHospitals: [String],
+  preferenciaCoparticipacao: Boolean,
+  preferenciaEnfermaria: Boolean,
+  
+  // Localização
   state: String,
   city: String,
-  origin: { type: String, required: true },
+  cep: String,
+  endereco: String,
   
-  // Mantendo o singular para não quebrar leads antigos
+  // Origem e rastreamento
+  origin: { type: String, required: true, index: true },
+  utmSource: String,
+  utmMedium: String,
+  utmCampaign: String,
+  utmTerm: String,
+  
+  // Responsáveis
   owner: { type: Schema.Types.ObjectId, ref: 'User', index: true },
-  
-  // NOVO: Lista de responsáveis (Multi-owner)
   owners: [{ type: Schema.Types.ObjectId, ref: 'User', index: true }],
   
+  // Pipeline
   pipelineId: { type: Schema.Types.ObjectId, ref: 'Pipeline', required: true, index: true },
   stageId: { type: Schema.Types.ObjectId, ref: 'Stage', required: true, index: true },
   rank: { type: String, required: true, index: true },
-  qualificationStatus: String,
+  
+  // Status e qualificação
+  qualificationStatus: { type: String, enum: qualificationStatuses, default: 'novo', index: true },
+  priority: { type: String, enum: leadPriorities, default: 'media' },
+  score: { type: Number, min: 0, max: 100, default: 0 },
+  
+  // Resultado
   lostReason: String,
+  wonAt: Date,
+  lostAt: Date,
+  
+  // Observações
   notes: String,
+  observacoesInternas: String,
+  
+  // Próximo contato
+  proximoContato: { type: Date, index: true },
+  lembreteContato: String,
+  
+  // Apólice vinculada
+  apoliceId: { type: Schema.Types.ObjectId, ref: 'Apolice' },
+  
+  // Audit
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   lastActivityAt: Date,
-  wonAt: Date,
-  lostAt: Date
+  lastContactAt: Date
 }, { timestamps: true });
 
+// Índices compostos para buscas otimizadas
 leadSchema.index({ pipelineId: 1, stageId: 1, rank: 1 });
+leadSchema.index({ qualificationStatus: 1, createdAt: -1 });
+leadSchema.index({ owners: 1, qualificationStatus: 1 });
+leadSchema.index({ origin: 1, createdAt: -1 });
+leadSchema.index({ proximoContato: 1, qualificationStatus: 1 });
+
+// Virtual para calcular total de vidas das faixas etárias
+leadSchema.virtual('totalVidasFaixas').get(function() {
+  if (!this.faixasEtarias) return 0;
+  return Object.values(this.faixasEtarias).reduce((sum, val) => sum + (val || 0), 0);
+});
+
+// Middleware para sincronizar livesCount com faixas etárias
+leadSchema.pre('save', function(next) {
+  if (this.faixasEtarias && this.isModified('faixasEtarias')) {
+    const total = Object.values(this.faixasEtarias).reduce((sum, val) => sum + (val || 0), 0);
+    if (total > 0) {
+      this.livesCount = total;
+    }
+  }
+  next();
+});
 
 export const LeadModel = mongoose.model<Lead>('Lead', leadSchema);

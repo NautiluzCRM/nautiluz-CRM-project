@@ -46,7 +46,8 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', env: env.NODE_ENV });
 });
 
-app.use(router);
+// API routes com prefixo /api
+app.use('/api', router);
 app.use(errorHandler);
 
 export const httpServer = createServer(app);

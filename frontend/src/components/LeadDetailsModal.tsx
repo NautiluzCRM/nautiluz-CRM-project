@@ -215,21 +215,21 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+      <DialogContent className="w-[calc(100%-1rem)] max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
                 <AvatarImage src="" alt={lead.nome} />
-                <AvatarFallback className="bg-primary text-primary-foreground">
+                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                   {lead.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h2 className="text-xl font-semibold">{lead.nome}</h2>
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Building className="h-3 w-3" />
-                  {lead.empresa || "-"}
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-xl font-semibold truncate">{lead.nome}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                  <Building className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{lead.empresa || "-"}</span>
                 </p>
               </div>
             </div>
@@ -238,7 +238,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
               <Button
                 onClick={() => setIsEditing(true)}
                 size="sm"
-                className="bg-primary hover:bg-primary/90 text-white"
+                className="w-full sm:w-auto h-9"
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
@@ -246,28 +246,31 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
             )}
 
             {isEditing && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   onClick={handleCancelEditing}
                   size="sm"
                   variant="outline"
                   disabled={isSaving}
+                  className="flex-1 sm:flex-none h-9"
                 >
-                  <X className="h-4 w-4 mr-2" />
-                  Cancelar
+                  <X className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Cancelar</span>
                 </Button>
                 <Button
                   onClick={handleSave}
                   size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white h-9"
                   disabled={isSaving}
                 >
                   {isSaving ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Save className="h-4 w-4 mr-2" />
+                    <>
+                      <Save className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Salvar</span>
+                    </>
                   )}
-                  Salvar
                 </Button>
               </div>
             )}
@@ -275,16 +278,16 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mt-4">
           {/* Coluna Principal */}
-          <div className="md:col-span-2 space-y-6">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className={getOrigemColor(lead.origem)}>
+          <div className="md:col-span-2 space-y-4 sm:space-y-6">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              <Badge variant="outline" className={`text-xs ${getOrigemColor(lead.origem)}`}>
                 {lead.origem}
               </Badge>
               {isEditing ? (
                 <Select value={editedStatus} onValueChange={setEditedStatus}>
-                  <SelectTrigger className="w-40 h-6 text-xs">
+                  <SelectTrigger className="w-32 sm:w-40 h-6 text-xs">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -296,25 +299,25 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
                 </Select>
               ) : (
                 lead.statusQualificacao && (
-                  <Badge variant={getStatusColor(lead.statusQualificacao) as any}>
+                  <Badge variant={getStatusColor(lead.statusQualificacao) as any} className="text-xs">
                     {lead.statusQualificacao}
                   </Badge>
                 )
               )}
               {diasSemAtividade > 0 && (
-                <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
+                <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground text-xs">
                   <Clock className="h-3 w-3" />
                   {diasSemAtividade}d sem atividade
                 </Badge>
               )}
             </div>
 
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+            <div className="space-y-2 sm:space-y-3">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                 <Phone className="h-4 w-4" />
                 Contato
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-3">
                 {isEditing ? (
                   <>
                     <div className="space-y-1">
@@ -323,6 +326,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
                         value={editedPhone}
                         onChange={(e) => setEditedPhone(e.target.value)}
                         placeholder="(11) 99999-9999"
+                        className="h-10"
                       />
                     </div>
                     <div className="space-y-1">
@@ -332,6 +336,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
                         value={editedEmail}
                         onChange={(e) => setEditedEmail(e.target.value)}
                         placeholder="email@exemplo.com"
+                        className="h-10"
                       />
                     </div>
                     <div className="space-y-1">
@@ -340,6 +345,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
                         value={editedCity}
                         onChange={(e) => setEditedCity(e.target.value)}
                         placeholder="Cidade"
+                        className="h-10"
                       />
                     </div>
                     <div className="space-y-1">
@@ -349,32 +355,27 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
                         onChange={(e) => setEditedState(e.target.value)}
                         placeholder="SP"
                         maxLength={2}
+                        className="h-10"
                       />
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3">
-                      <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.celular && window.open(`tel:${lead.celular}`, '_self')} disabled={!lead.celular}>
-                        <Phone className="h-4 w-4 mr-2" />
-                        {lead.celular || "-"}
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.email && window.open(`mailto:${lead.email}`, '_self')} disabled={!lead.email}>
-                        <Mail className="h-4 w-4 mr-2" />
-                        {lead.email || "-"}
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Button size="sm" variant="outline" className="w-full justify-start hover:text-green-600 hover:border-green-600" onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} disabled={!lead.celular}>
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        WhatsApp
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 border rounded-md h-9">
-                        <MapPin className="h-4 w-4" />
-                        {leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}
+                    <Button size="sm" variant="outline" className="w-full justify-start h-9 text-xs sm:text-sm" onClick={() => lead.celular && window.open(`tel:${lead.celular}`, '_self')} disabled={!lead.celular}>
+                      <Phone className="h-3.5 w-3.5 mr-2 shrink-0" />
+                      <span className="truncate">{lead.celular || "-"}</span>
+                    </Button>
+                    <Button size="sm" variant="outline" className="w-full justify-start h-9 text-xs sm:text-sm" onClick={() => lead.email && window.open(`mailto:${lead.email}`, '_self')} disabled={!lead.email}>
+                      <Mail className="h-3.5 w-3.5 mr-2 shrink-0" />
+                      <span className="truncate">{lead.email || "-"}</span>
+                    </Button>
+                    <Button size="sm" variant="outline" className="w-full justify-start h-9 text-xs sm:text-sm hover:text-green-600 hover:border-green-600" onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} disabled={!lead.celular}>
+                      <MessageCircle className="h-3.5 w-3.5 mr-2 shrink-0" />
+                      WhatsApp
+                    </Button>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground px-3 border rounded-md h-9">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}</span>
                     </div>
                   </>
                 )}
@@ -383,26 +384,26 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
 
             <Separator />
 
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+            <div className="space-y-2 sm:space-y-3">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Informações do Plano
               </h3>
               
               {/* Vidas e Faixas */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Quantidade de Vidas</p>
-                  <Badge variant="secondary" className="text-lg px-4 py-1 rounded-full">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <p className="text-xs sm:text-sm font-medium">Quantidade de Vidas</p>
+                  <Badge variant="secondary" className="text-sm sm:text-lg px-3 sm:px-4 py-1 rounded-full">
                     {lead.quantidadeVidas} {lead.quantidadeVidas === 1 ? 'vida' : 'vidas'}
                   </Badge>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Faixas Etárias</p>
+                <div className="space-y-1.5">
+                  <p className="text-xs sm:text-sm font-medium">Faixas Etárias</p>
                   <div className="flex flex-wrap gap-1">
                     {faixasPreenchidas.length > 0 ? (
                       faixasPreenchidas.map((item) => (
-                        <Badge key={item.label} variant="outline" className="text-xs bg-slate-50">
+                        <Badge key={item.label} variant="outline" className="text-[10px] sm:text-xs bg-slate-50">
                           {item.label}: <span className="font-bold ml-1">{item.count}</span>
                         </Badge>
                       ))
@@ -414,35 +415,35 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
               </div>
 
               {/* GRID: CNPJ e Hospitais lado a lado */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2">
                   <div className="space-y-1">
                      <p className="text-xs font-medium uppercase">CNPJ</p>
-                     <div className="flex items-center gap-2 text-sm">
-                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                     <div className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
                         {lead.possuiCnpj ? <span>Sim ({leadData.tipoCnpj || "N/A"})</span> : <span>Não</span>}
                      </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <p className="text-xs font-medium uppercase">Hospitais de Preferência</p>
                     <div className="flex flex-wrap gap-1">
                       {lead.hospitaisPreferencia && lead.hospitaisPreferencia.length > 0 ? (
                         lead.hospitaisPreferencia.map((hospital) => (
-                          <Badge key={hospital} variant="secondary" className="text-xs">{hospital}</Badge>
+                          <Badge key={hospital} variant="secondary" className="text-[10px] sm:text-xs">{hospital}</Badge>
                         ))
                       ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground">-</span>
                       )}
                     </div>
                   </div>
               </div>
 
               {/* === CARD DE DESTAQUE (LOGO PREENCHENDO TUDO) === */}
-              <div className="mt-4 mb-2 bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+              <div className="mt-3 sm:mt-4 mb-2 bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shadow-sm">
                  {/* Lado Esquerdo: Plano */}
-                 <div className="flex items-center gap-4 w-full sm:w-auto">
+                 <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
                     {/* CONTAINER DA LOGO */}
-                    <div className="h-24 w-36 rounded-lg bg-white border flex items-center justify-center shadow-sm shrink-0 overflow-hidden relative">
+                    <div className="h-16 w-24 sm:h-24 sm:w-36 rounded-lg bg-white border flex items-center justify-center shadow-sm shrink-0 overflow-hidden relative">
                        {operadoraInfo ? (
                          <img 
                            src={operadoraInfo.src} 
@@ -451,20 +452,20 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
                            onError={(e) => e.currentTarget.style.display = 'none'}
                          />
                        ) : (
-                         <Shield className="h-10 w-10 text-slate-300" />
+                         <Shield className="h-8 w-8 sm:h-10 sm:w-10 text-slate-300" />
                        )}
                     </div>
-                    <div className="flex-1">
-                       <p className="text-xs font-semibol uppercase tracking-wider mb-0.5">Plano Atual</p>
+                    <div className="flex-1 min-w-0">
+                       <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-0.5">Plano Atual</p>
                        {isEditing ? (
                          <Input
                            value={editedCurrentPlan}
                            onChange={(e) => setEditedCurrentPlan(e.target.value)}
                            placeholder="Nome do plano"
-                           className="mt-1"
+                           className="mt-1 h-9"
                          />
                        ) : (
-                         <h4 className="text-lg font-bold text-slate-800 leading-tight">
+                         <h4 className="text-sm sm:text-lg font-bold text-slate-800 leading-tight truncate">
                            {lead.planoAtual || "Sem plano atual"}
                          </h4>
                        )}
@@ -473,25 +474,27 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
 
                  {/* Divisor Desktop */}
                  <div className="hidden sm:block w-px h-10 bg-slate-200"></div>
+                 {/* Divisor Mobile */}
+                 <div className="sm:hidden w-full h-px bg-slate-200"></div>
 
                  {/* Lado Direito: Valor */}
                  <div className="w-full sm:w-auto text-left sm:text-right">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-0.5">Valor Estimado</p>
+                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-0.5">Valor Estimado</p>
                     {isEditing ? (
                       <div className="flex items-center gap-1">
-                        <span className="text-sm font-medium text-emerald-600">R$</span>
+                        <span className="text-xs sm:text-sm font-medium text-emerald-600">R$</span>
                         <Input
                           type="number"
                           value={editedAvgPrice}
                           onChange={(e) => setEditedAvgPrice(e.target.value)}
                           placeholder="0.00"
-                          className="w-32"
+                          className="w-28 sm:w-32 h-9"
                         />
                       </div>
                     ) : (
                       <div className="flex items-baseline sm:justify-end gap-1">
-                         <span className="text-sm font-medium text-emerald-600">R$</span>
-                         <span className="text-2xl font-bold text-emerald-600">
+                         <span className="text-xs sm:text-sm font-medium text-emerald-600">R$</span>
+                         <span className="text-xl sm:text-2xl font-bold text-emerald-600">
                            {lead.valorMedio && lead.valorMedio > 0 
                              ? lead.valorMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
                              : "0,00"}
@@ -505,8 +508,8 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
 
             <Separator />
             
-            <div className="space-y-3">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
+            <div className="space-y-2 sm:space-y-3">
+                <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 Observações
                 </h3>
@@ -515,10 +518,10 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
                     value={editedNotes}
                     onChange={(e) => setEditedNotes(e.target.value)}
                     placeholder="Observações sobre o lead..."
-                    className="min-h-[100px]"
+                    className="min-h-[80px] sm:min-h-[100px] text-sm"
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg leading-relaxed">
+                  <p className="text-xs sm:text-sm text-muted-foreground bg-muted/50 p-3 sm:p-4 rounded-lg leading-relaxed">
                     {lead.informacoes || "-"}
                   </p>
                 )}
@@ -526,58 +529,58 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-2 sm:space-y-3">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 Responsável
               </h3>
               {leadData.owners && leadData.owners.length > 0 ? (
                 <div className="flex flex-col gap-2">
                   {leadData.owners.map((owner: any) => (
-                    <div key={owner.id} className="flex items-center gap-3 p-2 bg-muted/30 border rounded-lg">
-                      <Avatar className="h-8 w-8">
+                    <div key={owner.id} className="flex items-center gap-2 sm:gap-3 p-2 bg-muted/30 border rounded-lg">
+                      <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
                         <AvatarImage src="" alt={owner.nome} />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-[10px] sm:text-xs">
                           {owner.nome.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="overflow-hidden">
-                        <p className="text-sm font-medium truncate">{owner.nome}</p>
+                      <div className="overflow-hidden flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm font-medium truncate">{owner.nome}</p>
                         <p className="text-[10px] text-muted-foreground">Vendedor</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
-                  <Avatar className="h-8 w-8">
+                <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-muted/30 border rounded-lg">
+                  <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
                     <AvatarImage src="" alt={lead.responsavel || "Vendedor"} />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-[10px] sm:text-xs">
                       {(lead.responsavel || "VD").substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="text-sm font-medium">{lead.responsavel || "Não atribuído"}</p>
-                    <p className="text-xs text-muted-foreground">Vendedor</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium truncate">{lead.responsavel || "Não atribuído"}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Vendedor</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+            <div className="space-y-2 sm:space-y-3">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Datas Importantes
               </h3>
-              <div className="space-y-3 text-sm bg-muted/30 border p-3 rounded-lg">
-                <div className="flex justify-between">
+              <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm bg-muted/30 border p-2.5 sm:p-3 rounded-lg">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Criado em:</span>
                   <span className="font-medium">
                     {lead.dataCriacao ? new Date(lead.dataCriacao).toLocaleDateString('pt-BR') : '-'}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Última atividade:</span>
                   <span className="font-medium">
                     {lead.ultimaAtividade ? new Date(lead.ultimaAtividade).toLocaleDateString('pt-BR') : '-'}
@@ -586,25 +589,25 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: Le
               </div>
             </div>
 
-            <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Atividades Recentes</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            <div className="space-y-2 sm:space-y-3">
+                <h3 className="text-base sm:text-lg font-semibold">Atividades Recentes</h3>
+                <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto pr-1">
                 {lead.atividades && lead.atividades.length > 0 ? (
                     lead.atividades.map((atividade) => (
-                    <div key={atividade.id} className="p-3 bg-muted/50 border rounded-lg text-sm">
+                    <div key={atividade.id} className="p-2.5 sm:p-3 bg-muted/50 border rounded-lg text-xs sm:text-sm">
                         <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-5">
+                        <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1 py-0 h-4 sm:h-5">
                             {atividade.tipo}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[9px] sm:text-[10px] text-muted-foreground">
                             {new Date(atividade.data).toLocaleDateString('pt-BR')}
                         </span>
                         </div>
-                        <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{atividade.descricao}</p>
+                        <p className="text-muted-foreground text-[10px] sm:text-xs mt-1 line-clamp-2">{atividade.descricao}</p>
                     </div>
                     ))
                 ) : (
-                    <div className="text-xs text-muted-foreground p-3 border border-dashed rounded-lg text-center">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground p-2.5 sm:p-3 border border-dashed rounded-lg text-center">
                     Nenhuma atividade registrada
                     </div>
                 )}

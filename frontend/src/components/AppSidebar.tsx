@@ -8,6 +8,7 @@ import {
   Calendar,
   Target,
   TrendingUp,
+  X,
 } from "lucide-react";
 
 import {
@@ -21,6 +22,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 
 const navigationItems = [
   { title: "Pipeline", url: "/", icon: Kanban },
@@ -39,8 +41,15 @@ const managementItems = [
 ];
 
 export function AppSidebar() {
-  const { state, open } = useSidebar();
+  const { state, open, isMobile, setOpenMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
+
+  const handleNavClick = () => {
+    // Fecha sidebar no mobile ao clicar em um link
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
     <Sidebar
@@ -49,55 +58,67 @@ export function AppSidebar() {
     >
       <div 
         className={`
-          flex items-center gap-2 p-4 border-b border-sidebar-border 
-          ${isCollapsed ? 'justify-center' : ''}
+          flex items-center gap-2 p-3 sm:p-4 border-b border-sidebar-border 
+          ${isCollapsed ? 'justify-center' : 'justify-between'}
         `}
       >
-        {/* --- LOGO ALTERADA AQUI --- */}
-        {/* Substituímos a div com o "N" pela imagem */}
-        <img 
-          src="/nautiluz.png" 
-          alt="Nautiluz Logo" 
-          className="w-8 h-8 rounded-lg flex-shrink-0 object-contain bg-white" 
-          // Adicionei bg-white caso sua logo tenha fundo transparente, para destacar no fundo escuro/gradiente
-        />
+        <div className={`flex items-center gap-2 ${isCollapsed ? 'justify-center' : ''}`}>
+          <img 
+            src="/nautiluz.png" 
+            alt="Nautiluz Logo" 
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex-shrink-0 object-contain bg-white" 
+          />
+          
+          {!isCollapsed && (
+            <div>
+              <h2 className="text-sm font-semibold text-sidebar-primary">
+                NAUTILUZ
+              </h2>
+              <p className="text-[10px] sm:text-xs text-sidebar-foreground/70">CRM</p>
+            </div>
+          )}
+        </div>
         
-        {!isCollapsed && (
-          <div>
-            <h2 className="text-sm font-semibold text-sidebar-primary">
-              NAUTILUZ
-            </h2>
-            <p className="text-xs text-sidebar-foreground/70">CRM</p>
-          </div>
+        {/* Mobile close button */}
+        {isMobile && !isCollapsed && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 hover:bg-sidebar-accent"
+            onClick={() => setOpenMobile(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         )}
       </div>
 
-      <SidebarContent className="py-4">
+      <SidebarContent className="py-3 sm:py-4">
         <SidebarGroup>
           {!isCollapsed && (
-            <SidebarGroupLabel className="text-sidebar-primary font-semibold text-xs uppercase tracking-wider mb-2">
-              Navegação Principal
+            <SidebarGroupLabel className="text-sidebar-primary font-semibold text-[10px] sm:text-xs uppercase tracking-wider mb-2 px-3">
+              Navegação
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-0.5 px-2">
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
+                      onClick={handleNavClick}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                        `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 ${
                           isActive
-                            ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                            : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
+                            ? "bg-sidebar-accent text-sidebar-primary font-medium shadow-sm"
+                            : "hover:bg-sidebar-accent/50 text-sidebar-foreground active:scale-[0.98]"
                         }`
                       }
                       title={isCollapsed ? item.title : undefined}
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="truncate">{item.title}</span>
+                        <span className="truncate text-sm">{item.title}</span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -107,31 +128,32 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="mt-6">
+        <SidebarGroup className="mt-4 sm:mt-6">
           {!isCollapsed && (
-            <SidebarGroupLabel className="text-sidebar-primary font-semibold text-xs uppercase tracking-wider mb-2">
+            <SidebarGroupLabel className="text-sidebar-primary font-semibold text-[10px] sm:text-xs uppercase tracking-wider mb-2 px-3">
               Gestão
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-0.5 px-2">
               {managementItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
+                      onClick={handleNavClick}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                        `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 ${
                           isActive
-                            ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                            : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
+                            ? "bg-sidebar-accent text-sidebar-primary font-medium shadow-sm"
+                            : "hover:bg-sidebar-accent/50 text-sidebar-foreground active:scale-[0.98]"
                         }`
                       }
                       title={isCollapsed ? item.title : undefined}
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="truncate">{item.title}</span>
+                        <span className="truncate text-sm">{item.title}</span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
