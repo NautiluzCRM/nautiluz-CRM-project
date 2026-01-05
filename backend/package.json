@@ -11,12 +11,21 @@
     "dev": "npx tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "render-build": "npm install --include=dev && npm run build",
+    "render-build": "npm install && npm run build",
     "seed": "npx tsx src/database/seed.ts",
     "test:activity": "node --loader ts-node/esm test-activity.ts",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings=0"
   },
   "dependencies": {
+    "@types/cookie-parser": "^1.4.3",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/mongoose": "^5.11.97",
+    "@types/morgan": "^1.9.9",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^22.5.3",
+    "@types/uuid": "^9.0.7",
     "argon2": "^0.40.1",
     "bullmq": "^5.7.3",
     "cookie-parser": "^1.4.6",
@@ -33,27 +42,18 @@
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.2",
     "socket.io": "^4.7.5",
+    "typescript": "^5.5.4",
     "uuid": "^9.0.1",
     "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/cookie-parser": "^1.4.3",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/mongoose": "^5.11.97",
-    "@types/morgan": "^1.9.9",
-    "@types/node": "^22.5.3",
-    "@types/uuid": "^9.0.7",
-    "@types/multer": "^1.4.11",
     "eslint": "^8.57.1",
     "eslint-config-standard-with-typescript": "^40.0.0",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.1.1",
     "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.5.4"
+    "ts-node-dev": "^2.0.0"
   }
 }
