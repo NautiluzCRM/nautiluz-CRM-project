@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { CreateLeadModal } from "@/components/CreateLeadModal";
@@ -10,10 +10,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table as TableComponent, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Grid, List, Download, Phone, MessageCircle, Mail, Building, Users, Calendar, Loader2, UserCheck } from "lucide-react";
-import { fetchLeads, mapApiLeadToLead } from "@/lib/api";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Plus, Search, Grid, List, Download, Phone, MessageCircle, Mail, Building, Users, Calendar, Loader2, UserCheck, CalendarIcon, X } from "lucide-react";
+import { fetchLeads, mapApiLeadToLead, exportLeadsXlsx, API_URL } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { DateRange } from "react-day-picker";
 
 const Leads = () => {
   const { toast } = useToast();
@@ -35,7 +40,19 @@ const Leads = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [origemFilter, setOrigemFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Debounce para busca
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (!isPrivileged) {
@@ -43,21 +60,35 @@ const Leads = () => {
     }
   }, [isPrivileged]);
 
-  const loadLeads = async () => {
+  const loadLeads = useCallback(async () => {
     setIsLoading(true);
     try {
       const filters: Record<string, string> = {};
       const userId = user?.id || (user as any)?._id || (user as any)?.sub;
 
-      if (showMine) {
-        if (userId) {
-          filters.owners = userId;
-          console.log("Filtro aplicado: owners =", userId);
-        } else {
-          console.error("ERRO: showMine está true, mas não encontrei ID no usuário!");
-        }
-      } else {
-        console.log("Filtro desligado (Admin vendo tudo)");
+      if (showMine && userId) {
+        filters.owners = userId;
+      }
+
+      // Filtros enviados para a API
+      if (debouncedSearch) {
+        filters.search = debouncedSearch;
+      }
+
+      if (statusFilter && statusFilter !== "all") {
+        filters.qualificationStatus = statusFilter;
+      }
+
+      if (origemFilter && origemFilter !== "all") {
+        filters.origin = origemFilter;
+      }
+
+      if (dateRange?.from) {
+        filters.startDate = dateRange.from.toISOString();
+      }
+
+      if (dateRange?.to) {
+        filters.endDate = dateRange.to.toISOString();
       }
 
       const data = await fetchLeads(filters);
@@ -72,23 +103,60 @@ const Leads = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showMine, debouncedSearch, statusFilter, origemFilter, dateRange, user, toast]);
 
   useEffect(() => {
     loadLeads();
-  }, [showMine]);
+  }, [loadLeads]);
 
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = 
-      lead.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (lead.empresa && lead.empresa.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === "all" || lead.statusQualificacao === statusFilter;
-    const matchesOrigem = origemFilter === "all" || lead.origem === origemFilter;
-    
-    return matchesSearch && matchesStatus && matchesOrigem;
-  });
+  // Exportação
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const filters: Record<string, unknown> = {};
+      
+      if (debouncedSearch) {
+        filters.name = { $regex: debouncedSearch, $options: 'i' };
+      }
+      
+      if (statusFilter && statusFilter !== "all") {
+        filters.qualificationStatus = statusFilter;
+      }
+
+      if (origemFilter && origemFilter !== "all") {
+        filters.origin = origemFilter;
+      }
+
+      const result = await exportLeadsXlsx(filters);
+      
+      // Baixa o arquivo
+      const downloadUrl = `${API_URL}${result.url}`;
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = result.file;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Exportação concluída!",
+        description: `Arquivo ${result.file} baixado com sucesso.`,
+      });
+    } catch (error) {
+      console.error("Erro ao exportar", error);
+      toast({
+        variant: "destructive",
+        title: "Erro na exportação",
+        description: "Não foi possível gerar o arquivo Excel.",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const clearDateFilter = () => {
+    setDateRange(undefined);
+  };
 
   // ... (Funções de clique e modais idênticas às anteriores)
   const handleLeadClick = (lead: Lead) => {
@@ -145,7 +213,7 @@ const Leads = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Gerenciar Leads</h1>
               <p className="text-sm text-muted-foreground">
-                {isLoading ? "Carregando..." : `${filteredLeads.length} de ${leads.length} leads encontrados`}
+                {isLoading ? "Carregando..." : `${leads.length} leads encontrados`}
               </p>
             </div>
             
@@ -208,6 +276,45 @@ const Leads = () => {
               </SelectContent>
             </Select>
 
+            {/* Filtro de Data */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-auto gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "dd/MM", { locale: ptBR })} - {format(dateRange.to, "dd/MM", { locale: ptBR })}
+                      </>
+                    ) : (
+                      format(dateRange.from, "dd/MM/yy", { locale: ptBR })
+                    )
+                  ) : (
+                    "Data"
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                  locale={ptBR}
+                />
+                {dateRange && (
+                  <div className="p-2 border-t">
+                    <Button variant="ghost" size="sm" className="w-full" onClick={clearDateFilter}>
+                      <X className="h-4 w-4 mr-2" />
+                      Limpar filtro de data
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+
             <div className="flex items-center gap-2 border-l pl-4 ml-2">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -227,9 +334,18 @@ const Leads = () => {
               </Button>
             </div>
 
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {isExporting ? "Exportando..." : "Exportar"}
             </Button>
           </div>
         </div>
@@ -242,7 +358,7 @@ const Leads = () => {
             </div>
           )}
 
-          {!isLoading && filteredLeads.length === 0 && (
+          {!isLoading && leads.length === 0 && (
             <div className="text-center py-10 text-muted-foreground">
               Nenhum lead encontrado com os filtros atuais.
             </div>
@@ -250,7 +366,7 @@ const Leads = () => {
 
           {!isLoading && viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredLeads.map((lead) => (
+              {leads.map((lead) => (
                 <Card
                   key={lead.id}
                   className="cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary"
@@ -366,7 +482,7 @@ const Leads = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLeads.map((lead) => (
+                  {leads.map((lead) => (
                     <TableRow
                       key={lead.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -423,7 +539,8 @@ const Leads = () => {
         lead={selectedLead}
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        onEdit={handleEditClick} 
+        onEdit={handleEditClick}
+        onUpdate={fetchLeads}
       />
 
       <CreateLeadModal 
