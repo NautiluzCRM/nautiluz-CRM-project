@@ -139,57 +139,61 @@ const Index = () => {
     <Layout>
       <div className="flex flex-col h-full">
         {isLoading && (
-          <div className="p-6 text-sm text-muted-foreground">Carregando pipeline...</div>
+          <div className="p-4 sm:p-6 text-xs sm:text-sm text-muted-foreground">Carregando pipeline...</div>
         )}
         {/* Toolbar */}
-        <div className="bg-card border-b border-border p-4 shadow-card">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Pipeline de Vendas</h1>
-              <p className="text-sm text-muted-foreground">
+        <div className="bg-card border-b border-border p-3 sm:p-4 shadow-card">
+          {/* Header Row */}
+          <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate">Pipeline de Vendas</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                 Gestão de leads e oportunidades - NAUTILUZ CRM
               </p>
             </div>
             
-            {/* Botão Novo Lead Atualizado */}
+            {/* Botão Novo Lead */}
             <Button onClick={handleNewLead}
-              className="bg-gradient-primary hover:bg-primary-hover w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Lead
+              className="bg-gradient-primary hover:bg-primary-hover shrink-0 h-9 sm:h-10">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Novo Lead</span>
             </Button>
           </div>
 
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="relative w-full sm:w-64">
+          {/* Search and Filters Row */}
+          <div className="flex flex-col gap-3 sm:gap-4">
+            {/* Search + Filter */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar leads..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-9 sm:h-10 text-sm"
                 />
               </div>
-              <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                <Filter className="h-4 w-4 mr-2" />
-                Filtros
+              <Button variant="outline" size="sm" className="h-9 sm:h-10 px-3 shrink-0">
+                <Filter className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Filtros</span>
               </Button>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <Badge variant="outline">{totalLeads} Total</Badge>
-                <Badge variant="success">{leadsQualificados} Qualificados</Badge>
-                <Badge variant="outline" className="text-xs">
+            {/* Stats and Export - Scrollable on mobile */}
+            <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-hide pb-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <Badge variant="outline" className="text-[10px] sm:text-xs whitespace-nowrap">{totalLeads} Total</Badge>
+                <Badge variant="success" className="text-[10px] sm:text-xs whitespace-nowrap">{leadsQualificados} Qualificados</Badge>
+                <Badge variant="outline" className="text-[10px] sm:text-xs whitespace-nowrap">
                   {valorTotalEstimado.toLocaleString('pt-BR', { 
                     style: 'currency', 
                     currency: 'BRL' 
-                  })} Est.
+                  })}
                 </Badge>
               </div>
-              <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs shrink-0">
+                <Download className="h-3.5 w-3.5 sm:mr-2" />
+                <span className="hidden sm:inline">Exportar</span>
               </Button>
             </div>
           </div>

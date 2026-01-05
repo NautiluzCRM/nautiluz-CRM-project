@@ -207,55 +207,60 @@ const Leads = () => {
   return (
     <Layout>
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="bg-card border-b border-border p-6 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Gerenciar Leads</h1>
-              <p className="text-sm text-muted-foreground">
-                {isLoading ? "Carregando..." : `${leads.length} leads encontrados`}
+        {/* Header - Mobile First */}
+        <div className="bg-card border-b border-border p-3 sm:p-4 md:p-6 shadow-sm">
+          {/* Top row: Title + New Lead button */}
+          <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground truncate">
+                Leads
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {isLoading ? "Carregando..." : `${leads.length} encontrados`}
               </p>
             </div>
             
             <Button 
-              className="bg-gradient-primary hover:bg-primary-hover"
+              className="shrink-0 h-9 sm:h-10 px-3 sm:px-4"
               onClick={handleNewLead}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Lead
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Novo Lead</span>
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="relative flex-1 min-w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, email ou empresa..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            {/* BOTÃO DE FILTRO COM LÓGICA DE TRAVA */}
+          {/* Search bar - full width on mobile */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar leads..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-10"
+            />
+          </div>
+
+          {/* Filters row - scrollable on mobile */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            {/* Meus Leads toggle */}
             <Button
               variant={showMine ? "default" : "outline"}
+              size="sm"
               onClick={() => isPrivileged && setShowMine(!showMine)}
-              className={`gap-2 ${!isPrivileged ? "opacity-100 cursor-not-allowed bg-primary/90 text-primary-foreground" : ""}`}
-              title={!isPrivileged ? "Filtro obrigatório para vendedores" : "Filtrar por meus leads"}
+              className={`shrink-0 h-8 text-xs gap-1.5 ${!isPrivileged ? "opacity-100 cursor-not-allowed" : ""}`}
+              title={!isPrivileged ? "Filtro fixo" : "Meus leads"}
             >
-              <UserCheck className="h-4 w-4" />
-              Meus Leads
-              {/* Se não for admin, mostra badge sutil dizendo que é fixo */}
-              {!isPrivileged && <span className="text-[10px] ml-1 bg-black/20 px-1 rounded">FIXO</span>}
+              <UserCheck className="h-3.5 w-3.5" />
+              <span className="hidden xs:inline">Meus</span>
+              {!isPrivileged && <span className="text-[9px] bg-black/20 px-1 rounded">FIXO</span>}
             </Button>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs shrink-0">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
+                <SelectItem value="all">Todos Status</SelectItem>
                 <SelectItem value="Qualificado">Qualificado</SelectItem>
                 <SelectItem value="Incompleto">Incompleto</SelectItem>
                 <SelectItem value="Duplicado">Duplicado</SelectItem>
@@ -264,11 +269,11 @@ const Leads = () => {
             </Select>
 
             <Select value={origemFilter} onValueChange={setOrigemFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs shrink-0">
                 <SelectValue placeholder="Origem" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as Origens</SelectItem>
+                <SelectItem value="all">Todas Origens</SelectItem>
                 <SelectItem value="Instagram">Instagram</SelectItem>
                 <SelectItem value="Indicação">Indicação</SelectItem>
                 <SelectItem value="Site">Site</SelectItem>
@@ -276,22 +281,23 @@ const Leads = () => {
               </SelectContent>
             </Select>
 
-            {/* Filtro de Data */}
+            {/* Date filter */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="w-auto gap-2">
-                  <CalendarIcon className="h-4 w-4" />
+                <Button variant="outline" size="sm" className="h-8 text-xs shrink-0 gap-1.5">
+                  <CalendarIcon className="h-3.5 w-3.5" />
                   {dateRange?.from ? (
                     dateRange.to ? (
-                      <>
+                      <span className="hidden sm:inline">
                         {format(dateRange.from, "dd/MM", { locale: ptBR })} - {format(dateRange.to, "dd/MM", { locale: ptBR })}
-                      </>
+                      </span>
                     ) : (
-                      format(dateRange.from, "dd/MM/yy", { locale: ptBR })
+                      <span className="hidden sm:inline">{format(dateRange.from, "dd/MM", { locale: ptBR })}</span>
                     )
                   ) : (
-                    "Data"
+                    <span className="hidden sm:inline">Data</span>
                   )}
+                  {dateRange?.from && <span className="sm:hidden">•</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -301,57 +307,109 @@ const Leads = () => {
                   defaultMonth={dateRange?.from}
                   selected={dateRange}
                   onSelect={setDateRange}
+                  numberOfMonths={1}
+                  locale={ptBR}
+                  className="sm:hidden"
+                />
+                <CalendarComponent
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
                   numberOfMonths={2}
                   locale={ptBR}
+                  className="hidden sm:block"
                 />
                 {dateRange && (
                   <div className="p-2 border-t">
-                    <Button variant="ghost" size="sm" className="w-full" onClick={clearDateFilter}>
-                      <X className="h-4 w-4 mr-2" />
-                      Limpar filtro de data
+                    <Button variant="ghost" size="sm" className="w-full h-8 text-xs" onClick={clearDateFilter}>
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Limpar
                     </Button>
                   </div>
                 )}
               </PopoverContent>
             </Popover>
 
-            <div className="flex items-center gap-2 border-l pl-4 ml-2">
+            {/* Divider + View mode + Export - hidden on small mobile */}
+            <div className="hidden sm:flex items-center gap-2 border-l pl-2 ml-auto shrink-0">
               <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="icon"
-                className="h-9 w-9"
+                className="h-8 w-8"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode('table')}
+              >
+                <List className="h-3.5 w-3.5" />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-8 text-xs"
+                onClick={handleExport}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden md:inline ml-1.5">{isExporting ? "Exportando..." : "Exportar"}</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile-only: View mode + Export row */}
+          <div className="flex sm:hidden items-center justify-between pt-2 mt-2 border-t">
+            <div className="flex items-center gap-1">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
                 onClick={() => setViewMode('grid')}
               >
                 <Grid className="h-4 w-4" />
               </Button>
               <Button
-                variant={viewMode === 'table' ? 'default' : 'outline'}
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
                 size="icon"
-                className="h-9 w-9"
+                className="h-8 w-8"
                 onClick={() => setViewMode('table')}
               >
                 <List className="h-4 w-4" />
               </Button>
             </div>
-
+            
             <Button 
               variant="outline" 
               size="sm" 
+              className="h-8 text-xs"
               onClick={handleExport}
               disabled={isExporting}
             >
               {isExporting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Download className="h-4 w-4 mr-2" />
+                <>
+                  <Download className="h-4 w-4 mr-1" />
+                  Exportar
+                </>
               )}
-              {isExporting ? "Exportando..." : "Exportar"}
             </Button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6 overflow-auto">
+        <div className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
           {isLoading && (
             <div className="flex justify-center items-center h-40">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -359,106 +417,104 @@ const Leads = () => {
           )}
 
           {!isLoading && leads.length === 0 && (
-            <div className="text-center py-10 text-muted-foreground">
-              Nenhum lead encontrado com os filtros atuais.
+            <div className="text-center py-12 sm:py-16">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                <Users className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-1">Nenhum lead encontrado</h3>
+              <p className="text-sm text-muted-foreground">Tente ajustar os filtros ou adicione um novo lead.</p>
             </div>
           )}
 
-          {!isLoading && viewMode === 'grid' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {!isLoading && viewMode === 'grid' && leads.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {leads.map((lead) => (
                 <Card
                   key={lead.id}
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary"
+                  className="cursor-pointer hover:shadow-md active:scale-[0.98] transition-all duration-200 border-l-4 border-l-primary bg-card"
                   onClick={() => handleLeadClick(lead)}
                 >
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src="" alt={lead.nome} />
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            {lead.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <h4 className="font-medium text-sm">{lead.nome}</h4>
-                          {lead.empresa && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Building className="h-3 w-3" />
-                              {lead.empresa}
-                            </p>
-                          )}
-                        </div>
+                  <CardContent className="p-3 sm:p-4 space-y-2.5">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
+                        <AvatarImage src="" alt={lead.nome} />
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                          {lead.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-medium text-sm truncate">{lead.nome}</h4>
+                        {lead.empresa && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                            <Building className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{lead.empresa}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-1">
-                      <Badge variant="outline" className={`text-xs ${getOrigemColor(lead.origem)}`}>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getOrigemColor(lead.origem)}`}>
                         {lead.origem}
                       </Badge>
-                      <Badge variant={getStatusColor(lead.statusQualificacao) as any} className="text-xs">
+                      <Badge variant={getStatusColor(lead.statusQualificacao) as any} className="text-[10px] px-1.5 py-0">
                         {lead.statusQualificacao}
                       </Badge>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
-                        <span>{lead.quantidadeVidas} vida{lead.quantidadeVidas > 1 ? 's' : ''}</span>
-                      </div>
-                      
-                      {lead.valorMedio && (
-                        <div className="text-xs text-muted-foreground">
-                          Valor: {lead.valorMedio.toLocaleString('pt-BR', { 
-                            style: 'currency', 
-                            currency: 'BRL' 
-                          })}
-                        </div>
-                      )}
+                        {lead.quantidadeVidas} vida{lead.quantidadeVidas > 1 ? 's' : ''}
+                      </span>
+                      {lead.valorMedio ? (
+                        <span className="font-medium text-foreground">
+                          {lead.valorMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-border">
-                      <div className="flex gap-1">
+                      <div className="flex gap-0.5">
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="ghost"
-                          className="h-6 w-6 p-0 hover:text-primary"
+                          className="h-7 w-7 hover:text-primary"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`tel:${lead.celular}`, '_self');
                           }}
                         >
-                          <Phone className="h-3 w-3" />
+                          <Phone className="h-3.5 w-3.5" />
                         </Button>
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="ghost"
-                          className="h-6 w-6 p-0 hover:text-green-600"
+                          className="h-7 w-7 hover:text-green-600"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank');
                           }}
                         >
-                          <MessageCircle className="h-3 w-3" />
+                          <MessageCircle className="h-3.5 w-3.5" />
                         </Button>
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="ghost"
-                          className="h-6 w-6 p-0 hover:text-blue-600"
+                          className="h-7 w-7 hover:text-blue-600"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`mailto:${lead.email}`, '_self');
                           }}
                         >
-                          <Mail className="h-3 w-3" />
+                          <Mail className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                       
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        <span>{lead.dataCriacao.toLocaleDateString('pt-BR')}</span>
-                      </div>
+                        {lead.dataCriacao.toLocaleDateString('pt-BR')}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -466,70 +522,78 @@ const Leads = () => {
             </div>
           )}
 
-          {!isLoading && viewMode === 'table' && (
-            <Card>
-              <TableComponent>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Empresa</TableHead>
-                    <TableHead>Contato</TableHead>
-                    <TableHead>Vidas</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Criado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leads.map((lead) => (
-                    <TableRow
-                      key={lead.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleLeadClick(lead)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src="" alt={lead.nome} />
-                            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                              {lead.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium">{lead.nome}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{lead.empresa || '-'}</TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-sm">{lead.celular}</div>
-                          <div className="text-xs text-muted-foreground">{lead.email}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{lead.quantidadeVidas}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusColor(lead.statusQualificacao) as any} className="text-xs">
-                          {lead.statusQualificacao}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={`text-xs ${getOrigemColor(lead.origem)}`}>
-                          {lead.origem}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {lead.valorMedio ? 
-                          lead.valorMedio.toLocaleString('pt-BR', { 
-                            style: 'currency', 
-                            currency: 'BRL' 
-                          }) : '-'
-                        }
-                      </TableCell>
-                      <TableCell>{lead.dataCriacao.toLocaleDateString('pt-BR')}</TableCell>
+          {!isLoading && viewMode === 'table' && leads.length > 0 && (
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <TableComponent>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[180px]">Nome</TableHead>
+                      <TableHead className="hidden md:table-cell">Empresa</TableHead>
+                      <TableHead className="min-w-[140px]">Contato</TableHead>
+                      <TableHead className="hidden sm:table-cell text-center w-20">Vidas</TableHead>
+                      <TableHead className="w-28">Status</TableHead>
+                      <TableHead className="hidden lg:table-cell">Origem</TableHead>
+                      <TableHead className="hidden md:table-cell text-right">Valor</TableHead>
+                      <TableHead className="hidden sm:table-cell text-right w-24">Data</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </TableComponent>
+                  </TableHeader>
+                  <TableBody>
+                    {leads.map((lead) => (
+                      <TableRow
+                        key={lead.id}
+                        className="cursor-pointer hover:bg-muted/50 active:bg-muted"
+                        onClick={() => handleLeadClick(lead)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
+                              <AvatarImage src="" alt={lead.nome} />
+                              <AvatarFallback className="bg-primary text-primary-foreground text-[10px]">
+                                {lead.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium text-sm truncate max-w-[120px] sm:max-w-none">{lead.nome}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                          {lead.empresa || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            <div className="text-xs sm:text-sm">{lead.celular}</div>
+                            <div className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[100px] sm:max-w-none">
+                              {lead.email}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-center">
+                          {lead.quantidadeVidas}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusColor(lead.statusQualificacao) as any} className="text-[10px] whitespace-nowrap">
+                            {lead.statusQualificacao}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <Badge variant="outline" className={`text-[10px] ${getOrigemColor(lead.origem)}`}>
+                            {lead.origem}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-right font-medium">
+                          {lead.valorMedio ? 
+                            lead.valorMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
+                            : '-'
+                          }
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-right text-xs text-muted-foreground">
+                          {lead.dataCriacao.toLocaleDateString('pt-BR')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </TableComponent>
+              </div>
             </Card>
           )}
         </div>
