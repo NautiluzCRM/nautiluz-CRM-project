@@ -22,8 +22,21 @@ app.use(rateLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(morgan('dev'));
+// Logs apenas em desenvolvimento
+if (env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'));
+}
 app.use(requestContext);
+
+// Rota raiz - Health check
+app.get('/', (_req: Request, res: Response) => {
+  res.json({ 
+    name: 'Nautiluz CRM API',
+    version: '0.1.0',
+    status: 'online',
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', env: env.NODE_ENV });
