@@ -12,12 +12,13 @@ import router from './routes.js';
 import { errorHandler } from './middlewares/error.js';
 import { requestContext } from './middlewares/request-context.js';
 import { attachRealtimeHelpers } from './common/realtime.js';
+import { linktreeRouter } from './modules/linktree/linktree.routes.js';
 
 export const app = express();
+app.use(cors()); 
 
 // core middlewares
 app.use(helmet());
-app.use(cors(corsOptions));
 app.use(rateLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -29,12 +30,13 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', env: env.NODE_ENV });
 });
 
+app.use('/public/linktree', linktreeRouter);
 app.use(router);
 app.use(errorHandler);
 
 export const httpServer = createServer(app);
 export const io = new SocketIOServer(httpServer, {
-  cors: { origin: env.CORS_ORIGIN, credentials: true }
+  cors: { origin: "*", credentials: true } // Liberado temporariamente também
 });
 
 attachRealtimeHelpers(io);
