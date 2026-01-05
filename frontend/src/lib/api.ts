@@ -1,6 +1,6 @@
 import { Lead, Pipeline, Coluna } from "@/types/crm";
 
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000/api";
 const storages = [localStorage, sessionStorage];
 
 const getStoredValue = (key: string) => localStorage.getItem(key) ?? sessionStorage.getItem(key);

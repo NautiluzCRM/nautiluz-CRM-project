@@ -7,13 +7,11 @@ import {
   DropdownMenuTrigger, 
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Bell, Settings, LogOut, Menu, ChevronDown } from "lucide-react";
-import { useSidebar } from "@/components/ui/sidebar";
+import { Bell, Settings, LogOut, ChevronDown } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 
 export function Header() {
-  const { toggleSidebar, isMobile } = useSidebar();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -23,33 +21,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-14 md:h-16 bg-card border-b border-border flex items-center justify-between px-3 md:px-4 shadow-sm sticky top-0 z-40">
-      <div className="flex items-center gap-2 md:gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          className="hover:bg-muted h-9 w-9"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-        
-        <div className="flex items-center gap-2 md:gap-3">
-          <img 
-            src="/nautiluz.png" 
-            alt="Nautiluz CRM" 
-            className="h-7 w-7 md:h-8 md:w-8 object-contain rounded-md bg-white" 
-          />
-          
-          <div className="hidden sm:block">
-            <h1 className="text-base md:text-lg font-semibold text-foreground leading-tight">NAUTILUZ CRM</h1>
-            <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">Gestão de Leads</p>
-          </div>
-          
-          {/* Mobile title */}
-          <h1 className="sm:hidden text-sm font-semibold text-foreground">NAUTILUZ</h1>
-        </div>
-      </div>
+    <header className="h-14 md:h-16 bg-card border-b border-border flex items-center justify-end px-3 md:px-4 shadow-sm sticky top-0 z-40">
 
       <div className="flex items-center gap-1 md:gap-3">
         <Button variant="ghost" size="icon" className="relative h-9 w-9">
