@@ -5,6 +5,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import path from 'path';
 import { corsOptions } from './config/cors.js';
 import { rateLimiter } from './config/rate-limit.js';
 import { env } from './config/env.js';
@@ -27,6 +28,9 @@ if (env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 app.use(requestContext);
+
+// Servir arquivos estáticos (uploads/exports)
+app.use('/uploads', express.static(path.resolve(env.UPLOAD_DIR)));
 
 // Rota raiz - Health check
 app.get('/', (_req: Request, res: Response) => {

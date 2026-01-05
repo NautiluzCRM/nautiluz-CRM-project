@@ -1,4 +1,5 @@
 import { Lead } from "@/types/crm";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,8 +8,18 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Phone,
   Mail,
@@ -22,9 +33,14 @@ import {
   Activity,
   Clock,
   Briefcase,
-  Shield 
+  Shield,
+  Save,
+  X,
+  Loader2
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { updateLeadApi } from "@/lib/api";
 
 const FAIXAS_LABELS = [
   "0-18", "19-23", "24-28", "29-33", "34-38",
@@ -74,10 +90,40 @@ interface LeadDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEdit?: (lead: Lead) => void;
+  onUpdate?: () => void;
 }
 
-export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsModalProps) {
+export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onUpdate }: LeadDetailsModalProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Campos editáveis
+  const [editedPhone, setEditedPhone] = useState("");
+  const [editedEmail, setEditedEmail] = useState("");
+  const [editedAvgPrice, setEditedAvgPrice] = useState("");
+  const [editedCurrentPlan, setEditedCurrentPlan] = useState("");
+  const [editedNotes, setEditedNotes] = useState("");
+  const [editedStatus, setEditedStatus] = useState("");
+  const [editedCity, setEditedCity] = useState("");
+  const [editedState, setEditedState] = useState("");
+
+  // Sincroniza os valores quando o lead muda ou modal abre
+  useEffect(() => {
+    if (lead && isOpen) {
+      setEditedPhone(lead.celular || "");
+      setEditedEmail(lead.email || "");
+      setEditedAvgPrice(lead.valorMedio?.toString() || "");
+      setEditedCurrentPlan(lead.planoAtual || "");
+      setEditedNotes(lead.informacoes || "");
+      setEditedStatus(lead.statusQualificacao || "");
+      setEditedCity(lead.cidade || "");
+      setEditedState(lead.uf || "");
+      setIsEditing(false);
+    }
+  }, [lead, isOpen]);
 
   if (!lead) return null;
 
@@ -122,6 +168,51 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
     count: count
   })).filter(item => item.count > 0);
 
+  const handleCancelEditing = () => {
+    // Restaura os valores originais
+    setEditedPhone(lead.celular || "");
+    setEditedEmail(lead.email || "");
+    setEditedAvgPrice(lead.valorMedio?.toString() || "");
+    setEditedCurrentPlan(lead.planoAtual || "");
+    setEditedNotes(lead.informacoes || "");
+    setEditedStatus(lead.statusQualificacao || "");
+    setEditedCity(lead.cidade || "");
+    setEditedState(lead.uf || "");
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await updateLeadApi(lead.id, {
+        celular: editedPhone,
+        email: editedEmail,
+        valorMedio: parseFloat(editedAvgPrice) || 0,
+        planoAtual: editedCurrentPlan,
+        informacoes: editedNotes,
+        statusQualificacao: editedStatus as Lead['statusQualificacao'],
+        cidade: editedCity,
+        uf: editedState,
+      });
+
+      toast({
+        title: "Lead atualizado!",
+        description: "As informações foram salvas com sucesso.",
+      });
+
+      setIsEditing(false);
+      onUpdate?.();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: error?.message || "Não foi possível atualizar o lead.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -143,15 +234,42 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               </div>
             </div>
             
-            {canEdit && (
+            {canEdit && !isEditing && (
               <Button
-                onClick={() => onEdit?.(lead)}
+                onClick={() => setIsEditing(true)}
                 size="sm"
                 className="bg-primary hover:bg-primary/90 text-white"
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
               </Button>
+            )}
+
+            {isEditing && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleCancelEditing}
+                  size="sm"
+                  variant="outline"
+                  disabled={isSaving}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Salvar
+                </Button>
+              </div>
             )}
 
           </DialogTitle>
@@ -164,10 +282,24 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               <Badge variant="outline" className={getOrigemColor(lead.origem)}>
                 {lead.origem}
               </Badge>
-              {lead.statusQualificacao && (
-                <Badge variant={getStatusColor(lead.statusQualificacao) as any}>
-                  {lead.statusQualificacao}
-                </Badge>
+              {isEditing ? (
+                <Select value={editedStatus} onValueChange={setEditedStatus}>
+                  <SelectTrigger className="w-40 h-6 text-xs">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Qualificado">Qualificado</SelectItem>
+                    <SelectItem value="Incompleto">Incompleto</SelectItem>
+                    <SelectItem value="Duplicado">Duplicado</SelectItem>
+                    <SelectItem value="Sem interesse">Sem interesse</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                lead.statusQualificacao && (
+                  <Badge variant={getStatusColor(lead.statusQualificacao) as any}>
+                    {lead.statusQualificacao}
+                  </Badge>
+                )
               )}
               {diasSemAtividade > 0 && (
                 <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
@@ -183,28 +315,69 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 Contato
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.celular && window.open(`tel:${lead.celular}`, '_self')} disabled={!lead.celular}>
-                    <Phone className="h-4 w-4 mr-2" />
-                    {lead.celular || "-"}
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.email && window.open(`mailto:${lead.email}`, '_self')} disabled={!lead.email}>
-                    <Mail className="h-4 w-4 mr-2" />
-                    {lead.email || "-"}
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Button size="sm" variant="outline" className="w-full justify-start hover:text-green-600 hover:border-green-600" onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} disabled={!lead.celular}>
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    WhatsApp
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 border rounded-md h-9">
-                    <MapPin className="h-4 w-4" />
-                    {leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}
-                </div>
+                {isEditing ? (
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Celular</Label>
+                      <Input
+                        value={editedPhone}
+                        onChange={(e) => setEditedPhone(e.target.value)}
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Email</Label>
+                      <Input
+                        type="email"
+                        value={editedEmail}
+                        onChange={(e) => setEditedEmail(e.target.value)}
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cidade</Label>
+                      <Input
+                        value={editedCity}
+                        onChange={(e) => setEditedCity(e.target.value)}
+                        placeholder="Cidade"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">UF</Label>
+                      <Input
+                        value={editedState}
+                        onChange={(e) => setEditedState(e.target.value)}
+                        placeholder="SP"
+                        maxLength={2}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.celular && window.open(`tel:${lead.celular}`, '_self')} disabled={!lead.celular}>
+                        <Phone className="h-4 w-4 mr-2" />
+                        {lead.celular || "-"}
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.email && window.open(`mailto:${lead.email}`, '_self')} disabled={!lead.email}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        {lead.email || "-"}
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button size="sm" variant="outline" className="w-full justify-start hover:text-green-600 hover:border-green-600" onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} disabled={!lead.celular}>
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        WhatsApp
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 border rounded-md h-9">
+                        <MapPin className="h-4 w-4" />
+                        {leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -274,7 +447,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                          <img 
                            src={operadoraInfo.src} 
                            alt={operadoraInfo.name}
-                           // ALTERADO: object-cover para preencher todo o espaço (sem bordas brancas)
                            className="h-full w-full object-cover"
                            onError={(e) => e.currentTarget.style.display = 'none'}
                          />
@@ -282,11 +454,20 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                          <Shield className="h-10 w-10 text-slate-300" />
                        )}
                     </div>
-                    <div>
+                    <div className="flex-1">
                        <p className="text-xs font-semibol uppercase tracking-wider mb-0.5">Plano Atual</p>
-                       <h4 className="text-lg font-bold text-slate-800 leading-tight">
-                         {lead.planoAtual || "Sem plano atual"}
-                       </h4>
+                       {isEditing ? (
+                         <Input
+                           value={editedCurrentPlan}
+                           onChange={(e) => setEditedCurrentPlan(e.target.value)}
+                           placeholder="Nome do plano"
+                           className="mt-1"
+                         />
+                       ) : (
+                         <h4 className="text-lg font-bold text-slate-800 leading-tight">
+                           {lead.planoAtual || "Sem plano atual"}
+                         </h4>
+                       )}
                     </div>
                  </div>
 
@@ -296,14 +477,27 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                  {/* Lado Direito: Valor */}
                  <div className="w-full sm:w-auto text-left sm:text-right">
                     <p className="text-xs font-semibold uppercase tracking-wider mb-0.5">Valor Estimado</p>
-                    <div className="flex items-baseline sm:justify-end gap-1">
-                       <span className="text-sm font-medium text-emerald-600">R$</span>
-                       <span className="text-2xl font-bold text-emerald-600">
-                         {lead.valorMedio > 0 
-                           ? lead.valorMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
-                           : "0,00"}
-                       </span>
-                    </div>
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-medium text-emerald-600">R$</span>
+                        <Input
+                          type="number"
+                          value={editedAvgPrice}
+                          onChange={(e) => setEditedAvgPrice(e.target.value)}
+                          placeholder="0.00"
+                          className="w-32"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-baseline sm:justify-end gap-1">
+                         <span className="text-sm font-medium text-emerald-600">R$</span>
+                         <span className="text-2xl font-bold text-emerald-600">
+                           {lead.valorMedio && lead.valorMedio > 0 
+                             ? lead.valorMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                             : "0,00"}
+                         </span>
+                      </div>
+                    )}
                  </div>
               </div>
 
@@ -316,9 +510,18 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 <FileText className="h-4 w-4" />
                 Observações
                 </h3>
-                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg leading-relaxed">
-                {lead.informacoes || "-"}
-                </p>
+                {isEditing ? (
+                  <Textarea
+                    value={editedNotes}
+                    onChange={(e) => setEditedNotes(e.target.value)}
+                    placeholder="Observações sobre o lead..."
+                    className="min-h-[100px]"
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg leading-relaxed">
+                    {lead.informacoes || "-"}
+                  </p>
+                )}
             </div>
           </div>
 

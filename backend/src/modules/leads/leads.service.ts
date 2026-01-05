@@ -12,11 +12,64 @@ interface UserAuth {
   role: string;
 }
 
-export async function listLeads(filter: any = {}, user?: UserAuth) {
+interface LeadFilter {
+  owners?: string;
+  search?: string;
+  name?: string;
+  qualificationStatus?: string;
+  origin?: string;
+  startDate?: string;
+  endDate?: string;
+  pipelineId?: string;
+  stageId?: string;
+}
+
+export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
   const query: any = {};
 
+  // Filtro por responsável
   if (filter.owners) {
     query.owners = filter.owners;
+  }
+
+  // Busca textual por nome (case-insensitive)
+  if (filter.search || filter.name) {
+    const searchTerm = filter.search || filter.name;
+    query.name = { $regex: searchTerm, $options: 'i' };
+  }
+
+  // Filtro por status de qualificação
+  if (filter.qualificationStatus && filter.qualificationStatus !== 'all') {
+    query.qualificationStatus = filter.qualificationStatus;
+  }
+
+  // Filtro por origem
+  if (filter.origin && filter.origin !== 'all') {
+    query.origin = filter.origin;
+  }
+
+  // Filtro por intervalo de datas
+  if (filter.startDate || filter.endDate) {
+    query.createdAt = {};
+    if (filter.startDate) {
+      query.createdAt.$gte = new Date(filter.startDate);
+    }
+    if (filter.endDate) {
+      // Adiciona 1 dia para incluir o dia final completo
+      const endDate = new Date(filter.endDate);
+      endDate.setDate(endDate.getDate() + 1);
+      query.createdAt.$lte = endDate;
+    }
+  }
+
+  // Filtro por pipeline
+  if (filter.pipelineId) {
+    query.pipelineId = filter.pipelineId;
+  }
+
+  // Filtro por stage/etapa
+  if (filter.stageId) {
+    query.stageId = filter.stageId;
   }
 
   return LeadModel.find(query)
