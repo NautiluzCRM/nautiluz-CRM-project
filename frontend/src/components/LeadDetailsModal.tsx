@@ -20,17 +20,54 @@ import {
   MapPin,
   FileText,
   Activity,
-  DollarSign,
   Clock,
-  CheckCircle,
-  Briefcase
+  Briefcase,
+  Shield 
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
-// Faixas Padrão ANS
 const FAIXAS_LABELS = [
   "0-18", "19-23", "24-28", "29-33", "34-38",
   "39-43", "44-48", "49-53", "54-58", "59+"
 ];
+
+// --- FUNÇÃO AUXILIAR PARA ASSETS LOCAIS ---
+// Certifique-se de ter as imagens em /frontend/public/logos/nome.png
+const getOperadoraInfo = (plano?: string) => {
+  if (!plano) return null;
+  const text = plano.toLowerCase();
+  
+  // Grandes Nacionais
+  if (text.includes('amil') || text.includes('one health') || text.includes('lincx')) return { src: '/logos/amil.png', name: 'Amil' };
+  if (text.includes('bradesco')) return { src: '/logos/bradesco.png', name: 'Bradesco' };
+  if (text.includes('sulamerica') || text.includes('sul américa')) return { src: '/logos/sulamerica.png', name: 'SulAmérica' };
+  if (text.includes('unimed') || text.includes('seguros unimed') || text.includes('central nacional')) return { src: '/logos/unimed.png', name: 'Unimed' };
+  if (text.includes('notre') || text.includes('gndi') || text.includes('intermedica')) return { src: '/logos/gndi.png', name: 'NotreDame' };
+  if (text.includes('hapvida')) return { src: '/logos/hapvida.png', name: 'Hapvida' };
+  if (text.includes('porto')) return { src: '/logos/porto.png', name: 'Porto Seguro' };
+  if (text.includes('cassi')) return { src: '/logos/cassi.png', name: 'Cassi' }; // <--- CASSI ADICIONADA
+  
+  // Premium / Seguradoras
+  if (text.includes('omint')) return { src: '/logos/omint.png', name: 'Omint' };
+  if (text.includes('allianz')) return { src: '/logos/allianz.png', name: 'Allianz' };
+  if (text.includes('sompo')) return { src: '/logos/sompo.png', name: 'Sompo' };
+  if (text.includes('care plus') || text.includes('careplus')) return { src: '/logos/careplus.png', name: 'Care Plus' };
+  
+  // Regionais Fortes / Senior / Outros
+  if (text.includes('golden') || text.includes('cross')) return { src: '/logos/golden.png', name: 'Golden Cross' };
+  if (text.includes('prevent')) return { src: '/logos/prevent.png', name: 'Prevent Senior' };
+  if (text.includes('alice')) return { src: '/logos/alice.png', name: 'Alice' };
+  if (text.includes('medsenior') || text.includes('med senior')) return { src: '/logos/medsenior.png', name: 'MedSênior' };
+  if (text.includes('sao cristovao') || text.includes('são cristóvão')) return { src: '/logos/saocristovao.png', name: 'São Cristóvão' };
+  if (text.includes('trasmontano')) return { src: '/logos/trasmontano.png', name: 'Trasmontano' };
+  if (text.includes('biovida')) return { src: '/logos/biovida.png', name: 'Biovida' };
+  if (text.includes('blue')) return { src: '/logos/blue.png', name: 'Blue Saúde' };
+  if (text.includes('ameplan')) return { src: '/logos/ameplan.png', name: 'Ameplan' };
+  if (text.includes('cruz azul')) return { src: '/logos/cruzazul.png', name: 'Cruz Azul' };
+  if (text.includes('go care') || text.includes('gocare')) return { src: '/logos/gocare.png', name: 'Go Care' };
+
+  return null;
+};
 
 interface LeadDetailsModalProps {
   lead: Lead | null;
@@ -40,9 +77,21 @@ interface LeadDetailsModalProps {
 }
 
 export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsModalProps) {
+  const { user } = useAuth();
+
   if (!lead) return null;
 
-  const leadData = lead as any; // Acesso aos campos novos mapeados no api.ts (owners, etc)
+  const leadData = lead as any;
+
+  // --- LÓGICA DE PERMISSÃO ---
+  const isAdmin = user?.role === 'admin';
+  const currentUserId = user?.id || (user as any)?._id;
+  const isOwner = (lead.ownersIds || []).some(id => id === currentUserId);
+  const isLegacyOwner = (!lead.ownersIds || lead.ownersIds.length === 0) && lead.responsavel === user?.name;
+  const canEdit = isAdmin || isOwner || isLegacyOwner;
+  // ---------------------------
+
+  const operadoraInfo = getOperadoraInfo(lead.planoAtual);
 
   const getOrigemColor = (origem: string) => {
     const colors: Record<string, string> = {
@@ -93,22 +142,24 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 </p>
               </div>
             </div>
-            <Button
-              onClick={() => onEdit?.(lead)}
-              size="sm"
-              className="bg-primary hover:bg-primary/90 text-white"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Editar
-            </Button>
+            
+            {canEdit && (
+              <Button
+                onClick={() => onEdit?.(lead)}
+                size="sm"
+                className="bg-primary hover:bg-primary/90 text-white"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+            )}
+
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {/* Coluna Principal */}
           <div className="md:col-span-2 space-y-6">
-            
-            {/* Badges de Status */}
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className={getOrigemColor(lead.origem)}>
                 {lead.origem}
@@ -126,7 +177,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               )}
             </div>
 
-            {/* Contato */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Phone className="h-4 w-4" />
@@ -152,20 +202,21 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                   </Button>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 border rounded-md h-9">
-                   <MapPin className="h-4 w-4" />
-                   {leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}
+                    <MapPin className="h-4 w-4" />
+                    {leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}
                 </div>
               </div>
             </div>
 
             <Separator />
 
-            {/* Plano */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Informações do Plano
               </h3>
+              
+              {/* Vidas e Faixas */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Quantidade de Vidas</p>
@@ -189,45 +240,73 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 </div>
               </div>
 
-              {lead.possuiPlano && (
-                <div className="bg-green-50/50 border border-green-100 p-4 rounded-lg space-y-2 mt-4">
-                  <p className="text-sm font-medium flex items-center gap-2 text-green-700">
-                    <CheckCircle className="h-4 w-4" />
-                    Plano Atual
-                  </p>
-                  <p className="text-sm font-semibold">{lead.planoAtual}</p>
-                </div>
-              )}
+              {/* GRID: CNPJ e Hospitais lado a lado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-1">
+                     <p className="text-xs font-medium uppercase">CNPJ</p>
+                     <div className="flex items-center gap-2 text-sm">
+                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                        {lead.possuiCnpj ? <span>Sim ({leadData.tipoCnpj || "N/A"})</span> : <span>Não</span>}
+                     </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                 <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">CNPJ</p>
-                    <div className="flex items-center gap-2 text-sm">
-                       <Briefcase className="h-4 w-4 text-muted-foreground" />
-                       {lead.possuiCnpj ? <span>Sim ({leadData.tipoCnpj || "N/A"})</span> : <span>Não</span>}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase">Hospitais de Preferência</p>
+                    <div className="flex flex-wrap gap-1">
+                      {lead.hospitaisPreferencia && lead.hospitaisPreferencia.length > 0 ? (
+                        lead.hospitaisPreferencia.map((hospital) => (
+                          <Badge key={hospital} variant="secondary" className="text-xs">{hospital}</Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </div>
+              </div>
+
+              {/* === CARD DE DESTAQUE (LOGO PREENCHENDO TUDO) === */}
+              <div className="mt-4 mb-2 bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                 {/* Lado Esquerdo: Plano */}
+                 <div className="flex items-center gap-4 w-full sm:w-auto">
+                    {/* CONTAINER DA LOGO */}
+                    <div className="h-24 w-36 rounded-lg bg-white border flex items-center justify-center shadow-sm shrink-0 overflow-hidden relative">
+                       {operadoraInfo ? (
+                         <img 
+                           src={operadoraInfo.src} 
+                           alt={operadoraInfo.name}
+                           // ALTERADO: object-cover para preencher todo o espaço (sem bordas brancas)
+                           className="h-full w-full object-cover"
+                           onError={(e) => e.currentTarget.style.display = 'none'}
+                         />
+                       ) : (
+                         <Shield className="h-10 w-10 text-slate-300" />
+                       )}
+                    </div>
+                    <div>
+                       <p className="text-xs font-semibol uppercase tracking-wider mb-0.5">Plano Atual</p>
+                       <h4 className="text-lg font-bold text-slate-800 leading-tight">
+                         {lead.planoAtual || "Sem plano atual"}
+                       </h4>
                     </div>
                  </div>
-                 <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Valor Estimado</p>
-                    <div className="flex items-center gap-2 text-sm">
-                       <DollarSign className="h-4 w-4 text-muted-foreground" />
-                       {lead.valorMedio > 0 ? lead.valorMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : "-"}
+
+                 {/* Divisor Desktop */}
+                 <div className="hidden sm:block w-px h-10 bg-slate-200"></div>
+
+                 {/* Lado Direito: Valor */}
+                 <div className="w-full sm:w-auto text-left sm:text-right">
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-0.5">Valor Estimado</p>
+                    <div className="flex items-baseline sm:justify-end gap-1">
+                       <span className="text-sm font-medium text-emerald-600">R$</span>
+                       <span className="text-2xl font-bold text-emerald-600">
+                         {lead.valorMedio > 0 
+                           ? lead.valorMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                           : "0,00"}
+                       </span>
                     </div>
                  </div>
               </div>
 
-              <div className="space-y-2 pt-2">
-                <p className="text-sm font-medium text-muted-foreground">Hospitais de Preferência</p>
-                <div className="flex flex-wrap gap-1">
-                  {lead.hospitaisPreferencia && lead.hospitaisPreferencia.length > 0 ? (
-                    lead.hospitaisPreferencia.map((hospital) => (
-                      <Badge key={hospital} variant="secondary" className="text-xs">{hospital}</Badge>
-                    ))
-                  ) : (
-                    <span className="text-sm text-muted-foreground">-</span>
-                  )}
-                </div>
-              </div>
             </div>
 
             <Separator />
@@ -250,7 +329,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                 <Activity className="h-4 w-4" />
                 Responsável
               </h3>
-              {/* LÓGICA CORRIGIDA: Exibe lista se houver array 'owners', senão fallback */}
               {leadData.owners && leadData.owners.length > 0 ? (
                 <div className="flex flex-col gap-2">
                   {leadData.owners.map((owner: any) => (
@@ -269,7 +347,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
                   ))}
                 </div>
               ) : (
-                // Fallback legado
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="" alt={lead.responsavel || "Vendedor"} />
