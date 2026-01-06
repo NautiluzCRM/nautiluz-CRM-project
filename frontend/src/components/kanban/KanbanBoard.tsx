@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -8,14 +8,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  Modifier,
-  closestCorners,
 } from "@dnd-kit/core";
-import { 
-  SortableContext, 
-  arrayMove, 
-  verticalListSortingStrategy 
-} from "@dnd-kit/sortable";
+import { SortableContext, arrayMove } from "@dnd-kit/sortable";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
 import { Lead, Coluna } from "@/types/crm";
@@ -28,22 +22,9 @@ interface KanbanBoardProps {
   onLeadClick?: (lead: Lead) => void;
 }
 
-export function KanbanBoard({ colunas, leads: initialLeads, onLeadMove, onLeadUpdate, onLeadClick }: KanbanBoardProps) {
-  // Estado local para animação fluida
-  const [leads, setLeads] = useState<Lead[]>(initialLeads);
-  
-  // Sincroniza se o pai mandar leads novos
-  useMemo(() => {
-    setLeads(initialLeads);
-  }, [initialLeads]);
-
+export function KanbanBoard({ colunas, leads, onLeadMove, onLeadUpdate, onLeadClick }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeLead, setActiveLead] = useState<Lead | null>(null);
-  
-  // AQUI ESTÁ A DEFINIÇÃO QUE FALTAVA:
   const [activeType, setActiveType] = useState<'lead' | 'column' | null>(null);
-
-  const pipelineContainerRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -53,153 +34,68 @@ export function KanbanBoard({ colunas, leads: initialLeads, onLeadMove, onLeadUp
     })
   );
 
-  // --- LIMITADOR DE TELA (MANUAL) ---
-  const restrictToPipelineArea: Modifier = ({ transform, draggingNodeRect }) => {
-    if (!pipelineContainerRef.current || !draggingNodeRect) {
-      return transform;
-    }
-    const containerRect = pipelineContainerRef.current.getBoundingClientRect();
-    const minX = containerRect.left - draggingNodeRect.left;
-    const maxX = containerRect.right - draggingNodeRect.right;
-    const minY = containerRect.top - draggingNodeRect.top;
-    const maxY = containerRect.bottom - draggingNodeRect.bottom;
-
-    return {
-      ...transform,
-      x: Math.max(minX, Math.min(transform.x, maxX)),
-      y: Math.max(minY, Math.min(transform.y, maxY)),
-    };
-  };
-
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     setActiveId(active.id as string);
-    const lead = leads.find(l => l.id === active.id);
     
     if (active.data.current?.type === 'lead') {
       setActiveType('lead');
-      if (lead) setActiveLead(lead);
     } else {
       setActiveType('column');
     }
   };
 
-  // --- ANIMAÇÃO FLUIDA (DragOver) ---
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    const isActiveALead = active.data.current?.type === 'lead';
-    const isOverALead = over.data.current?.type === 'lead';
-    const isOverAColumn = over.data.current?.type === 'column';
-
-    if (!isActiveALead) return;
-
-    const activeItem = leads.find(l => l.id === activeId);
-    if (!activeItem) return;
-
-    // Cenário 1: Sobre outro Lead
-    if (isActiveALead && isOverALead && activeItem && activeId !== overId) {
-      const overItem = leads.find(l => l.id === overId);
-      if (!overItem) return;
-
-      if (activeItem.colunaAtual !== overItem.colunaAtual) {
-        setLeads((items) => {
-          const activeIndex = items.findIndex(l => l.id === activeId);
-          const overIndex = items.findIndex(l => l.id === overId);
-          
-          const newItems = [...items];
-          newItems[activeIndex] = { ...newItems[activeIndex], colunaAtual: overItem.colunaAtual };
-          
-          return arrayMove(newItems, activeIndex, overIndex);
-        });
-      } else {
-        setLeads((items) => {
-            const activeIndex = items.findIndex(l => l.id === activeId);
-            const overIndex = items.findIndex(l => l.id === overId);
-            return arrayMove(items, activeIndex, overIndex);
-        });
-      }
-    }
-
-    // Cenário 2: Sobre Coluna Vazia
-    if (isActiveALead && isOverAColumn && activeItem) {
-      const overColumnId = overId;
-      if (activeItem.colunaAtual !== overColumnId) {
-        setLeads((items) => {
-          const activeIndex = items.findIndex(l => l.id === activeId);
-          const newItems = [...items];
-          newItems[activeIndex] = { ...newItems[activeIndex], colunaAtual: overColumnId };
-          return arrayMove(newItems, activeIndex, activeIndex);
-        });
-      }
-    }
-  };
-
-  // --- FINALIZAÇÃO (DragEnd com Diagnóstico) ---
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    const activeId = active.id as string;
     
-    // Recupera o lead do estado ATUALIZADO (que o DragOver já mexeu)
-    const activeItem = leads.find(l => l.id === activeId);
+    if (!over || active.id === over.id) {
+      setActiveId(null);
+      setActiveType(null);
+      return;
+    }
 
-    // Limpa estado visual
+    if (activeType === 'lead') {
+      const leadId = active.id as string;
+      const overType = over.data.current?.type;
+      
+      if (overType === 'column') {
+        const newColumnId = over.id as string;
+        onLeadMove(leadId, newColumnId);
+      } else if (overType === 'lead') {
+        const overLead = leads.find(l => l.id === over.id);
+        if (overLead) {
+          onLeadMove(leadId, overLead.colunaAtual);
+        }
+      }
+    }
+
     setActiveId(null);
-    setActiveLead(null);
     setActiveType(null);
+  };
 
-    if (!activeItem || !over) return;
-
-    // Coluna final (já atualizada pelo DragOver)
-    const targetColumnId = activeItem.colunaAtual;
-    
-    // Filtra leads dessa coluna NA ORDEM VISUAL ATUAL
-    const leadsInColumn = leads.filter(l => l.colunaAtual === targetColumnId);
-    const newIndex = leadsInColumn.findIndex(l => l.id === activeId);
-
-    // Vizinhos
-    const beforeLead = leadsInColumn[newIndex - 1];
-    const afterLead = leadsInColumn[newIndex + 1];
-
-    // === DIAGNÓSTICO ===
-    console.group("Diagnóstico Drag & Drop");
-    console.log("Card:", activeItem.nome);
-    console.log("Coluna Final:", targetColumnId);
-    console.log("Vizinho ACIMA:", beforeLead?.nome || "TOPO");
-    console.log("Vizinho ABAIXO:", afterLead?.nome || "FUNDO");
-    console.groupEnd();
-    // ===================
-
-    onLeadMove(activeId, targetColumnId, beforeLead?.id, afterLead?.id);
+  const handleDragOver = (event: DragOverEvent) => {
+    // Handle drag over events if needed for better UX
   };
 
   const getLeadsByColumn = (columnId: string) => {
     return leads.filter(lead => lead.colunaAtual === columnId);
   };
 
+  const activeLead = activeId ? leads.find(l => l.id === activeId) : null;
+
   return (
-    <div 
-      ref={pipelineContainerRef} 
-      className="h-full flex p-3 sm:p-6 bg-background overflow-x-auto relative"
-    >
+    <div className="h-full flex p-3 sm:p-6 bg-background overflow-x-auto">
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
-        modifiers={[restrictToPipelineArea]}
         onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
       >
         <div className="flex h-full gap-3 sm:gap-6 min-w-fit">
           {colunas.map((coluna) => (
             <SortableContext
               key={coluna.id}
               items={getLeadsByColumn(coluna.id).map(l => l.id)}
-              strategy={verticalListSortingStrategy}
             >
               <KanbanColumn
                 coluna={coluna}
@@ -212,7 +108,7 @@ export function KanbanBoard({ colunas, leads: initialLeads, onLeadMove, onLeadUp
         </div>
 
         <DragOverlay>
-          {activeLead ? (
+          {activeType === 'lead' && activeLead ? (
             <KanbanCard 
               lead={activeLead} 
               onLeadUpdate={onLeadUpdate}
