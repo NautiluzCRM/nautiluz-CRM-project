@@ -1,6 +1,6 @@
 import { Lead, Pipeline, Coluna } from "@/types/crm";
 
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000/api";
 const storages = [localStorage, sessionStorage];
 
 const getStoredValue = (key: string) => localStorage.getItem(key) ?? sessionStorage.getItem(key);
@@ -135,8 +135,19 @@ export async function createLeadApi(data: any) {
   });
 }
 
-export async function fetchLeads() {
-  return request<any[]>("/leads");
+export async function fetchLeads(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+  }
+
+  const queryString = params.toString();
+  const endpoint = queryString ? `/leads?${queryString}` : "/leads";
+  
+  return request<any[]>(endpoint);
 }
 
 export async function moveLeadApi(
@@ -175,7 +186,7 @@ export function mapApiStageToColuna(stage: any): Coluna {
   return {
     id: stage._id || stage.id,
     nome: stage.name,
-    cor: "#3B82F6",
+    cor: stage.color || "#3B82F6",
     ordem: stage.order,
     wipLimit: stage.wipLimit,
     sla: stage.sla,
@@ -275,6 +286,16 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
 export async function fetchPipelineData(): Promise<Pipeline> {
   const [pipelines, leads] = await Promise.all([fetchPipelines(), fetchLeads()]);
   const pipeline = pipelines[0];
+
+  if (!pipeline) {
+    return {
+      id: '',
+      nome: 'Pipeline não configurado',
+      colunas: [],
+      leads: [],
+    };
+  }
+
   const stages = await fetchStages(pipeline._id || pipeline.id);
 
   return {
@@ -374,5 +395,45 @@ export async function updateUserApi(id: string, dados: {
 export async function deleteUserApi(id: string) {
   return request(`/users/${id}`, {
     method: "DELETE",
+  });
+}
+
+// --- Funções de Pipeline / Etapas ---
+
+export async function createStageApi(pipelineId: string, dados: { 
+  name: string; 
+  order: number; 
+  key: string; 
+  color: string; 
+  sla: number 
+}) {
+  return request(`/pipelines/${pipelineId}/stages`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function updateStageApi(stageId: string, dados: { 
+  name?: string; 
+  order?: number; 
+  color?: string; 
+  sla?: number 
+}) {
+  return request(`/pipelines/stages/${stageId}`, {
+    method: "PATCH",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function deleteStageApi(stageId: string) {
+  return request(`/pipelines/stages/${stageId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function reorderStagesApi(pipelineId: string, orderedIds: string[]) {
+  return request(`/pipelines/${pipelineId}/stages/reorder`, {
+    method: "PUT",
+    body: JSON.stringify({ ids: orderedIds }),
   });
 }

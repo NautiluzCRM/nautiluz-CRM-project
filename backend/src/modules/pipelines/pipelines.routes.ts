@@ -7,7 +7,8 @@ import {
   listPipelinesHandler,
   listStagesHandler,
   updatePipelineHandler,
-  updateStageHandler
+  updateStageHandler,
+  reorderStagesHandler
 } from './pipelines.controller.js';
 import { authenticate } from '../../rbac/rbac.middleware.js';
 import { requireRole } from '../../rbac/rbac.guard.js';
@@ -29,5 +30,6 @@ router.delete('/:id', requireRole(['admin']), deletePipelineHandler);
 router.post('/:id/stages', requireRole(['admin']), createStageHandler);
 router.patch('/stages/:id', requireRole(['admin']), updateStageHandler);
 router.delete('/stages/:id', requireRole(['admin']), deleteStageHandler);
+router.put('/:id/stages/reorder', requireRole(['admin']), reorderStagesHandler);
 
 export default router;

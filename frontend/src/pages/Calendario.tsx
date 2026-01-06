@@ -180,34 +180,34 @@ const Calendario = () => {
     <Layout>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="bg-card border-b border-border p-6 shadow-card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Calendário</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground">Calendário</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Gerencie compromissos e atividades de vendas
               </p>
             </div>
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-primary hover:bg-primary-hover">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Evento
+                <Button className="bg-gradient-primary hover:bg-primary-hover h-9 sm:h-10 text-xs sm:text-sm w-full sm:w-auto">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="sm:inline">Novo Evento</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="w-[calc(100%-1rem)] max-w-md p-4 sm:p-6">
                 <DialogHeader>
-                  <DialogTitle>Novo Evento</DialogTitle>
+                  <DialogTitle className="text-lg">Novo Evento</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="titulo">Título</Label>
-                    <Input id="titulo" placeholder="Ex: Reunião com cliente" />
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <Label htmlFor="titulo" className="text-xs sm:text-sm">Título</Label>
+                    <Input id="titulo" placeholder="Ex: Reunião com cliente" className="h-9 sm:h-10 text-sm" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tipo">Tipo</Label>
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <Label htmlFor="tipo" className="text-xs sm:text-sm">Tipo</Label>
                     <Select>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-9 sm:h-10 text-sm">
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
                       <SelectContent>
@@ -218,14 +218,14 @@ const Calendario = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="data">Data</Label>
-                      <Input id="data" type="date" />
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <Label htmlFor="data" className="text-xs sm:text-sm">Data</Label>
+                      <Input id="data" type="date" className="h-9 sm:h-10 text-sm" />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="hora">Hora</Label>
-                      <Input id="hora" type="time" />
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <Label htmlFor="hora" className="text-xs sm:text-sm">Hora</Label>
+                      <Input id="hora" type="time" className="h-9 sm:h-10 text-sm" />
                     </div>
                   </div>
                   <div className="space-y-2">

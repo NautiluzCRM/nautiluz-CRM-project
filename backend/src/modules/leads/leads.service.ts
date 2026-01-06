@@ -4,24 +4,87 @@ import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
-import { randomUUID } from 'crypto';
 
-export function listLeads(filter: any = {}) {
-  // ALTERAÇÃO: Adicionado .populate para trazer os dados dos responsáveis
-  return LeadModel.find(filter)
+import mongoose from 'mongoose';
+
+interface UserAuth {
+  sub: string;
+  role: string;
+}
+
+interface LeadFilter {
+  owners?: string;
+  search?: string;
+  name?: string;
+  qualificationStatus?: string;
+  origin?: string;
+  startDate?: string;
+  endDate?: string;
+  pipelineId?: string;
+  stageId?: string;
+}
+
+export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
+  const query: any = {};
+
+  // Filtro por responsável
+  if (filter.owners) {
+    query.owners = filter.owners;
+  }
+
+  // Busca textual por nome (case-insensitive)
+  if (filter.search || filter.name) {
+    const searchTerm = filter.search || filter.name;
+    query.name = { $regex: searchTerm, $options: 'i' };
+  }
+
+  // Filtro por status de qualificação
+  if (filter.qualificationStatus && filter.qualificationStatus !== 'all') {
+    query.qualificationStatus = filter.qualificationStatus;
+  }
+
+  // Filtro por origem
+  if (filter.origin && filter.origin !== 'all') {
+    query.origin = filter.origin;
+  }
+
+  // Filtro por intervalo de datas
+  if (filter.startDate || filter.endDate) {
+    query.createdAt = {};
+    if (filter.startDate) {
+      query.createdAt.$gte = new Date(filter.startDate);
+    }
+    if (filter.endDate) {
+      // Adiciona 1 dia para incluir o dia final completo
+      const endDate = new Date(filter.endDate);
+      endDate.setDate(endDate.getDate() + 1);
+      query.createdAt.$lte = endDate;
+    }
+  }
+
+  // Filtro por pipeline
+  if (filter.pipelineId) {
+    query.pipelineId = filter.pipelineId;
+  }
+
+  // Filtro por stage/etapa
+  if (filter.stageId) {
+    query.stageId = filter.stageId;
+  }
+
+  return LeadModel.find(query)
     .sort({ createdAt: -1 })
     .populate('owners', 'name email') 
-    .populate('owner', 'name email'); // Mantém legado
+    .populate('owner', 'name email');
 }
 
 export function getLead(id: string) {
-  // ALTERAÇÃO: Adicionado .populate
   return LeadModel.findById(id)
     .populate('owners', 'name email')
     .populate('owner', 'name email');
 }
 
-export async function createLead(input: any, userId?: string) {
+export async function createLead(input: any, user?: UserAuth) {
   const pipeline = await PipelineModel.findById(input.pipelineId);
   if (!pipeline) throw new AppError('Pipeline inválido', StatusCodes.BAD_REQUEST);
   
@@ -29,9 +92,16 @@ export async function createLead(input: any, userId?: string) {
   if (!stage) throw new AppError('Stage inválido', StatusCodes.BAD_REQUEST);
 
   const rank = input.rank || '0|hzzzzz:';
+  const userId = user?.sub;
+
+  let ownersList = input.owners;
+  if (!ownersList || ownersList.length === 0) {
+    ownersList = userId ? [userId] : [];
+  }
 
   const lead = await LeadModel.create({ 
     ...input, 
+    owners: ownersList,
     rank, 
     createdBy: userId,
     active: true,
@@ -50,27 +120,52 @@ export async function createLead(input: any, userId?: string) {
   return lead;
 }
 
-export async function updateLead(id: string, input: any, userId?: string) {
-  // ALTERAÇÃO: Adicionado .populate no retorno para o frontend receber o nome imediatamente após editar
-  const lead = await LeadModel.findByIdAndUpdate(id, { ...input, updatedBy: userId }, { new: true })
+export async function updateLead(id: string, input: any, user?: UserAuth) {
+  const existingLead = await LeadModel.findById(id);
+  if (!existingLead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
+
+  if (user && user.role !== 'admin') {
+    const owners = existingLead.owners || [];
+    const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
+    
+    if (!isOwner) {
+      throw new AppError('Você não tem permissão para editar este lead.', StatusCodes.FORBIDDEN);
+    }
+  }
+
+  const lead = await LeadModel.findByIdAndUpdate(
+      id, 
+      { ...input, updatedBy: user?.sub }, 
+      { new: true }
+    )
     .populate('owners', 'name email')
     .populate('owner', 'name email');
-
-  if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
   
   await ActivityModel.create({ 
-    leadId: lead._id, 
+    leadId: lead!._id, 
     type: 'Alteração', 
     descricao: 'Dados do lead atualizados', 
     payload: input, 
-    usuario: userId || 'Sistema',
+    usuario: user?.sub || 'Sistema',
     data: new Date()
   });
   
   return lead;
 }
 
-export function deleteLead(id: string) {
+export async function deleteLead(id: string, user?: UserAuth) {
+  const existingLead = await LeadModel.findById(id);
+  if (!existingLead) return; 
+
+  if (user && user.role !== 'admin') {
+     const owners = existingLead.owners || [];
+     const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
+     
+     if (!isOwner) {
+        throw new AppError('Você não tem permissão para excluir este lead.', StatusCodes.FORBIDDEN);
+     }
+  }
+
   return LeadModel.findByIdAndDelete(id);
 }
 

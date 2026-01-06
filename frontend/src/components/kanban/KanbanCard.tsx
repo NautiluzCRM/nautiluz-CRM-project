@@ -10,11 +10,12 @@ import {
   Mail, 
   Building, 
   Users, 
-  Calendar,
   MessageCircle,
   AlertCircle,
-  Clock
+  Clock,
+  Lock // Ícone de cadeado para indicar visualmente
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth"; // <--- Import do Auth
 
 interface KanbanCardProps {
   lead: Lead;
@@ -24,7 +25,22 @@ interface KanbanCardProps {
   isOverdue?: boolean;
 }
 
-export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false, isOverdue = false }: KanbanCardProps) {
+export function KanbanCard({ lead, onLeadClick, isDragging = false, isOverdue = false }: KanbanCardProps) {
+  const { user } = useAuth();
+
+  const isAdmin = user?.role === 'admin';
+  
+  // Tenta pegar o ID de todas as formas possíveis (id ou _id)
+  const currentUserId = user?.id || (user as any)?._id;
+  
+  // Verifica se o ID do usuário está na lista de donos
+  const isOwner = (lead.ownersIds || []).some(id => id === currentUserId);
+  
+  // Fallback para legado: verifica se bate com o nome ou ID antigo se o array estiver vazio
+  const isLegacyOwner = !lead.ownersIds?.length && lead.responsavel === user?.name;
+
+  const canMove = isAdmin || isOwner || isLegacyOwner;
+
   const {
     attributes,
     listeners,
@@ -37,6 +53,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
       type: 'lead',
       lead,
     },
+    disabled: !canMove, // <--- BLOQUEIA O ARRASTO AQUI
   });
 
   const style = {
@@ -64,9 +81,9 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
     return colors[status as keyof typeof colors] || colors['Incompleto'];
   };
 
-  const diasSemAtividade = Math.floor(
-    (Date.now() - lead.ultimaAtividade.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const diasSemAtividade = lead.ultimaAtividade 
+  ? Math.floor((Date.now() - new Date(lead.ultimaAtividade).getTime()) / (1000 * 60 * 60 * 24))
+  : 0;
 
   return (
     <Card
@@ -76,27 +93,36 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
       {...listeners}
       onClick={() => onLeadClick?.(lead)}
       className={`
-        cursor-grab active:cursor-grabbing shadow-kanban-card hover:shadow-lg
+        relative group
+        ${canMove ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default opacity-90'} 
+        shadow-kanban-card 
         transition-all duration-200 border-l-4 border-l-primary
         ${isDragging ? 'opacity-50 rotate-2 scale-105' : ''}
         ${isOverdue ? 'border-l-destructive bg-destructive/5' : ''}
       `}
     >
-      <CardContent className="p-4 space-y-3">
+      {/* Indicador visual de bloqueio (opcional, mas bom pra UX) */}
+      {!canMove && (
+        <div className="absolute top-2 right-2 text-muted-foreground/20">
+          <Lock className="h-4 w-4" />
+        </div>
+      )}
+
+      <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
         {/* Header com nome e empresa */}
-        <div className="space-y-1">
-          <div className="flex items-start justify-between">
-            <h4 className="font-medium text-foreground text-sm line-clamp-1">
+        <div className="space-y-0.5 sm:space-y-1">
+          <div className="flex items-start justify-between pr-4">
+            <h4 className="font-medium text-foreground text-xs sm:text-sm line-clamp-1">
               {lead.nome}
             </h4>
             {isOverdue && (
-              <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 ml-2" />
+              <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive flex-shrink-0 ml-2" />
             )}
           </div>
           {lead.empresa && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Building className="h-3 w-3" />
-              {lead.empresa}
+            <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
+              <Building className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+              <span className="truncate">{lead.empresa}</span>
             </p>
           )}
         </div>
@@ -105,27 +131,27 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
         <div className="flex flex-wrap gap-1">
           <Badge 
             variant="outline" 
-            className={`text-xs ${getOrigemColor(lead.origem)}`}
+            className={`text-[10px] sm:text-xs px-1.5 py-0 h-5 ${getOrigemColor(lead.origem)}`}
           >
             {lead.origem}
           </Badge>
           <Badge 
-            className={`text-xs ${getStatusColor(lead.statusQualificacao)}`}
+            className={`text-[10px] sm:text-xs px-1.5 py-0 h-5 ${getStatusColor(lead.statusQualificacao)}`}
           >
             {lead.statusQualificacao}
           </Badge>
         </div>
 
         {/* Informações principais */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Users className="h-3 w-3" />
+        <div className="space-y-1 sm:space-y-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
+            <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
             <span>{lead.quantidadeVidas} vida{lead.quantidadeVidas > 1 ? 's' : ''}</span>
           </div>
           
           {lead.valorMedio && (
-            <div className="text-xs text-muted-foreground">
-              Valor atual: {lead.valorMedio.toLocaleString('pt-BR', { 
+            <div className="text-[10px] sm:text-xs text-muted-foreground">
+              {lead.valorMedio.toLocaleString('pt-BR', { 
                 style: 'currency', 
                 currency: 'BRL' 
               })}
@@ -133,57 +159,70 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
           )}
         </div>
 
-        {/* Ações rápidas */}
-        <div className="flex items-center justify-between pt-2 border-t border-border">
-          <div className="flex gap-1">
+        {/* Footer com Ações e Avatar */}
+        <div className="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-border">
+          <div className="flex gap-0.5 sm:gap-1">
+            {/* Botões de ação rápida (Phone, Whats, Mail) */}
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 sm:h-6 sm:w-6 p-0"
               onClick={(e) => {
                 e.stopPropagation();
                 window.open(`tel:${lead.celular}`, '_self');
               }}
             >
-              <Phone className="h-3 w-3" />
+              <Phone className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
             </Button>
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 sm:h-6 sm:w-6 p-0"
               onClick={(e) => {
                 e.stopPropagation();
                 window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank');
               }}
             >
-              <MessageCircle className="h-3 w-3" />
+              <MessageCircle className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
             </Button>
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 sm:h-6 sm:w-6 p-0"
               onClick={(e) => {
                 e.stopPropagation();
                 window.open(`mailto:${lead.email}`, '_self');
               }}
             >
-              <Mail className="h-3 w-3" />
+              <Mail className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {diasSemAtividade > 0 && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
+              <div className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs text-muted-foreground">
+                <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 <span>{diasSemAtividade}d</span>
               </div>
             )}
-            <Avatar className="h-6 w-6">
-              <AvatarImage src="" alt={lead.responsavel} />
-              <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                {lead.responsavel.split(' ').map(n => n[0]).join('').substring(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+            
+            {/* Avatar do Responsável */}
+            <div className="flex -space-x-1.5 sm:-space-x-2 overflow-hidden">
+               {lead.owners && lead.owners.length > 0 ? (
+                  lead.owners.slice(0, 2).map((owner: any) => (
+                    <Avatar key={owner.id} className="h-5 w-5 sm:h-6 sm:w-6 border-2 border-background ring-1 ring-background">
+                      <AvatarImage src="" />
+                      <AvatarFallback className="text-[9px] sm:text-[10px] bg-primary text-primary-foreground">
+                        {owner.nome.substring(0, 1)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))
+               ) : (
+                  <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
+                    <AvatarFallback className="text-[9px] sm:text-[10px] bg-muted">?</AvatarFallback>
+                  </Avatar>
+               )}
+            </div>
           </div>
         </div>
       </CardContent>

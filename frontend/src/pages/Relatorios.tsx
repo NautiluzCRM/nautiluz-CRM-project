@@ -107,33 +107,33 @@ const Relatorios = () => {
     <Layout>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="bg-card border-b border-border p-6 shadow-card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Relatórios & Analytics</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground">Relatórios & Analytics</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Acompanhe o desempenho das vendas e KPIs importantes
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Filtrar
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+              <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm shrink-0">
+                <Filter className="h-3.5 w-3.5 sm:mr-2" />
+                <span className="hidden sm:inline">Filtrar</span>
               </Button>
-              <Button variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Atualizar
+              <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm shrink-0">
+                <RefreshCw className="h-3.5 w-3.5 sm:mr-2" />
+                <span className="hidden sm:inline">Atualizar</span>
               </Button>
-              <Button className="bg-gradient-primary hover:bg-primary-hover" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar PDF
+              <Button className="bg-gradient-primary hover:bg-primary-hover h-8 sm:h-9 text-xs sm:text-sm shrink-0" size="sm">
+                <Download className="h-3.5 w-3.5 sm:mr-2" />
+                <span className="hidden sm:inline">Exportar PDF</span>
               </Button>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
             <Select defaultValue="30">
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
@@ -145,7 +145,7 @@ const Relatorios = () => {
             </Select>
             
             <Select defaultValue="all">
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
                 <SelectValue placeholder="Vendedor" />
               </SelectTrigger>
               <SelectContent>
@@ -159,28 +159,28 @@ const Relatorios = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6 overflow-auto space-y-6">
+        <div className="flex-1 p-4 sm:p-6 overflow-auto space-y-4 sm:space-y-6">
           {/* KPIs Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {metricas.map((metrica, index) => (
               <Card key={index}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">{metrica.titulo}</p>
-                      <h3 className="text-2xl font-bold mt-1">{metrica.valor}</h3>
-                      <div className="flex items-center gap-1 mt-2">
+                <CardContent className="p-3 sm:p-6">
+                  <div className="flex items-start sm:items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] sm:text-sm text-muted-foreground truncate">{metrica.titulo}</p>
+                      <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1 truncate">{metrica.valor}</h3>
+                      <div className="flex flex-wrap items-center gap-1 mt-1 sm:mt-2">
                         <Badge 
                           variant={metrica.tipo === 'aumento' || metrica.tipo === 'melhoria' ? 'success' : 'destructive'} 
-                          className="text-xs"
+                          className="text-[9px] sm:text-xs px-1.5"
                         >
                           {metrica.mudanca}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">{metrica.descricao}</span>
+                        <span className="text-[9px] sm:text-xs text-muted-foreground hidden sm:inline">{metrica.descricao}</span>
                       </div>
                     </div>
-                    <div className="p-3 bg-primary/10 rounded-lg">
-                      <metrica.icone className="h-6 w-6 text-primary" />
+                    <div className="p-2 sm:p-3 bg-primary/10 rounded-lg shrink-0">
+                      <metrica.icone className="h-4 w-4 sm:h-6 sm:w-6 text-primary" />
                     </div>
                   </div>
                 </CardContent>
@@ -188,21 +188,21 @@ const Relatorios = () => {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Funil de Conversão */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
+              <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                  <Target className="h-4 w-4 sm:h-5 sm:w-5" />
                   Funil de Conversão
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
+              <CardContent className="p-2 sm:p-6 pt-0">
+                <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={dadosConversao}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="etapa" />
-                    <YAxis />
+                    <XAxis dataKey="etapa" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip />
                     <Bar dataKey="quantidade" fill="hsl(var(--primary))" />
                   </BarChart>
@@ -212,20 +212,20 @@ const Relatorios = () => {
 
             {/* Distribuição por Origem */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+              <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                   Leads por Origem
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
+              <CardContent className="p-2 sm:p-6 pt-0">
+                <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
                       data={dadosOrigem}
                       cx="50%"
                       cy="50%"
-                      outerRadius={100}
+                      outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
@@ -243,20 +243,20 @@ const Relatorios = () => {
 
           {/* Tempo de Resposta */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
+            <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                 Tempo de Resposta (horas)
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="p-2 sm:p-6 pt-0">
+              <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={dadosTempoResposta}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="mes" />
-                  <YAxis />
+                  <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: '12px' }} />
                   <Line 
                     type="monotone" 
                     dataKey="tempoMedio" 
@@ -278,38 +278,38 @@ const Relatorios = () => {
 
           {/* Performance por Vendedor */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
+            <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                 Performance por Vendedor
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="p-3 sm:p-6 pt-0">
+              <div className="space-y-3 sm:space-y-4">
                 {dadosVendedores.map((vendedor, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
+                  <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 bg-muted rounded-lg">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-xs sm:text-sm shrink-0">
                         {vendedor.vendedor.split(' ').map(n => n[0]).join('')}
                       </div>
-                      <div>
-                        <h4 className="font-medium">{vendedor.vendedor}</h4>
-                        <p className="text-sm text-muted-foreground">{vendedor.leads} leads ativos</p>
+                      <div className="min-w-0">
+                        <h4 className="font-medium text-sm sm:text-base truncate">{vendedor.vendedor}</h4>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{vendedor.leads} leads ativos</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-6 text-sm">
-                      <div className="text-center">
+                    <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm ml-11 sm:ml-0">
+                      <div className="text-left sm:text-center">
                         <p className="font-medium">{vendedor.conversao}%</p>
-                        <p className="text-muted-foreground">Conversão</p>
+                        <p className="text-muted-foreground text-[10px] sm:text-xs">Conversão</p>
                       </div>
-                      <div className="text-center">
+                      <div className="text-left sm:text-center">
                         <p className="font-medium">
                           {vendedor.receita.toLocaleString('pt-BR', { 
                             style: 'currency', 
                             currency: 'BRL' 
                           })}
                         </p>
-                        <p className="text-muted-foreground">Receita Est.</p>
+                        <p className="text-muted-foreground text-[10px] sm:text-xs">Receita Est.</p>
                       </div>
                     </div>
                   </div>

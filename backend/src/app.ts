@@ -5,6 +5,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import path from 'path';
 import { corsOptions } from './config/cors.js';
 import { rateLimiter } from './config/rate-limit.js';
 import { env } from './config/env.js';
@@ -23,15 +24,32 @@ app.use(rateLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(morgan('dev'));
+// Logs apenas em desenvolvimento
+if (env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'));
+}
 app.use(requestContext);
+
+// Servir arquivos estáticos (uploads/exports)
+app.use('/uploads', express.static(path.resolve(env.UPLOAD_DIR)));
+
+// Rota raiz - Health check
+app.get('/', (_req: Request, res: Response) => {
+  res.json({ 
+    name: 'Nautiluz CRM API',
+    version: '0.1.0',
+    status: 'online',
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', env: env.NODE_ENV });
 });
 
+// API routes com prefixo /api
+app.use('/api', router);
 app.use('/public/linktree', linktreeRouter);
-app.use(router);
 app.use(errorHandler);
 
 export const httpServer = createServer(app);
