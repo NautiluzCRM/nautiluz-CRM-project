@@ -13,11 +13,22 @@ import emailsRoutes from './modules/emails/emails.routes.js';
 import alertsRoutes from './modules/alerts/alerts.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import { webhookHandler } from './modules/webhooks/webhook.controller.js';
+import { ActivityController } from './controllers/Activity.controller.js';
+import { NoteController } from './controllers/Note.controller.js';
+import { authenticate } from './rbac/rbac.middleware.js';
 
 const router = Router();
 
 // Autenticação
 router.use('/auth', authRoutes);
+
+// Atividades e Notas (DEVE VIR ANTES DE /leads para evitar conflito de rotas)
+router.get('/leads/:leadId/activities', authenticate, ActivityController.getLeadActivities);
+router.get('/leads/:leadId/notes', authenticate, NoteController.getLeadNotes);
+router.post('/leads/:leadId/notes', authenticate, NoteController.createNote);
+router.get('/activities/recent', authenticate, ActivityController.getRecentActivities);
+router.put('/notes/:noteId', authenticate, NoteController.updateNote);
+router.delete('/notes/:noteId', authenticate, NoteController.deleteNote);
 
 // Recursos principais
 router.use('/users', userRoutes);

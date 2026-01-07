@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { Layout } from "@/components/Layout";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { CreateLeadModal } from "@/components/CreateLeadModal";
+import { EditLeadModal } from "@/components/EditLeadModal";
 import { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table as TableComponent, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Plus, Search, Grid, List, Download, Phone, MessageCircle, Mail, Building, Users, Calendar, Loader2, UserCheck, CalendarIcon, X } from "lucide-react";
-import { fetchLeads, mapApiLeadToLead, exportLeadsXlsx, API_URL } from "@/lib/api";
+import { Plus, Search, Grid, List, Phone, MessageCircle, Mail, Building, Users, Calendar, Loader2, UserCheck, CalendarIcon, X } from "lucide-react";
+import { fetchLeads, mapApiLeadToLead, deleteLeadApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
@@ -32,6 +32,7 @@ const Leads = () => {
   
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
 
   const [showMine, setShowMine] = useState(!isPrivileged);
@@ -42,7 +43,6 @@ const Leads = () => {
   const [origemFilter, setOrigemFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
 
   // Debounce para busca
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -109,51 +109,6 @@ const Leads = () => {
     loadLeads();
   }, [loadLeads]);
 
-  // Exportação
-  const handleExport = async () => {
-    setIsExporting(true);
-    try {
-      const filters: Record<string, unknown> = {};
-      
-      if (debouncedSearch) {
-        filters.name = { $regex: debouncedSearch, $options: 'i' };
-      }
-      
-      if (statusFilter && statusFilter !== "all") {
-        filters.qualificationStatus = statusFilter;
-      }
-
-      if (origemFilter && origemFilter !== "all") {
-        filters.origin = origemFilter;
-      }
-
-      const result = await exportLeadsXlsx(filters);
-      
-      // Baixa o arquivo
-      const downloadUrl = `${API_URL}${result.url}`;
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = result.file;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast({
-        title: "Exportação concluída!",
-        description: `Arquivo ${result.file} baixado com sucesso.`,
-      });
-    } catch (error) {
-      console.error("Erro ao exportar", error);
-      toast({
-        variant: "destructive",
-        title: "Erro na exportação",
-        description: "Não foi possível gerar o arquivo Excel.",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const clearDateFilter = () => {
     setDateRange(undefined);
   };
@@ -165,22 +120,19 @@ const Leads = () => {
   };
 
   const handleNewLead = () => {
-    setLeadToEdit(null);
     setIsCreateOpen(true);
   };
 
   const handleEditClick = (lead: Lead) => {
-    setSelectedLead(lead); 
     setLeadToEdit(lead);
-    setIsDetailsOpen(false); 
-    setIsCreateOpen(true);
+    setIsDetailsOpen(false);
+    setIsEditOpen(true);
   };
 
   const handleSuccess = () => {
     loadLeads();
     setIsCreateOpen(false);
-    setLeadToEdit(null);
-    if (leadToEdit) setIsDetailsOpen(false);
+    setIsEditOpen(false);
   };
 
   // Helpers de Cor
@@ -205,7 +157,7 @@ const Leads = () => {
   };
 
   return (
-    <Layout>
+    <>
       <div className="flex flex-col h-full">
         {/* Header - Mobile First */}
         <div className="bg-card border-b border-border p-3 sm:p-4 md:p-6 shadow-sm">
@@ -332,7 +284,7 @@ const Leads = () => {
               </PopoverContent>
             </Popover>
 
-            {/* Divider + View mode + Export - hidden on small mobile */}
+            {/* Divider + View mode - hidden on small mobile */}
             <div className="hidden sm:flex items-center gap-2 border-l pl-2 ml-auto shrink-0">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -350,26 +302,11 @@ const Leads = () => {
               >
                 <List className="h-3.5 w-3.5" />
               </Button>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-8 text-xs"
-                onClick={handleExport}
-                disabled={isExporting}
-              >
-                {isExporting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden md:inline ml-1.5">{isExporting ? "Exportando..." : "Exportar"}</span>
-              </Button>
             </div>
           </div>
 
-          {/* Mobile-only: View mode + Export row */}
-          <div className="flex sm:hidden items-center justify-between pt-2 mt-2 border-t">
+          {/* Mobile-only: View mode row */}
+          <div className="flex sm:hidden items-center pt-2 mt-2 border-t">
             <div className="flex items-center gap-1">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -388,23 +325,6 @@ const Leads = () => {
                 <List className="h-4 w-4" />
               </Button>
             </div>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 text-xs"
-              onClick={handleExport}
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-1" />
-                  Exportar
-                </>
-              )}
-            </Button>
           </div>
         </div>
 
@@ -604,19 +524,40 @@ const Leads = () => {
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
         onEdit={handleEditClick}
-        onUpdate={fetchLeads}
+        onDelete={async (leadId: string) => {
+          await deleteLeadApi(leadId);
+          toast({ title: "Excluído!", description: "Lead removido com sucesso." });
+          loadLeads();
+        }}
       />
 
       <CreateLeadModal 
         isOpen={isCreateOpen}
         onClose={() => {
           setIsCreateOpen(false);
+        }}
+        onSuccess={handleSuccess}
+      />
+
+      <EditLeadModal 
+        isOpen={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false);
           setLeadToEdit(null);
+        }}
+        onCancel={() => {
+          // Volta para o modal de detalhes
+          if (leadToEdit) {
+            setSelectedLead(leadToEdit);
+          }
+          setIsEditOpen(false);
+          setLeadToEdit(null);
+          setIsDetailsOpen(true);
         }}
         onSuccess={handleSuccess}
         leadToEdit={leadToEdit}
       />
-    </Layout>
+    </>
   );
 };
 

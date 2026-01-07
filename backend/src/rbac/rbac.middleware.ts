@@ -3,16 +3,35 @@ import { verifyAccessToken } from '../auth/jwt.js';
 import { AppError } from '../common/http.js';
 import { StatusCodes } from 'http-status-codes';
 import { permissions, Role, hasPermission } from './rbac.policies.js';
+import { UserModel } from '../modules/users/user.model.js';
 
-export function authenticate(req: Request, _res: Response, next: NextFunction) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    throw new AppError('Unauthenticated', StatusCodes.UNAUTHORIZED);
+export async function authenticate(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const header = req.headers.authorization;
+    if (!header?.startsWith('Bearer ')) {
+      throw new AppError('Unauthenticated', StatusCodes.UNAUTHORIZED);
+    }
+    const token = header.slice(7);
+    const payload = verifyAccessToken(token);
+    
+    // Buscar dados completos do usuário no banco
+    const user = await UserModel.findById(payload.sub).lean();
+    if (!user) {
+      throw new AppError('User not found', StatusCodes.UNAUTHORIZED);
+    }
+    
+    // Montar objeto com todos os dados necessários
+    (req as any).user = {
+      id: payload.sub,
+      sub: payload.sub,
+      role: payload.role,
+      name: user.name,
+      email: user.email,
+    };
+    next();
+  } catch (error) {
+    next(error);
   }
-  const token = header.slice(7);
-  const payload = verifyAccessToken(token);
-  (req as any).user = payload;
-  next();
 }
 
 /**

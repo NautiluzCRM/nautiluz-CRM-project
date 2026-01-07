@@ -20,6 +20,40 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Verifica se o token JWT está expirado (sem fazer chamada HTTP)
+function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  
+  try {
+    // JWT tem 3 partes separadas por ponto
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    
+    // Decodifica o payload (segunda parte)
+    const payload = JSON.parse(atob(parts[1]));
+    
+    // Verifica expiração (exp é em segundos, Date.now() em ms)
+    if (payload.exp) {
+      const expirationTime = payload.exp * 1000;
+      // Considera expirado se faltar menos de 10 segundos
+      return Date.now() >= expirationTime - 10000;
+    }
+    
+    return false; // Sem exp = não expira
+  } catch {
+    return true; // Token inválido = expirado
+  }
+}
+
+function clearAllAuthStorage() {
+  const storages = [localStorage, sessionStorage];
+  for (const storage of storages) {
+    storage.removeItem("authToken");
+    storage.removeItem("refreshToken");
+    storage.removeItem("authUser");
+  }
+}
+
 function readStoredAuth(): { token: string | null; refresh: string | null; user: AuthUser } {
   const storages = [localStorage, sessionStorage];
   const read = (key: string) => {
@@ -34,6 +68,13 @@ function readStoredAuth(): { token: string | null; refresh: string | null; user:
     const token = read("authToken");
     const refresh = read("refreshToken");
     const userRaw = read("authUser");
+    
+    // Se o token está expirado E não há refresh token, limpa tudo
+    if (isTokenExpired(token) && !refresh) {
+      clearAllAuthStorage();
+      return { token: null, refresh: null, user: null };
+    }
+    
     return {
       token,
       refresh,
@@ -50,6 +91,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Verifica se o token está expirado ao montar
+    if (token && isTokenExpired(token) && !refresh) {
+      clearAllAuthStorage();
+      setAuth({ token: null, refresh: null, user: null });
+    }
     setLoading(false);
   }, []);
 
@@ -97,16 +143,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, []);
 
+  // isAuthenticated só é true se tem token E não está expirado
+  const isAuthenticated = useMemo(() => {
+    return Boolean(token) && !isTokenExpired(token);
+  }, [token]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
-      user,
-      isAuthenticated: Boolean(token),
+      user: isAuthenticated ? user : null,
+      isAuthenticated,
       loading,
       login,
       logout,
       updateUserLocal,
     }),
-    [token, user, loading, login, logout, updateUserLocal]
+    [isAuthenticated, user, loading, login, logout, updateUserLocal]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

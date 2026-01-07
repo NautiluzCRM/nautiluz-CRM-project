@@ -8,9 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge"; 
 import { useToast } from "@/hooks/use-toast";
-import { createLeadApi, updateLeadApi, deleteLeadApi, fetchPipelines, fetchStages, fetchUsers } from "@/lib/api";
+import { createLeadApi, fetchPipelines, fetchStages, fetchUsers } from "@/lib/api";
 import { Lead } from "@/types/crm"; 
-import { Loader2, CheckCircle2, X, Plus, Trash2, User, Users, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { Loader2, CheckCircle2, X, Plus, User, Users, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import { Progress } from "@/components/ui/progress"; 
 
 const FAIXAS_ETARIAS = [
@@ -29,7 +29,6 @@ interface CreateLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  leadToEdit?: Lead | null; 
 }
 
 const STEPS = [
@@ -40,10 +39,9 @@ const STEPS = [
   { id: 5, title: "Finalizar", icon: Check }
 ];
 
-export function CreateLeadModal({ isOpen, onClose, onSuccess, leadToEdit }: CreateLeadModalProps) {
+export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   
   const hoje = new Date().toISOString().split('T')[0];
@@ -87,45 +85,8 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess, leadToEdit }: Crea
   }, [isOpen, toast]);
 
   useEffect(() => {
-    setCurrentStep(1);
-    if (isOpen && leadToEdit) {
-      setFormData({
-        nome: leadToEdit.nome || "",
-        empresa: leadToEdit.empresa || "",
-        email: leadToEdit.email || "",
-        celular: leadToEdit.celular || "",
-        origem: leadToEdit.origem || "Indicação",
-        quantidadeVidas: leadToEdit.quantidadeVidas || 1,
-        valorMedio: leadToEdit.valorMedio || 0,
-        possuiCnpj: leadToEdit.possuiCnpj || false,
-        tipoCnpj: leadToEdit.tipoCnpj || "",
-        possuiPlano: leadToEdit.possuiPlano || false,
-        planoAtual: leadToEdit.planoAtual || "",
-        cidade: leadToEdit.cidade || "",
-        uf: leadToEdit.uf || "",
-        dataCriacao: leadToEdit.dataCriacao ? new Date(leadToEdit.dataCriacao).toISOString().split('T')[0] : hoje,
-        observacoes: leadToEdit.informacoes || ""
-      });
-      
-      setHospitais(leadToEdit.hospitaisPreferencia || []);
-      
-      if (leadToEdit.idades && leadToEdit.idades.length === 10) {
-        setFaixas([...leadToEdit.idades]);
-      } else {
-        setFaixas(Array(10).fill(0));
-      }
-
-      const rawIds = (leadToEdit as any).ownersIds;
-      
-      if (rawIds && Array.isArray(rawIds)) {
-         setSelectedOwners(rawIds);
-      } else if ((leadToEdit as any).owners && Array.isArray((leadToEdit as any).owners)) {
-         setSelectedOwners((leadToEdit as any).owners.map((o: any) => o.id || o._id || o));
-      } else {
-         setSelectedOwners([]);
-      }
-
-    } else if (isOpen && !leadToEdit) {
+    if (isOpen) {
+      setCurrentStep(1);
       setFormData({
         nome: "", empresa: "", email: "", celular: "", origem: "Indicação",
         quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, tipoCnpj: "",
@@ -136,7 +97,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess, leadToEdit }: Crea
       setFaixas(Array(10).fill(0));
       setSelectedOwners([]); 
     }
-  }, [isOpen, leadToEdit, hoje]);
+  }, [isOpen, hoje]);
 
   const handleAddHospital = (e?: React.KeyboardEvent | React.MouseEvent) => {
     if (e && 'key' in e && e.key !== 'Enter') return;
@@ -172,25 +133,6 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess, leadToEdit }: Crea
         return [...prev, userId];
       }
     });
-  };
-
-  const handleDelete = async () => {
-    if (!leadToEdit) return;
-    const confirmed = window.confirm("Tem certeza que deseja excluir este lead? Essa ação não pode ser desfeita.");
-    if (!confirmed) return;
-
-    setIsDeleting(true);
-    try {
-      await deleteLeadApi(leadToEdit.id);
-      toast({ title: "Excluído!", description: "Lead removido com sucesso." });
-      onSuccess();
-      onClose();
-    } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   const totalFaixas = faixas.reduce((acc, curr) => acc + curr, 0);
@@ -284,21 +226,14 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess, leadToEdit }: Crea
         owners: selectedOwners
       };
 
-      if (leadToEdit) {
-        leadData.pipelineId = (leadToEdit as any).pipelineId;
-        leadData.stageId = leadToEdit.colunaAtual;
-        await updateLeadApi(leadToEdit.id, leadData);
-        toast({ title: "Atualizado!", description: "Lead salvo." });
-      } else {
-        const pipelines = await fetchPipelines();
-        if (!pipelines.length) throw new Error("Sem pipeline.");
-        leadData.pipelineId = pipelines[0]._id;
-        const stages = await fetchStages(leadData.pipelineId);
-        if (!stages.length) throw new Error("Sem stages.");
-        leadData.stageId = stages[0]._id;
-        await createLeadApi(leadData);
-        toast({ title: "Criado!", description: "Lead criado." });
-      }
+      const pipelines = await fetchPipelines();
+      if (!pipelines.length) throw new Error("Sem pipeline.");
+      leadData.pipelineId = pipelines[0]._id;
+      const stages = await fetchStages(leadData.pipelineId);
+      if (!stages.length) throw new Error("Sem stages.");
+      leadData.stageId = stages[0]._id;
+      await createLeadApi(leadData);
+      toast({ title: "Criado!", description: "Lead criado." });
       
       setFormData({
         nome: "", empresa: "", email: "", celular: "", origem: "Indicação",
@@ -328,7 +263,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess, leadToEdit }: Crea
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{leadToEdit ? "Editar Lead" : "Novo Lead"}</DialogTitle>
+          <DialogTitle>Novo Lead</DialogTitle>
           
           <div className="space-y-3 pt-4">
             <Progress value={progressPercentage} className="h-2" />
@@ -565,28 +500,21 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess, leadToEdit }: Crea
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0 border-t pt-4">
-          <div className="flex-1 flex justify-start">
-            {leadToEdit && (
-              <Button type="button" variant="destructive" onClick={handleDelete} disabled={isDeleting || isLoading} className="gap-2">
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Excluir
-              </Button>
-            )}
-          </div>
           <div className="flex gap-2">
             {currentStep > 1 && (
-              <Button type="button" variant="outline" onClick={handlePrevStep} disabled={isLoading || isDeleting}>
+              <Button type="button" variant="outline" onClick={handlePrevStep} disabled={isLoading}>
                 <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
               </Button>
             )}
             
             {currentStep < STEPS.length ? (
-              <Button type="button" onClick={handleNextStep} disabled={isLoading || isDeleting} className="bg-primary hover:bg-primary/90 text-white">
+              <Button type="button" onClick={handleNextStep} disabled={isLoading} className="bg-primary hover:bg-primary/90 text-white">
                 Próximo <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button type="button" onClick={handleSubmit} disabled={isLoading || isDeleting} className="bg-green-600 hover:bg-green-700 text-white">
+              <Button type="button" onClick={handleSubmit} disabled={isLoading} className="bg-green-600 hover:bg-green-700 text-white">
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {leadToEdit ? "Salvar Alterações" : "Criar Lead"}
+                Criar Lead
               </Button>
             )}
           </div>
