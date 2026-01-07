@@ -11,6 +11,7 @@ import viewRoutes from './modules/filters/views.routes.js';
 import apolicesRoutes from './modules/apolices/apolices.routes.js';
 import emailsRoutes from './modules/emails/emails.routes.js';
 import alertsRoutes from './modules/alerts/alerts.routes.js';
+import notificationsRoutes from './modules/notifications/notifications.routes.js';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.use('/kanban', kanbanRoutes);
 router.use('/apolices', apolicesRoutes);
 router.use('/emails', emailsRoutes);
 router.use('/alerts', alertsRoutes);
+router.use('/notifications', notificationsRoutes);
 
 // Filtros e visualizações
 router.use('/filters', filterRoutes);

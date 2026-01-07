@@ -19,7 +19,8 @@ const envSchema = z.object({
   STORAGE_PROVIDER: z.string().default('local'),
   UPLOAD_DIR: z.string().default('./uploads'),
   EXPORT_SIGNED_URL_TTL_SECONDS: z.string().default('3600').transform(Number),
-  RESEND_API_KEY: z.string().default(''),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('Nautiluz CRM <noreply@nautiluz.com>'),
   RESEND_FROM_EMAIL: z.string().default('onboarding@resend.dev')
 });
 

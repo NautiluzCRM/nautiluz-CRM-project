@@ -123,7 +123,32 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },
+      fontSize: {
+        'xs': ['0.75rem', { lineHeight: '1rem' }],
+        'sm': ['0.875rem', { lineHeight: '1.25rem' }],
+        'base': ['1rem', { lineHeight: '1.5rem' }],
+        'lg': ['1.125rem', { lineHeight: '1.75rem' }],
+        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
+        '2xl': ['1.5rem', { lineHeight: '2rem' }],
+      },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    function ({ addBase, e, theme }: any) {
+      const screens = theme('screens');
+      addBase({
+        '@layer utilities': {
+          '.touch-target': {
+            minHeight: '44px',
+            minWidth: '44px',
+            '@screen sm': {
+              minHeight: 'auto',
+              minWidth: 'auto',
+            },
+          },
+        },
+      });
+    },
+  ],
 } satisfies Config;
