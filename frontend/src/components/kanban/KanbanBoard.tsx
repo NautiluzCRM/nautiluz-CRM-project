@@ -84,7 +84,7 @@ export function KanbanBoard({ colunas, leads, onLeadMove, onLeadUpdate, onLeadCl
   const activeLead = activeId ? leads.find(l => l.id === activeId) : null;
 
   return (
-    <div className="h-full flex p-3 sm:p-6 bg-background overflow-x-auto">
+    <div className="h-full w-full flex p-3 sm:p-6 bg-background overflow-x-auto overflow-y-hidden">
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
