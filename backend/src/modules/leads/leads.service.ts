@@ -6,12 +6,41 @@ import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
 import { randomUUID } from 'crypto';
 
-export function listLeads(filter: any = {}) {
-  // ALTERAÇÃO: Adicionado .populate para trazer os dados dos responsáveis
-  return LeadModel.find(filter)
+export async function listLeads(query: any = {}, userRole?: string, userId?: string) {
+  // Criamos um filtro novo para garantir que só entra o que queremos
+  const mongoFilter: any = {};
+
+  // --- 1. REGRA DE SEGURANÇA (Permissões) ---
+  if (userRole === 'vendedor' && userId) {
+    // Vendedor só vê leads onde o ID dele está na lista de donos
+    mongoFilter.owners = userId;
+  }
+
+  // --- 2. FILTROS DE FUNIL (Pipeline/Stage) ---
+  if (query.pipelineId) {
+    mongoFilter.pipelineId = query.pipelineId;
+  }
+  
+  if (query.stageId) {
+    mongoFilter.stageId = query.stageId;
+  }
+
+  // --- 3. BUSCA TEXTUAL (Search Bar) ---
+  // Transforma ?search=Bruno em busca por Nome OU Email OU Telefone
+  if (query.search) {
+    const regex = { $regex: query.search, $options: 'i' }; // 'i' = ignora maiúscula/minúscula
+    mongoFilter.$or = [
+      { name: regex },
+      { email: regex },
+      { phone: regex }
+    ];
+  }
+
+  // --- 4. EXECUÇÃO ---
+  return LeadModel.find(mongoFilter)
     .sort({ createdAt: -1 })
     .populate('owners', 'name email') 
-    .populate('owner', 'name email'); // Mantém legado
+    .populate('owner', 'name email'); // Legado
 }
 
 export function getLead(id: string) {

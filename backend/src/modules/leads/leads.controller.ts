@@ -45,7 +45,11 @@ const leadSchema = z.object({
 });
 
 export const listLeadsHandler = asyncHandler(async (req: Request, res: Response) => {
-  const leads = await listLeads(req.query);
+  const user = (req as any).user;
+  const userRole = user?.role;
+  const userId = user?.sub;
+  
+  const leads = await listLeads(req.query, userRole, userId);
   res.json(leads);
 });
 

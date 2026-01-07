@@ -17,7 +17,7 @@ export interface User {
 const userSchema = new Schema<User>({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  passwordHash: { type: String, required: true },
+  passwordHash: { type: String, required: true, select: false },
   role: { type: String, enum: roles, required: true },
   teamId: { type: String },
   photoUrl: { type: String },

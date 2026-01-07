@@ -8,6 +8,7 @@ import filterRoutes from './modules/filters/filters.routes.js';
 import exportRoutes from './modules/reports/export.routes.js';
 import metaRoutes from './modules/integrations/meta-leads.routes.js';
 import viewRoutes from './modules/filters/views.routes.js';
+import { webhookHandler } from './modules/webhooks/webhook.controller.js';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/filters', filterRoutes);
 router.use('/views', viewRoutes);
 router.use('/exports', exportRoutes);
 router.use('/integrations/meta', metaRoutes);
+router.post('/webhooks/leads', webhookHandler);
 
 export default router;
