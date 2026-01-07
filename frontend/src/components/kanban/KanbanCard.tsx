@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/use-auth";
 import { 
   Phone, 
   Mail, 
@@ -13,7 +14,8 @@ import {
   Calendar,
   MessageCircle,
   AlertCircle,
-  Clock
+  Clock,
+  Lock
 } from "lucide-react";
 
 interface KanbanCardProps {
@@ -25,6 +27,14 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false, isOverdue = false }: KanbanCardProps) {
+  const { user } = useAuth();
+  
+  // Verifica se o usuário pode arrastar o card
+  const currentUserId = user?.id || (user as any)?._id;
+  const isVendedor = user?.role === 'vendedor';
+  const isOwner = (lead.ownersIds || []).some(id => id === currentUserId);
+  const canDrag = !isVendedor || isOwner; // Admin e outros perfis podem arrastar tudo
+
   const {
     attributes,
     listeners,
@@ -37,6 +47,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
       type: 'lead',
       lead,
     },
+    disabled: !canDrag, // Desabilita o drag se não pode arrastar
   });
 
   const style = {
@@ -73,13 +84,15 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
+      {...(canDrag ? listeners : {})}
       onClick={() => onLeadClick?.(lead)}
       className={`
-        cursor-grab active:cursor-grabbing shadow-kanban-card hover:shadow-lg
+        ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} 
+        shadow-kanban-card hover:shadow-lg
         transition-all duration-200 border-l-4 border-l-primary
         ${isDragging ? 'opacity-50 rotate-2 scale-105' : ''}
         ${isOverdue ? 'border-l-destructive bg-destructive/5' : ''}
+        ${!canDrag && isVendedor ? 'opacity-75' : ''}
       `}
     >
       <CardContent className="p-4 space-y-3">
@@ -89,9 +102,14 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
             <h4 className="font-medium text-foreground text-sm line-clamp-1">
               {lead.nome}
             </h4>
-            {isOverdue && (
-              <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 ml-2" />
-            )}
+            <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+              {!canDrag && isVendedor && (
+                <Lock className="h-3 w-3 text-muted-foreground" title="Lead de outro vendedor" />
+              )}
+              {isOverdue && (
+                <AlertCircle className="h-4 w-4 text-destructive" />
+              )}
+            </div>
           </div>
           {lead.empresa && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">

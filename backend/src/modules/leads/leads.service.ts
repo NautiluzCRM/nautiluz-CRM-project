@@ -4,53 +4,95 @@ import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
-import { randomUUID } from 'crypto';
+import mongoose from 'mongoose';
 
-export async function listLeads(query: any = {}, userRole?: string, userId?: string) {
-  // Criamos um filtro novo para garantir que só entra o que queremos
-  const mongoFilter: any = {};
+// Interfaces novas vindas da develop (mantenha isso)
+interface UserAuth {
+  sub: string;
+  role: string;
+}
 
-  // --- 1. REGRA DE SEGURANÇA (Permissões) ---
-  if (userRole === 'vendedor' && userId) {
-    // Vendedor só vê leads onde o ID dele está na lista de donos
-    mongoFilter.owners = userId;
+interface LeadFilter {
+  owners?: string;
+  search?: string;
+  name?: string;
+  qualificationStatus?: string;
+  origin?: string;
+  startDate?: string;
+  endDate?: string;
+  pipelineId?: string;
+  stageId?: string;
+}
+
+export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
+  const query: any = {};
+
+  // --- 1. REGRA DE SEGURANÇA (Sua Lógica + Estrutura Nova) ---
+  // Se tem usuário e ele NÃO é admin, forçamos o filtro para ver apenas os dele.
+  if (user && user.role !== 'admin') {
+    query.owners = user.sub;
+  } 
+  // Se for admin e escolheu filtrar por alguém específico, usamos o filtro.
+  else if (filter.owners) {
+    query.owners = filter.owners;
   }
 
-  // --- 2. FILTROS DE FUNIL (Pipeline/Stage) ---
-  if (query.pipelineId) {
-    mongoFilter.pipelineId = query.pipelineId;
-  }
-  
-  if (query.stageId) {
-    mongoFilter.stageId = query.stageId;
-  }
-
-  // --- 3. BUSCA TEXTUAL (Search Bar) ---
-  // Transforma ?search=Bruno em busca por Nome OU Email OU Telefone
-  if (query.search) {
-    const regex = { $regex: query.search, $options: 'i' }; // 'i' = ignora maiúscula/minúscula
-    mongoFilter.$or = [
+ // --- 2. BUSCA TEXTUAL ---
+  if (filter.search || filter.name) {
+    const searchTerm = filter.search || filter.name;
+    const regex = { $regex: searchTerm, $options: 'i' };
+    // Procura em Nome, Email ou Telefone ao mesmo tempo
+    query.$or = [
       { name: regex },
       { email: regex },
       { phone: regex }
     ];
   }
 
-  // --- 4. EXECUÇÃO ---
-  return LeadModel.find(mongoFilter)
+  // --- 3. FILTROS NOVOS (Vindos da Develop) ---
+  if (filter.qualificationStatus && filter.qualificationStatus !== 'all') {
+    query.qualificationStatus = filter.qualificationStatus;
+  }
+
+  if (filter.origin && filter.origin !== 'all') {
+    query.origin = filter.origin;
+  }
+
+  // Filtro de Data
+  if (filter.startDate || filter.endDate) {
+    query.createdAt = {};
+    if (filter.startDate) {
+      query.createdAt.$gte = new Date(filter.startDate);
+    }
+    if (filter.endDate) {
+      const endDate = new Date(filter.endDate);
+      endDate.setDate(endDate.getDate() + 1); // Ajuste para incluir o dia final
+      query.createdAt.$lte = endDate;
+    }
+  }
+
+  if (filter.pipelineId) {
+    query.pipelineId = filter.pipelineId;
+  }
+
+  if (filter.stageId) {
+    query.stageId = filter.stageId;
+  }
+
+  return LeadModel.find(query)
     .sort({ createdAt: -1 })
     .populate('owners', 'name email') 
-    .populate('owner', 'name email'); // Legado
+    .populate('owner', 'name email');
 }
 
+// ... resto das funções ...
 export function getLead(id: string) {
-  // ALTERAÇÃO: Adicionado .populate
   return LeadModel.findById(id)
     .populate('owners', 'name email')
     .populate('owner', 'name email');
 }
 
-export async function createLead(input: any, userId?: string) {
+export async function createLead(input: any, user?: UserAuth) {
   const pipeline = await PipelineModel.findById(input.pipelineId);
   if (!pipeline) throw new AppError('Pipeline inválido', StatusCodes.BAD_REQUEST);
   
@@ -58,9 +100,16 @@ export async function createLead(input: any, userId?: string) {
   if (!stage) throw new AppError('Stage inválido', StatusCodes.BAD_REQUEST);
 
   const rank = input.rank || '0|hzzzzz:';
+  const userId = user?.sub;
+
+  let ownersList = input.owners;
+  if (!ownersList || ownersList.length === 0) {
+    ownersList = userId ? [userId] : [];
+  }
 
   const lead = await LeadModel.create({ 
     ...input, 
+    owners: ownersList,
     rank, 
     createdBy: userId,
     active: true,
@@ -79,27 +128,52 @@ export async function createLead(input: any, userId?: string) {
   return lead;
 }
 
-export async function updateLead(id: string, input: any, userId?: string) {
-  // ALTERAÇÃO: Adicionado .populate no retorno para o frontend receber o nome imediatamente após editar
-  const lead = await LeadModel.findByIdAndUpdate(id, { ...input, updatedBy: userId }, { new: true })
+export async function updateLead(id: string, input: any, user?: UserAuth) {
+  const existingLead = await LeadModel.findById(id);
+  if (!existingLead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
+
+  if (user && user.role !== 'admin') {
+    const owners = existingLead.owners || [];
+    const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
+    
+    if (!isOwner) {
+      throw new AppError('Você não tem permissão para editar este lead.', StatusCodes.FORBIDDEN);
+    }
+  }
+
+  const lead = await LeadModel.findByIdAndUpdate(
+      id, 
+      { ...input, updatedBy: user?.sub }, 
+      { new: true }
+    )
     .populate('owners', 'name email')
     .populate('owner', 'name email');
-
-  if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
   
   await ActivityModel.create({ 
-    leadId: lead._id, 
+    leadId: lead!._id, 
     type: 'Alteração', 
     descricao: 'Dados do lead atualizados', 
     payload: input, 
-    usuario: userId || 'Sistema',
+    usuario: user?.sub || 'Sistema',
     data: new Date()
   });
   
   return lead;
 }
 
-export function deleteLead(id: string) {
+export async function deleteLead(id: string, user?: UserAuth) {
+  const existingLead = await LeadModel.findById(id);
+  if (!existingLead) return; 
+
+  if (user && user.role !== 'admin') {
+     const owners = existingLead.owners || [];
+     const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
+     
+     if (!isOwner) {
+        throw new AppError('Você não tem permissão para excluir este lead.', StatusCodes.FORBIDDEN);
+     }
+  }
+
   return LeadModel.findByIdAndDelete(id);
 }
 

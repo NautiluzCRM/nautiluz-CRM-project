@@ -1,6 +1,6 @@
 import { Lead, Pipeline, Coluna } from "@/types/crm";
 
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000/api";
 const storages = [localStorage, sessionStorage];
 
 const getStoredValue = (key: string) => localStorage.getItem(key) ?? sessionStorage.getItem(key);
@@ -135,8 +135,19 @@ export async function createLeadApi(data: any) {
   });
 }
 
-export async function fetchLeads() {
-  return request<any[]>("/leads");
+export async function fetchLeads(filters?: Record<string, string>) {
+  const params = new URLSearchParams();
+  
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+  }
+
+  const queryString = params.toString();
+  const endpoint = queryString ? `/leads?${queryString}` : "/leads";
+  
+  return request<any[]>(endpoint);
 }
 
 export async function moveLeadApi(
@@ -172,10 +183,11 @@ export async function exportLeadsXlsx(filter: Record<string, unknown> = {}) {
 }
 
 export function mapApiStageToColuna(stage: any): Coluna {
+  const stageId = stage._id || stage.id;
   return {
-    id: stage._id || stage.id,
+    id: typeof stageId === 'object' ? stageId.toString() : stageId,
     nome: stage.name,
-    cor: "#3B82F6",
+    cor: stage.color || "#3B82F6",
     ordem: stage.order,
     wipLimit: stage.wipLimit,
     sla: stage.sla,
@@ -206,8 +218,12 @@ export function mapApiLeadToLead(api: any): Lead {
   // 4. Extrai IDs para uso no formulário de edição (checkboxes)
   const ownersIds = normalizedOwners.map((o: any) => o.id);
 
+  // 5. Garante que os IDs são strings
+  const leadId = api._id || api.id;
+  const stageId = api.stageId || api.colunaAtual;
+
   return {
-    id: api._id || api.id,
+    id: typeof leadId === 'object' ? leadId.toString() : leadId,
     nome: api.name || api.nome || "Lead",
     empresa: api.company,
     celular: api.phone || api.celular || "",
@@ -236,7 +252,7 @@ export function mapApiLeadToLead(api: any): Lead {
     
     statusQualificacao: api.qualificationStatus || "Qualificado",
     motivoPerda: api.lostReason,
-    colunaAtual: api.stageId || api.colunaAtual,
+    colunaAtual: typeof stageId === 'object' ? stageId.toString() : stageId,
     dataCriacao: api.createdAt ? new Date(api.createdAt) : new Date(),
     ultimaAtividade: api.lastActivityAt ? new Date(api.lastActivityAt) : new Date(),
     arquivos: [],
@@ -275,6 +291,16 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
 export async function fetchPipelineData(): Promise<Pipeline> {
   const [pipelines, leads] = await Promise.all([fetchPipelines(), fetchLeads()]);
   const pipeline = pipelines[0];
+
+  if (!pipeline) {
+    return {
+      id: '',
+      nome: 'Pipeline não configurado',
+      colunas: [],
+      leads: [],
+    };
+  }
+
   const stages = await fetchStages(pipeline._id || pipeline.id);
 
   return {
@@ -374,5 +400,45 @@ export async function updateUserApi(id: string, dados: {
 export async function deleteUserApi(id: string) {
   return request(`/users/${id}`, {
     method: "DELETE",
+  });
+}
+
+// --- Funções de Pipeline / Etapas ---
+
+export async function createStageApi(pipelineId: string, dados: { 
+  name: string; 
+  order: number; 
+  key: string; 
+  color: string; 
+  sla: number 
+}) {
+  return request(`/pipelines/${pipelineId}/stages`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function updateStageApi(stageId: string, dados: { 
+  name?: string; 
+  order?: number; 
+  color?: string; 
+  sla?: number 
+}) {
+  return request(`/pipelines/stages/${stageId}`, {
+    method: "PATCH",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function deleteStageApi(stageId: string) {
+  return request(`/pipelines/stages/${stageId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function reorderStagesApi(pipelineId: string, orderedIds: string[]) {
+  return request(`/pipelines/${pipelineId}/stages/reorder`, {
+    method: "PUT",
+    body: JSON.stringify({ ids: orderedIds }),
   });
 }

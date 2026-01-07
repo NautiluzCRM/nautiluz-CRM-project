@@ -14,6 +14,8 @@ import Leads from "./pages/Leads";
 import Configuracoes from "./pages/Configuracoes";
 import Exportacoes from "./pages/Exportacoes";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 // Se você tiver esses componentes criados, pode descomentar:
@@ -34,6 +36,8 @@ const App = () => (
           <Routes>
             {/* --- ROTAS PÚBLICAS (Qualquer um acessa) --- */}
             <Route path="/login" element={<Login />} />
+            <Route path="/recuperar-senha" element={<ForgotPassword />} />
+            <Route path="/redefinir-senha" element={<ResetPassword />} />
             
             {/* AQUI ESTÁ O PULO DO GATO: O Linktree fica FORA do ProtectedRoute */}
             <Route path="/linktree" element={<Linktree />} />

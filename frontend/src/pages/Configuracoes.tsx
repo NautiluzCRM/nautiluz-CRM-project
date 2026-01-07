@@ -1,4 +1,4 @@
-import { ChangeEvent, useState, useRef, useEffect, useMemo} from "react";
+import { ChangeEvent, useState, useRef, useEffect, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,9 +11,22 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save } from "lucide-react";
+import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save, Loader2 } from "lucide-react";
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
-import { fetchUsers, createUserApi, updateUserApi, deleteUserApi } from "@/lib/api";
+import {
+  fetchUsers,
+  createUserApi,
+  updateUserApi,
+  deleteUserApi,
+  fetchPipelines,
+  fetchStages,
+  createStageApi,
+  updateStageApi,
+  deleteStageApi,
+  reorderStagesApi,
+  mapApiStageToColuna
+} from "@/lib/api";
+import { Coluna } from "@/types/crm";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,6 +40,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { 
+  restrictToVerticalAxis, 
+  restrictToParentElement 
+} from "@dnd-kit/modifiers";
+
+import { SortableStageRow } from "@/components/ui/sortable-stage-row";
 
 interface Usuario {
   id: string;
@@ -100,7 +135,7 @@ const Configuracoes = () => {
       setPerfilNome(user.name || "");
       setPerfilEmail(user.email || "");
       if (user.photoUrl) setFotoPerfil(user.photoUrl);
-      setPerfilTelefone((user as any).phone || ""); 
+      setPerfilTelefone((user as any).phone || "");
       setPerfilCargo((user as any).jobTitle || "");
       setPerfilAssinatura((user as any).emailSignature || "");
     }
@@ -109,22 +144,22 @@ const Configuracoes = () => {
   // Verifica se algo mudou nos dados
   const temAlteracoesPerfil = useMemo(() => {
     if (!user) return false;
-    
+
     const mudouNome = perfilNome !== (user.name || "");
     const mudouEmail = perfilEmail !== (user.email || "");
     const mudouFoto = fotoPerfil !== (user.photoUrl || null);
-    
+
     const mudouTelefone = perfilTelefone !== ((user as any).phone || "");
     const mudouCargo = perfilCargo !== ((user as any).jobTitle || "");
     const mudouAssinatura = perfilAssinatura !== ((user as any).emailSignature || "");
-    
+
     return mudouNome || mudouEmail || mudouFoto || mudouTelefone || mudouCargo || mudouAssinatura;
   }, [user, perfilNome, perfilEmail, fotoPerfil, perfilTelefone, perfilCargo, perfilAssinatura]);
 
   // Verifica se o formulário de senha está válido
   const podeSalvarSenha = useMemo(() => {
     return (
-      senhaAtual.length > 0 && 
+      senhaAtual.length > 0 &&
       novaSenha.length >= 6 && // Mínimo de 6 caracteres
       senhaAtual !== novaSenha // Nova senha deve ser diferente da atual
     );
@@ -164,14 +199,14 @@ const Configuracoes = () => {
   const handleEditarUsuario = (usuario: Usuario) => {
     setNovoNome(usuario.nome);
     setNovoEmail(usuario.email);
-    const perfilFormatado = usuario.perfil === 'Administrador' ? 'Administrador' : 
-                            usuario.perfil === 'Financeiro' ? 'Financeiro' : 'Vendedor';
+    const perfilFormatado = usuario.perfil === 'Administrador' ? 'Administrador' :
+      usuario.perfil === 'Financeiro' ? 'Financeiro' : 'Vendedor';
     setNovoPerfil(perfilFormatado);
-    
+
     setNovoTelefone(usuario.phone || "");
     setNovoCargo(usuario.jobTitle || "");
     setNovaAssinatura(usuario.emailSignature || "");
-    
+
     setUsuarioEmEdicao(usuario);
     setIsModalOpen(true);
   };
@@ -195,7 +230,7 @@ const Configuracoes = () => {
 
     try {
       await deleteUserApi(id);
-      
+
       toast({
         title: "Usuário Excluído",
         description: `O usuário ${usuarioEmEdicao.nome} foi removido.`
@@ -236,7 +271,7 @@ const Configuracoes = () => {
       });
       return;
     }
-    
+
     // Validação 3: Telefone
     const telLimpo = novoTelefone.replace(/\D/g, "");
     if (telLimpo.length > 0 && telLimpo.length < 10) {
@@ -252,7 +287,7 @@ const Configuracoes = () => {
       if (usuarioEmEdicao) {
         // --- MODO EDIÇÃO ---
         const id = usuarioEmEdicao.id || (usuarioEmEdicao as any)._id;
-        
+
         await updateUserApi(id, {
           nome: novoNome,
           email: novoEmail,
@@ -261,7 +296,7 @@ const Configuracoes = () => {
           cargo: novoCargo,
           assinatura: novaAssinatura
         });
-        
+
         toast({
           title: "Usuário Atualizado",
           description: "As alterações foram salvas com sucesso."
@@ -283,14 +318,14 @@ const Configuracoes = () => {
           description: "Novo acesso liberado com sucesso."
         });
       }
-      
+
       setIsModalOpen(false);
       resetModal();
       carregarUsuarios();
-      
+
     } catch (error: any) {
       console.error(error);
-      
+
       // Tratamento de Erro JSON (igual fizemos na senha)
       let msg = "Não foi possível salvar os dados.";
       try {
@@ -312,13 +347,13 @@ const Configuracoes = () => {
   };
   const confirmarStatus = async () => {
     if (!usuarioParaStatus) return;
-    
+
     const novoStatus = !usuarioParaStatus.ativo;
     const acao = novoStatus ? "ativar" : "inativar";
 
     try {
       await updateUserApi(usuarioParaStatus.id, { ativo: novoStatus });
-      
+
       toast({
         title: `Usuário ${novoStatus ? 'Ativado' : 'Inativado'}`,
         description: `Status de ${usuarioParaStatus.nome} atualizado.`
@@ -339,15 +374,181 @@ const Configuracoes = () => {
   };
 
 
-  
-  const colunasPipeline = [
-    { id: 'novo', nome: 'Novo', cor: '#3B82F6', sla: 24 },
-    { id: 'qualificacao', nome: 'Qualificação', cor: '#8B5CF6', sla: 48 },
-    { id: 'cotacao', nome: 'Cotação', cor: '#F59E0B', sla: 72 },
-    { id: 'proposta', nome: 'Proposta Enviada', cor: '#EF4444', sla: 96 },
-    { id: 'negociacao', nome: 'Negociação', cor: '#F97316', sla: 120 },
-    { id: 'fechamento', nome: 'Fechamento', cor: '#10B981', sla: 48 },
-  ];
+
+  // Estados do Pipeline Dinâmico
+  const [stages, setStages] = useState<Coluna[]>([]);
+  const [loadingPipeline, setLoadingPipeline] = useState(false);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
+
+  // Controle de Edição de Etapa
+  const [editingStageId, setEditingStageId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Coluna>>({});
+
+  // Controle de Exclusão de Etapa
+  const [stageParaExcluir, setStageParaExcluir] = useState<Coluna | null>(null);
+  const [alertExclusaoEtapaOpen, setAlertExclusaoEtapaOpen] = useState(false);
+
+  // 1. Carregar Pipeline ao abrir
+  useEffect(() => {
+    carregarDadosPipeline();
+  }, []);
+
+  const carregarDadosPipeline = async () => {
+    // Evita recarregar se já estiver na aba de pipeline, mas garante dados frescos
+    setLoadingPipeline(true);
+    try {
+      const pipelines = await fetchPipelines();
+      if (pipelines.length > 0) {
+        const pipelinePadrao = pipelines[0];
+        const id = pipelinePadrao._id || pipelinePadrao.id;
+        setSelectedPipelineId(id);
+        await carregarEtapas(id);
+      }
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao carregar pipeline." });
+    } finally {
+      setLoadingPipeline(false);
+    }
+  };
+
+  const carregarEtapas = async (pipelineId: string) => {
+    try {
+      const rawStages = await fetchStages(pipelineId);
+      const formattedStages = rawStages.map(mapApiStageToColuna);
+      setStages(formattedStages.sort((a, b) => a.ordem - b.ordem));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // 2. Adicionar Etapa
+  const handleAdicionarEtapa = async () => {
+    if (!selectedPipelineId) return;
+    try {
+      const novaOrdem = stages.length > 0 ? Math.max(...stages.map(s => s.ordem)) + 1 : 1;
+      const keyGerada = `nova-${Date.now()}`;
+
+      await createStageApi(selectedPipelineId, {
+        name: "Nova Etapa",
+        color: "#94a3b8",
+        sla: 24,
+        order: novaOrdem,
+        key: keyGerada
+      });
+
+      toast({ title: "Etapa Criada", description: "Edite o nome e a cor conforme necessário." });
+      carregarEtapas(selectedPipelineId);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível criar a etapa." });
+    }
+  };
+
+  // 3. Salvar Edição (Nome, Cor, SLA)
+  const handleSalvarEdicaoEtapa = async (stage: Coluna) => {
+    if (editForm.nome !== undefined && editForm.nome.trim() === "") {
+      toast({ 
+        variant: "destructive", 
+        title: "Nome inválido", 
+        description: "O nome da etapa não pode ficar vazio." 
+      });
+      return;
+    }
+
+    try {
+      await updateStageApi(stage.id, {
+        name: editForm.nome,
+        sla: editForm.sla,
+        color: editForm.cor,
+      });
+
+      toast({ title: "Atualizado", description: "Etapa salva com sucesso." });
+      setEditingStageId(null);
+      setEditForm({});
+      if (selectedPipelineId) carregarEtapas(selectedPipelineId);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao salvar alterações." });
+    }
+  };
+
+  // 4. Confirmar Exclusão
+  const confirmarExclusaoEtapa = async () => {
+    if (!stageParaExcluir) return;
+    try {
+      await deleteStageApi(stageParaExcluir.id);
+      toast({ title: "Excluída", description: "Etapa removida com sucesso." });
+      if (selectedPipelineId) carregarEtapas(selectedPipelineId);
+    } catch (error: any) {
+      let msg = "Não foi possível excluir.";
+      try {
+         const parsed = JSON.parse(error.message); 
+         if (parsed.message) msg = parsed.message;
+      } catch (e) {
+         if (error.message) msg = error.message;
+      }
+
+      toast({ 
+        variant: "destructive", 
+        title: "Operação Bloqueada", 
+        description: msg
+      });
+    } finally {
+      setAlertExclusaoEtapaOpen(false);
+      setStageParaExcluir(null);
+    }
+  };
+
+
+  // Configuração dos Sensores (Copiado/Adaptado do seu Kanban)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 }, // 5px de movimento para iniciar o arrasto
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Função chamada quando solta o item
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    // 1. Atualiza visualmente primeiro
+    setStages((items) => {
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      
+      const newOrder = arrayMove(items, oldIndex, newIndex);
+      
+      // 2. Chama a API em background para salvar a nova ordem
+      if (selectedPipelineId) {
+        const idsOrdenados = newOrder.map(s => s.id);
+        
+        reorderStagesApi(selectedPipelineId, idsOrdenados)
+          .then(() => {
+            console.log("Ordem salva com sucesso");
+          })
+          .catch((err) => {
+            console.error("Erro ao salvar ordem", err);
+            toast({
+              variant: "destructive",
+              title: "Erro de Sincronização",
+              description: "A nova ordem não pode ser salva. Recarregue a página."
+            });
+          });
+      }
+
+      return newOrder;
+    });
+  };
+
+
+
+
 
   // Alterar foto de perfil
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -495,7 +696,7 @@ const Configuracoes = () => {
         title: "Senha Alterada",
         description: "Sua senha foi atualizada com sucesso."
       });
-      
+
       setSenhaAtual("");
       setNovaSenha("");
       setConfirmarSenha("");
@@ -511,7 +712,7 @@ const Configuracoes = () => {
         }
       } catch (e) {
       }
-      
+
       // Erro do Backend (Ex: Senha atual incorreta)
       toast({
         variant: "destructive",
@@ -521,13 +722,13 @@ const Configuracoes = () => {
     }
   };
 
-// Função auxiliar para mascarar o telefone: (99) 99999-9999
+  // Função auxiliar para mascarar o telefone: (99) 99999-9999
   const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-    
+
     // Remove tudo que não for número
     value = value.replace(/\D/g, "");
-    
+
     // Limita a 11 números (DDD + 9 dígitos)
     if (value.length > 11) {
       value = value.slice(0, 11);
@@ -547,11 +748,11 @@ const Configuracoes = () => {
     <Layout>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="bg-card border-b border-border p-6 shadow-card">
+        <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground">Configurações</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Gerencie as configurações do sistema e usuários
               </p>
             </div>
@@ -559,39 +760,39 @@ const Configuracoes = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6 overflow-auto">
-          <Tabs defaultValue="perfil" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="perfil" className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Perfil
+        <div className="flex-1 p-4 sm:p-6 overflow-auto">
+          <Tabs defaultValue="perfil" className="space-y-4 sm:space-y-6">
+            <TabsList className="flex flex-wrap h-auto gap-1 sm:gap-0 sm:grid sm:w-full sm:grid-cols-6 overflow-x-auto">
+              <TabsTrigger value="perfil" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Perfil</span>
               </TabsTrigger>
 
               {isAdmin && (
-                <TabsTrigger value="usuarios" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Usuários
+                <TabsTrigger value="usuarios" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                  <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Usuários</span>
                 </TabsTrigger>
               )}
 
               {isAdmin && (
-                <TabsTrigger value="pipeline" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Pipeline
+                <TabsTrigger value="pipeline" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                  <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Pipeline</span>
                 </TabsTrigger>
               )}
 
-              <TabsTrigger value="notificacoes" className="flex items-center gap-2">
-                <Bell className="h-4 w-4" />
-                Notificações
+              <TabsTrigger value="notificacoes" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Notificações</span>
               </TabsTrigger>
 
-              <TabsTrigger value="sistema" className="flex items-center gap-2">
-                <Database className="h-4 w-4" />
-                Sistema
+              <TabsTrigger value="sistema" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
+                <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Sistema</span>
               </TabsTrigger>
 
-             {/* 
+              {/* 
               <TabsTrigger value="seguranca" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
                 Segurança
@@ -600,23 +801,23 @@ const Configuracoes = () => {
             </TabsList>
 
             {/* Aba Perfil */}
-            <TabsContent value="perfil" className="space-y-6">
+            <TabsContent value="perfil" className="space-y-4 sm:space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <User className="h-4 w-4 sm:h-5 sm:w-5" />
                     Informações do Perfil
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6 pt-0">
 
-                  <Avatar className="h-20 w-20">
+                  <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
                     <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" />
-                    <AvatarFallback className="text-lg bg-primary text-primary-foreground">
+                    <AvatarFallback className="text-base sm:text-lg bg-primary text-primary-foreground">
                       {(user?.name || "N").slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -625,16 +826,16 @@ const Configuracoes = () => {
                       onChange={handleFileChange}
                     />
 
-                    <Button variant="outline" size="sm" onClick={handleButtonClick}>
+                    <Button variant="outline" size="sm" onClick={handleButtonClick} className="h-8 text-xs sm:text-sm">
                       Alterar Foto
                     </Button>
 
                     {/* BOTÃO REMOVER (Só aparece se tiver foto) */}
                     {fotoPerfil && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
                         onClick={handleRemoverFoto}
                         title="Remover foto de perfil"
                       >
@@ -642,7 +843,7 @@ const Configuracoes = () => {
                       </Button>
                     )}
 
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground w-full sm:w-auto">
                       JPG, PNG ou GIF. Máximo 2MB.
                     </p>
 
@@ -655,15 +856,15 @@ const Configuracoes = () => {
                       />
                     )}
                   </div>
-                 
+
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="nome">
                         Nome Completo <span className="text-red-500">*</span>
                       </Label>
-                      <Input 
-                        id="nome" 
+                      <Input
+                        id="nome"
                         value={perfilNome}
                         onChange={(e) => setPerfilNome(e.target.value)}
                       />
@@ -672,15 +873,15 @@ const Configuracoes = () => {
                       <Label htmlFor="email">
                         E-mail <span className="text-red-500">*</span>
                       </Label>
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        value={perfilEmail} 
+                      <Input
+                        id="email"
+                        type="email"
+                        value={perfilEmail}
                         onChange={(e) => setPerfilEmail(e.target.value)}
-                        
+
                         disabled={!isAdmin}
                         className={!isAdmin ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
-                        // --------------------
+                      // --------------------
                       />
                       {!isAdmin && (
                         <p className="text-[10px] text-muted-foreground">
@@ -690,9 +891,9 @@ const Configuracoes = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="telefone">Telefone</Label>
-                      <Input 
-                        id="telefone" 
-                        value={perfilTelefone} 
+                      <Input
+                        id="telefone"
+                        value={perfilTelefone}
                         onChange={handleTelefoneChange}
                         placeholder="(99) 99999-9999"
                         maxLength={15}
@@ -700,9 +901,9 @@ const Configuracoes = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="cargo">Cargo</Label>
-                      <Input 
-                        id="cargo" 
-                        value={perfilCargo} 
+                      <Input
+                        id="cargo"
+                        value={perfilCargo}
                         onChange={e => setPerfilCargo(e.target.value)}
                         disabled={!isAdmin}
                         className={!isAdmin ? "bg-muted text-muted-foreground" : ""}
@@ -720,8 +921,8 @@ const Configuracoes = () => {
                     />
                   </div>
                   <div className="flex justify-begin">
-                    <Button 
-                      onClick={handleSalvarDados} 
+                    <Button
+                      onClick={handleSalvarDados}
                       disabled={!temAlteracoesPerfil}
                       className="bg-gradient-primary hover:bg-primary-hover disabled:opacity-50"
                     >
@@ -742,9 +943,9 @@ const Configuracoes = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="senhaAtual">Senha Atual</Label>
-                    <Input 
-                      id="senhaAtual" 
-                      type="password" 
+                    <Input
+                      id="senhaAtual"
+                      type="password"
                       value={senhaAtual}
                       onChange={(e) => setSenhaAtual(e.target.value)}
                     />
@@ -752,26 +953,26 @@ const Configuracoes = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="novaSenha">Nova Senha</Label>
-                      <Input 
-                        id="novaSenha" 
-                        type="password" 
+                      <Input
+                        id="novaSenha"
+                        type="password"
                         value={novaSenha}
                         onChange={(e) => setNovaSenha(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
-                      <Input 
-                        id="confirmarSenha" 
-                        type="password" 
+                      <Input
+                        id="confirmarSenha"
+                        type="password"
                         value={confirmarSenha}
                         onChange={(e) => setConfirmarSenha(e.target.value)}
                       />
                     </div>
                   </div>
-                  
-                  <Button 
-                    variant="outline" 
+
+                  <Button
+                    variant="outline"
                     onClick={handleAlterarSenha}
                     disabled={!podeSalvarSenha}
                   >
@@ -792,8 +993,8 @@ const Configuracoes = () => {
                     </CardTitle>
                     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                       <DialogTrigger asChild>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           className="bg-gradient-primary hover:bg-primary-hover"
                           onClick={handleNovoUsuario}
                         >
@@ -808,13 +1009,13 @@ const Configuracoes = () => {
                           </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
-                          
+
                           {/* Linha 1: Nome e Email */}
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label htmlFor="nomeUsuario">Nome <span className="text-red-500">*</span></Label>
-                              <Input 
-                                id="nomeUsuario" 
+                              <Input
+                                id="nomeUsuario"
                                 placeholder="Nome completo"
                                 value={novoNome}
                                 onChange={(e) => setNovoNome(e.target.value)}
@@ -822,9 +1023,9 @@ const Configuracoes = () => {
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="emailUsuario">E-mail <span className="text-red-500">*</span></Label>
-                              <Input 
-                                id="emailUsuario" 
-                                type="email" 
+                              <Input
+                                id="emailUsuario"
+                                type="email"
                                 placeholder="email@nautiluz.com.br"
                                 value={novoEmail}
                                 onChange={(e) => setNovoEmail(e.target.value)}
@@ -849,8 +1050,8 @@ const Configuracoes = () => {
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="cargoUsuario">Cargo</Label>
-                              <Input 
-                                id="cargoUsuario" 
+                              <Input
+                                id="cargoUsuario"
                                 placeholder="Ex: Gerente Comercial"
                                 value={novoCargo}
                                 onChange={(e) => setNovoCargo(e.target.value)}
@@ -861,8 +1062,8 @@ const Configuracoes = () => {
                           {/* Linha 3: Telefone */}
                           <div className="space-y-2">
                             <Label htmlFor="telefoneUsuario">Telefone</Label>
-                            <Input 
-                              id="telefoneUsuario" 
+                            <Input
+                              id="telefoneUsuario"
                               placeholder="(99) 99999-9999"
                               value={novoTelefone}
                               onChange={handleNovoTelefoneChange}
@@ -873,8 +1074,8 @@ const Configuracoes = () => {
                           {/* Linha 4: Assinatura */}
                           <div className="space-y-2">
                             <Label htmlFor="assinaturaUsuario">Assinatura de E-mail</Label>
-                            <Textarea 
-                              id="assinaturaUsuario" 
+                            <Textarea
+                              id="assinaturaUsuario"
                               placeholder="Assinatura padrão para e-mails..."
                               value={novaAssinatura}
                               onChange={(e) => setNovaAssinatura(e.target.value)}
@@ -884,7 +1085,7 @@ const Configuracoes = () => {
                           <div className="flex gap-2 justify-end pt-4">
                             {/* Botão de Excluir (Só aparece se estiver editando) */}
                             {usuarioEmEdicao && (
-                              <Button 
+                              <Button
                                 variant="destructive"
                                 type="button"
                                 onClick={handleClickExcluir}
@@ -895,7 +1096,7 @@ const Configuracoes = () => {
                             )}
 
                             {/* Botão Salvar (Ocupa o resto do espaço ou largura total se for novo) */}
-                            <Button 
+                            <Button
                               className={usuarioEmEdicao ? "flex-1 bg-gradient-primary" : "w-full bg-gradient-primary"}
                               onClick={handleSalvarUsuario}
                             >
@@ -923,11 +1124,10 @@ const Configuracoes = () => {
                               <p className="text-sm text-muted-foreground">{usuario.email}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-xs text-muted-foreground">{usuario.perfil}</span>
-                                <span className={`text-xs px-2 py-1 rounded-full ${
-                                  usuario.ativo 
-                                    ? 'bg-success/20 text-success' 
-                                    : 'bg-muted text-muted-foreground'
-                                }`}>
+                                <span className={`text-xs px-2 py-1 rounded-full ${usuario.ativo
+                                  ? 'bg-success/20 text-success'
+                                  : 'bg-muted text-muted-foreground'
+                                  }`}>
                                   {usuario.ativo ? 'Ativo' : 'Inativo'}
                                 </span>
                               </div>
@@ -935,8 +1135,8 @@ const Configuracoes = () => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleEditarUsuario(usuario)}
                             >
@@ -976,39 +1176,126 @@ const Configuracoes = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                      {colunasPipeline.map((coluna, index) => (
-                        <div key={coluna.id} className="flex items-center gap-4 p-4 border border-border rounded-lg">
-                          <div className="flex items-center gap-3 flex-1">
-                            <div 
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: coluna.cor }}
-                            />
-                            <Input defaultValue={coluna.nome} className="flex-1" />
-                            <div className="flex items-center gap-2">
-                              <Label className="text-sm">SLA:</Label>
-                              <Input 
-                                type="number" 
-                                defaultValue={coluna.sla} 
-                                className="w-20"
-                              />
-                              <span className="text-sm text-muted-foreground">horas</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {index > 2 && (
-                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <Button variant="outline" className="w-full">
+
+                    {loadingPipeline ? (
+                      <div className="flex justify-center p-8"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
+                    ) : (
+                      <div className="space-y-4">
+
+                        {/* ENVOLVE A LISTA COM O CONTEXTO DE DRAG AND DROP */}
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleDragEnd}
+                          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                        >
+                          <SortableContext
+                            items={stages.map(s => s.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {stages.map((stage) => {
+                              const isEditing = editingStageId === stage.id;
+
+                              return (
+                                <SortableStageRow key={stage.id} id={stage.id}>
+
+                                  {/* GRUPO 1: LADO ESQUERDO (Cor + Nome) */}
+                                  {/* flex-1 aqui é crucial: ele diz "ocupe todo o espaço possível", empurrando o resto p/ direita */}
+                                  <div className="flex items-center gap-3 flex-1">
+
+                                    {/* Cor */}
+                                    {isEditing ? (
+                                      <input
+                                        type="color"
+                                        className="h-8 w-8 rounded cursor-pointer border-none p-0 bg-transparent shrink-0"
+                                        value={editForm.cor || stage.cor}
+                                        onChange={(e) => setEditForm({ ...editForm, cor: e.target.value })}
+                                      />
+                                    ) : (
+                                      <div
+                                        className="w-6 h-6 rounded-full border border-gray-100 shadow-sm shrink-0"
+                                        style={{ backgroundColor: stage.cor }}
+                                      />
+                                    )}
+
+                                    {/* Nome */}
+                                    {isEditing ? (
+                                      <Input
+                                        value={editForm.nome !== undefined ? editForm.nome : stage.nome}
+                                        onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
+                                        className="max-w-[300px]"
+                                      // max-w limita o input, mas o pai (div flex-1) continua ocupando a linha toda
+                                      />
+                                    ) : (
+                                      <span className="font-medium text-foreground truncate cursor-default">{stage.nome}</span>
+                                    )}
+                                  </div>
+
+                                  {/* GRUPO 2: LADO DIREITO (SLA + Botões) */}
+                                  {/* ml-auto garante que este bloco fique sempre colado na direita */}
+                                  <div className="flex items-center gap-6 ml-auto pl-4">
+
+                                    {/* SLA */}
+                                    <div className="flex items-center gap-2 whitespace-nowrap">
+                                      <Label className="text-sm text-muted-foreground font-normal">SLA (h):</Label>
+                                      {isEditing ? (
+                                        <Input
+                                          type="number"
+                                          value={editForm.sla !== undefined ? editForm.sla : (stage.sla || 0)}
+                                          onChange={(e) => {
+                                            if (e.target.value.length <= 10) {
+                                              setEditForm({ ...editForm, sla: Number(e.target.value) })
+                                            }
+                                          }}
+                                          className="w-20 text-center h-8"
+                                        />
+                                      ) : (
+                                        <span className="text-sm font-mono bg-muted px-2 py-1 rounded w-20 text-center block cursor-default">
+                                          {stage.sla || 0}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Botões de Ação */}
+                                    <div className="flex items-center gap-2">
+                                      {isEditing ? (
+                                        <Button size="sm" onClick={() => handleSalvarEdicaoEtapa(stage)} className="bg-green-600 hover:bg-green-700 h-8">
+                                          <Save className="h-4 w-4 mr-1" /> Salvar
+                                        </Button>
+                                      ) : (
+                                        <>
+                                          <Button variant="ghost" size="sm" onClick={() => {
+                                            setEditingStageId(stage.id);
+                                            setEditForm({ nome: stage.nome, sla: stage.sla, cor: stage.cor });
+                                          }}>
+                                            <Edit className="h-4 w-4 text-gray-500" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => {
+                                              setStageParaExcluir(stage);
+                                              setAlertExclusaoEtapaOpen(true);
+                                            }}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
+
+                                  </div>
+
+                                </SortableStageRow>
+                              );
+                            })}
+                          </SortableContext>
+                        </DndContext>
+                      </div>
+                    )}
+
+                    <Button variant="outline" className="w-full border-dashed" onClick={handleAdicionarEtapa}>
                       <Plus className="h-4 w-4 mr-2" />
                       Adicionar Nova Etapa
                     </Button>
@@ -1143,7 +1430,7 @@ const Configuracoes = () => {
             </TabsContent>
 
             {/* Aba Segurança */}
-            
+
             <TabsContent value="seguranca" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -1184,21 +1471,22 @@ const Configuracoes = () => {
           </Tabs>
         </div>
       </div>
+
       {/* --- MODAL DE CONFIRMAÇÃO: EXCLUIR --- */}
       <AlertDialog open={alertExclusaoOpen} onOpenChange={setAlertExclusaoOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. Isso excluirá permanentemente o usuário 
+              Essa ação não pode ser desfeita. Isso excluirá permanentemente o usuário
               <span className="font-bold text-foreground"> {usuarioEmEdicao?.nome} </span>
               e removerá seus dados dos nossos servidores.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmarExclusao} 
+            <AlertDialogAction
+              onClick={confirmarExclusao}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Sim, excluir usuário
@@ -1215,18 +1503,41 @@ const Configuracoes = () => {
               {usuarioParaStatus?.ativo ? "Inativar Usuário" : "Reativar Usuário"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja {usuarioParaStatus?.ativo ? "inativar" : "ativar"} o acesso de 
+              Tem certeza que deseja {usuarioParaStatus?.ativo ? "inativar" : "ativar"} o acesso de
               <span className="font-bold text-foreground"> {usuarioParaStatus?.nome}</span>?
               {usuarioParaStatus?.ativo && " Ele perderá o acesso ao sistema imediatamente."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmarStatus}
               className={usuarioParaStatus?.ativo ? "bg-destructive hover:bg-destructive/90" : "bg-green-600 hover:bg-green-700"}
             >
               {usuarioParaStatus?.ativo ? "Inativar" : "Ativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* --- MODAL DE CONFIRMAÇÃO: EXCLUIR ETAPA --- */}
+      <AlertDialog open={alertExclusaoEtapaOpen} onOpenChange={setAlertExclusaoEtapaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Etapa do Pipeline</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a etapa <strong>{stageParaExcluir?.nome}</strong>?
+              <br />
+              <span className="text-red-500 font-bold">Atenção:</span> Se houver leads nesta etapa, a exclusão será bloqueada pelo sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmarExclusaoEtapa}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir Etapa
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

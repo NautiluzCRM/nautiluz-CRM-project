@@ -33,10 +33,11 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col w-72 sm:w-80 h-full rounded-lg
+        flex flex-col w-72 sm:w-80 rounded-lg shrink-0
         ${isOver ? 'bg-kanban-preview border-2 border-primary border-dashed' : 'bg-kanban-column'}
         transition-colors duration-200
       `}
+      style={{ height: '100%', maxHeight: '100%' }}
     >
       {/* Header da Coluna */}
       <div className="p-4 border-b border-border">
@@ -78,7 +79,7 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
       </div>
 
       {/* Lista de Cards */}
-      <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+      <div className="flex-1 p-4 space-y-3 overflow-y-scroll min-h-0 scrollbar-thin">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => {
             const isVencido = coluna.sla && 

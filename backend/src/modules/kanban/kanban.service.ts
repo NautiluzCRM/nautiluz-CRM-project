@@ -3,6 +3,14 @@ import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
 import { emitKanbanUpdate } from '../../common/realtime.js';
+import mongoose from 'mongoose';
+import { UserModel } from '../users/user.model.js';
+
+// Valida se é um ObjectId válido
+function isValidObjectId(id: string): boolean {
+  return mongoose.Types.ObjectId.isValid(id) && 
+    (new mongoose.Types.ObjectId(id)).toString() === id;
+}
 
 // Simple rank midpoint between strings
 function midpoint(a: string | null, b: string | null) {
@@ -15,8 +23,29 @@ function midpoint(a: string | null, b: string | null) {
 }
 
 export async function moveCard(params: { leadId: string; toStageId: string; beforeId?: string; afterId?: string; userId?: string }) {
+  // Validação de IDs
+  if (!params.leadId || !isValidObjectId(params.leadId)) {
+    throw new AppError('ID do lead inválido', StatusCodes.BAD_REQUEST);
+  }
+  if (!params.toStageId || !isValidObjectId(params.toStageId)) {
+    throw new AppError('ID do stage destino inválido', StatusCodes.BAD_REQUEST);
+  }
+
   const lead = await LeadModel.findById(params.leadId);
   if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
+
+  // Verificação de permissão: vendedor só pode mover leads que é responsável
+  if (params.userId) {
+    const user = await UserModel.findById(params.userId);
+    if (user && user.role === 'vendedor') {
+      const owners = lead.owners || [];
+      const isOwner = owners.some((ownerId: any) => ownerId.toString() === params.userId);
+      if (!isOwner) {
+        throw new AppError('Você só pode mover leads dos quais é responsável.', StatusCodes.FORBIDDEN);
+      }
+    }
+  }
+
   const toStage = await StageModel.findById(params.toStageId);
   if (!toStage) throw new AppError('Stage destino inválido', StatusCodes.BAD_REQUEST);
 
@@ -37,7 +66,19 @@ export async function moveCard(params: { leadId: string; toStageId: string; befo
   lead.stageId = toStage._id;
   lead.rank = newRank;
   lead.updatedBy = params.userId as any;
-  await lead.save();
+  
+  try {
+    // Usa validateBeforeSave: false para evitar revalidar campos obrigatórios
+    // que podem estar faltando em leads antigos
+    await lead.save({ validateBeforeSave: false });
+  } catch (error: any) {
+    // Se for erro de validação do Mongoose, lança erro mais específico
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((e: any) => e.message).join(', ');
+      throw new AppError(`Erro ao salvar lead: ${messages}`, StatusCodes.BAD_REQUEST);
+    }
+    throw error;
+  }
 
   emitKanbanUpdate(String(lead.pipelineId), { leadId: lead._id, stageId: lead.stageId, rank: lead.rank, by: params.userId });
   return lead;

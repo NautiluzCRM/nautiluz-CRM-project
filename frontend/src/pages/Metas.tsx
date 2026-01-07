@@ -164,34 +164,34 @@ const Metas = () => {
     <Layout>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="bg-card border-b border-border p-6 shadow-card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Metas & Objetivos</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground">Metas & Objetivos</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Acompanhe o progresso das metas da equipe e individuais
               </p>
             </div>
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-primary hover:bg-primary-hover">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Meta
+                <Button className="bg-gradient-primary hover:bg-primary-hover h-9 sm:h-10 text-xs sm:text-sm w-full sm:w-auto">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="sm:inline">Nova Meta</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="w-[calc(100%-1rem)] max-w-md p-4 sm:p-6">
                 <DialogHeader>
-                  <DialogTitle>Nova Meta</DialogTitle>
+                  <DialogTitle className="text-lg">Nova Meta</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="titulo">Título da Meta</Label>
-                    <Input id="titulo" placeholder="Ex: Receita Mensal Fevereiro" />
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <Label htmlFor="titulo" className="text-xs sm:text-sm">Título da Meta</Label>
+                    <Input id="titulo" placeholder="Ex: Receita Mensal Fevereiro" className="h-9 sm:h-10 text-sm" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tipo">Tipo</Label>
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <Label htmlFor="tipo" className="text-xs sm:text-sm">Tipo</Label>
                     <Select>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-9 sm:h-10 text-sm">
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
                       <SelectContent>
@@ -202,15 +202,15 @@ const Metas = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="valor">Valor da Meta</Label>
-                      <Input id="valor" type="number" placeholder="100" />
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <Label htmlFor="valor" className="text-xs sm:text-sm">Valor da Meta</Label>
+                      <Input id="valor" type="number" placeholder="100" className="h-9 sm:h-10 text-sm" />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="periodo">Período</Label>
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <Label htmlFor="periodo" className="text-xs sm:text-sm">Período</Label>
                       <Select>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-9 sm:h-10 text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -221,7 +221,7 @@ const Metas = () => {
                       </Select>
                     </div>
                   </div>
-                  <Button className="w-full bg-gradient-primary hover:bg-primary-hover">
+                  <Button className="w-full bg-gradient-primary hover:bg-primary-hover h-9 sm:h-10 text-sm">
                     Criar Meta
                   </Button>
                 </div>
@@ -229,9 +229,9 @@ const Metas = () => {
             </Dialog>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
             <Select value={periodoFiltro} onValueChange={setPeriodoFiltro}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
@@ -243,7 +243,7 @@ const Metas = () => {
             </Select>
 
             <Select value={statusFiltro} onValueChange={setStatusFiltro}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -257,27 +257,27 @@ const Metas = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6 overflow-auto space-y-6">
+        <div className="flex-1 p-4 sm:p-6 overflow-auto space-y-4 sm:space-y-6">
           {/* Resumo Geral */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Metas Ativas</p>
-                    <h3 className="text-2xl font-bold mt-1">
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] sm:text-sm text-muted-foreground truncate">Metas Ativas</p>
+                    <h3 className="text-lg sm:text-2xl font-bold mt-0.5 sm:mt-1">
                       {metas.filter(m => m.status === 'ativo').length}
                     </h3>
                   </div>
-                  <Target className="h-8 w-8 text-primary" />
+                  <Target className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">Metas Concluídas</p>
                     <h3 className="text-2xl font-bold mt-1">
                       {metas.filter(m => m.status === 'concluido').length}

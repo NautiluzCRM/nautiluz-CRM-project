@@ -8,18 +8,35 @@ import filterRoutes from './modules/filters/filters.routes.js';
 import exportRoutes from './modules/reports/export.routes.js';
 import metaRoutes from './modules/integrations/meta-leads.routes.js';
 import viewRoutes from './modules/filters/views.routes.js';
+import apolicesRoutes from './modules/apolices/apolices.routes.js';
+import emailsRoutes from './modules/emails/emails.routes.js';
+import alertsRoutes from './modules/alerts/alerts.routes.js';
 import { webhookHandler } from './modules/webhooks/webhook.controller.js';
 
 const router = Router();
 
+// Autenticação
 router.use('/auth', authRoutes);
+
+// Recursos principais
 router.use('/users', userRoutes);
 router.use('/pipelines', pipelineRoutes);
 router.use('/leads', leadRoutes);
 router.use('/kanban', kanbanRoutes);
+
+// Novas funcionalidades
+router.use('/apolices', apolicesRoutes);
+router.use('/emails', emailsRoutes);
+router.use('/alerts', alertsRoutes);
+
+// Filtros e visualizações
 router.use('/filters', filterRoutes);
 router.use('/views', viewRoutes);
+
+// Exportação e relatórios
 router.use('/exports', exportRoutes);
+
+// Integrações
 router.use('/integrations/meta', metaRoutes);
 router.post('/webhooks/leads', webhookHandler);
 
