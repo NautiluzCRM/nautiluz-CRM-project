@@ -34,37 +34,76 @@ export function Header() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
-  // Busca notificações ao montar o componente
+  // Verifica se o token JWT está válido (não expirado)
+  const getValidToken = (): string | null => {
+    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    if (!token) return null;
+    
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      
+      const payload = JSON.parse(atob(parts[1]));
+      if (payload.exp && Date.now() >= payload.exp * 1000) {
+        // Token expirado - limpa storage e faz logout
+        logout();
+        return null;
+      }
+      return token;
+    } catch {
+      return null;
+    }
+  };
+
+  // Busca notificações ao montar o componente (apenas se autenticado com token válido)
   useEffect(() => {
-    loadNotifications();
-    loadUnreadCount();
-
-    // Atualiza a cada 30 segundos
-    const interval = setInterval(() => {
+    const token = getValidToken();
+    
+    if (user && token) {
+      loadNotifications();
       loadUnreadCount();
-    }, 30000);
 
-    return () => clearInterval(interval);
-  }, []);
+      // Atualiza a cada 30 segundos
+      const interval = setInterval(() => {
+        if (getValidToken()) {
+          loadUnreadCount();
+        } else {
+          clearInterval(interval);
+        }
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const loadNotifications = async () => {
+    if (!user || !getValidToken()) return;
     try {
       setIsLoadingNotifications(true);
       const data = await fetchNotifications();
       setNotifications(data);
-    } catch (error) {
-      console.error('Erro ao carregar notificações:', error);
+    } catch (error: any) {
+      // Ignora erros de autenticação silenciosamente
+      const errorMsg = error?.message || '';
+      if (!errorMsg.includes('401') && !errorMsg.includes('não autenticado') && !errorMsg.includes('Unauthorized') && !errorMsg.includes('Sessão expirada')) {
+        console.error('Erro ao carregar notificações:', error);
+      }
     } finally {
       setIsLoadingNotifications(false);
     }
   };
 
   const loadUnreadCount = async () => {
+    if (!user || !getValidToken()) return;
     try {
       const count = await fetchUnreadCount();
       setUnreadCount(count);
-    } catch (error) {
-      console.error('Erro ao carregar contagem:', error);
+    } catch (error: any) {
+      // Ignora erros de autenticação silenciosamente
+      const errorMsg = error?.message || '';
+      if (!errorMsg.includes('401') && !errorMsg.includes('não autenticado') && !errorMsg.includes('Unauthorized') && !errorMsg.includes('Sessão expirada')) {
+        console.error('Erro ao carregar contagem:', error);
+      }
     }
   };
 

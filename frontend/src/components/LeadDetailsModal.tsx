@@ -4,11 +4,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Phone,
   Mail,
@@ -22,9 +24,27 @@ import {
   Activity,
   Clock,
   Briefcase,
-  Shield 
+  Shield,
+  Plus,
+  Trash2,
+  Pencil,
+  X,
+  Check,
+  Pin,
+  PinOff,
+  Loader2
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect } from "react";
+import { 
+  fetchLeadActivities, 
+  fetchLeadNotes, 
+  createNote, 
+  updateNote, 
+  deleteNote,
+  type Activity as ApiActivity,
+  type Note as ApiNote
+} from "@/lib/api";
 
 const FAIXAS_LABELS = [
   "0-18", "19-23", "24-28", "29-33", "34-38",
@@ -45,7 +65,7 @@ const getOperadoraInfo = (plano?: string) => {
   if (text.includes('notre') || text.includes('gndi') || text.includes('intermedica')) return { src: '/logos/gndi.png', name: 'NotreDame' };
   if (text.includes('hapvida')) return { src: '/logos/hapvida.png', name: 'Hapvida' };
   if (text.includes('porto')) return { src: '/logos/porto.png', name: 'Porto Seguro' };
-  if (text.includes('cassi')) return { src: '/logos/cassi.png', name: 'Cassi' }; // <--- CASSI ADICIONADA
+  if (text.includes('cassi')) return { src: '/logos/cassi.png', name: 'Cassi' };
   
   // Premium / Seguradoras
   if (text.includes('omint')) return { src: '/logos/omint.png', name: 'Omint' };
@@ -74,43 +94,137 @@ interface LeadDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEdit?: (lead: Lead) => void;
+  onDelete?: (leadId: string) => Promise<void>;
 }
 
-export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsModalProps) {
+export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: LeadDetailsModalProps) {
   const { user } = useAuth();
 
-  if (!lead) return null;
+  // Estados para atividades e notas da API
+  const [activities, setActivities] = useState<ApiActivity[]>([]);
+  const [notes, setNotes] = useState<ApiNote[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  
+  // Estados para adicionar/editar notas
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteContent, setNoteContent] = useState("");
 
+  // Dados derivados (executados sempre, mesmo se lead for null)
   const leadData = lead as any;
+  const leadId = lead?._id || lead?.id;
 
   // --- LÓGICA DE PERMISSÃO ---
   const isAdmin = user?.role === 'admin';
   const currentUserId = user?.id || (user as any)?._id;
-  const isOwner = (lead.ownersIds || []).some(id => id === currentUserId);
-  const isLegacyOwner = (!lead.ownersIds || lead.ownersIds.length === 0) && lead.responsavel === user?.name;
+  const isOwner = lead ? (lead.ownersIds || []).some(id => id === currentUserId) : false;
+  const isLegacyOwner = lead ? ((!lead.ownersIds || lead.ownersIds.length === 0) && lead.responsavel === user?.name) : false;
   const canEdit = isAdmin || isOwner || isLegacyOwner;
   // ---------------------------
 
-  const operadoraInfo = getOperadoraInfo(lead.planoAtual);
+  const operadoraInfo = lead ? getOperadoraInfo(lead.planoAtual) : null;
 
-  const getOrigemColor = (origem: string) => {
-    const colors: Record<string, string> = {
-      'Instagram': 'bg-purple-100 text-purple-700 border-purple-200',
-      'Indicação': 'bg-green-100 text-green-700 border-green-200',
-      'Site': 'bg-blue-100 text-blue-700 border-blue-200',
-      'Outros': 'bg-gray-100 text-gray-700 border-gray-200'
-    };
-    return colors[origem] || colors['Outros'];
+  // Carregar atividades e notas quando o modal abrir
+  useEffect(() => {
+    if (isOpen && leadId) {
+      loadActivities();
+      loadNotes();
+    }
+  }, [isOpen, leadId]);
+  
+  // Return condicional DEPOIS de todos os hooks
+  if (!lead) return null;
+  
+  const loadActivities = async () => {
+    if (!leadId) return;
+    try {
+      setLoadingActivities(true);
+      const data = await fetchLeadActivities(leadId);
+      setActivities(data);
+    } catch (error: any) {
+      // Ignora erro 404 (rota não existe) silenciosamente
+      if (!error?.message?.includes('404') && !error?.message?.includes('Cannot GET')) {
+        console.error('Erro ao carregar atividades:', error);
+      }
+      setActivities([]);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+  
+  const loadNotes = async () => {
+    if (!leadId) return;
+    try {
+      setLoadingNotes(true);
+      const data = await fetchLeadNotes(leadId);
+      setNotes(data);
+    } catch (error: any) {
+      // Ignora erro 404 (rota não existe) silenciosamente
+      if (!error?.message?.includes('404') && !error?.message?.includes('Cannot GET')) {
+        console.error('Erro ao carregar notas:', error);
+      }
+      setNotes([]);
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+  
+  const handleCreateNote = async () => {
+    if (!leadId || !noteContent.trim()) return;
+    try {
+      await createNote(leadId, noteContent.trim());
+      setNoteContent("");
+      setIsAddingNote(false);
+      await Promise.all([loadNotes(), loadActivities()]);
+    } catch (error) {
+      console.error('Erro ao criar nota:', error);
+      alert('Erro ao criar observação');
+    }
+  };
+  
+  const handleUpdateNote = async (noteId: string) => {
+    if (!noteContent.trim()) return;
+    try {
+      await updateNote(noteId, { conteudo: noteContent.trim() });
+      setEditingNoteId(null);
+      setNoteContent("");
+      await Promise.all([loadNotes(), loadActivities()]);
+    } catch (error) {
+      console.error('Erro ao atualizar nota:', error);
+      alert('Erro ao atualizar observação');
+    }
+  };
+  
+  const handleDeleteNote = async (noteId: string) => {
+    if (!confirm('Deseja realmente excluir esta observação?')) return;
+    try {
+      await deleteNote(noteId);
+      await Promise.all([loadNotes(), loadActivities()]);
+    } catch (error) {
+      console.error('Erro ao excluir nota:', error);
+      alert('Erro ao excluir observação');
+    }
+  };
+  
+  const handleTogglePin = async (noteId: string, currentPinned: boolean) => {
+    try {
+      await updateNote(noteId, { isPinned: !currentPinned });
+      await loadNotes();
+    } catch (error) {
+      console.error('Erro ao fixar nota:', error);
+    }
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'Qualificado': 'default', 
-      'Incompleto': 'secondary',
-      'Duplicado': 'outline',
-      'Sem interesse': 'destructive'
-    };
-    return colors[status] || 'secondary';
+  const startEditNote = (note: ApiNote) => {
+    setEditingNoteId(note._id);
+    setNoteContent(note.conteudo);
+  };
+
+  const cancelEdit = () => {
+    setEditingNoteId(null);
+    setNoteContent("");
+    setIsAddingNote(false);
   };
 
   const diasSemAtividade = lead.ultimaAtividade 
@@ -124,19 +238,22 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogDescription className="sr-only">
+            Detalhes completos do lead incluindo informações de contato, plano, histórico e observações
+          </DialogDescription>
+          <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2">
                 <AvatarImage src="" alt={lead.nome} />
-                <AvatarFallback className="bg-primary text-primary-foreground">
+                <AvatarFallback className="bg-primary text-white font-semibold text-sm sm:text-base">
                   {lead.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-xl font-semibold">{lead.nome}</h2>
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <h2 className="text-lg sm:text-xl font-semibold">{lead.nome}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
                   <Building className="h-3 w-3" />
                   {lead.empresa || "-"}
                 </p>
@@ -144,213 +261,325 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
             </div>
             
             {canEdit && (
-              <Button
-                onClick={() => onEdit?.(lead)}
-                size="sm"
-                className="bg-primary hover:bg-primary/90 text-white"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </Button>
+              <div className="flex gap-2 w-full sm:w-auto sm:mr-10">
+                <Button
+                  onClick={() => onEdit?.(lead)}
+                  size="sm"
+                  className="flex-1 sm:flex-none"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+                {onDelete && (
+                  <Button
+                    onClick={async () => {
+                      const confirmed = window.confirm("Tem certeza que deseja excluir este lead? Essa ação não pode ser desfeita.");
+                      if (confirmed) {
+                        await onDelete(lead.id);
+                        onClose();
+                      }
+                    }}
+                    size="sm"
+                    variant="destructive"
+                    className="flex-1 sm:flex-none"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir
+                  </Button>
+                )}
+              </div>
             )}
-
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        {/* Badges */}
+        <div className="flex flex-wrap gap-2 -mt-2">
+          <Badge variant="secondary">
+            {lead.origem}
+          </Badge>
+          <Badge variant="outline">
+            {lead.statusQualificacao}
+          </Badge>
+          {diasSemAtividade > 0 && (
+            <Badge variant="destructive">
+              <Clock className="h-3 w-3 mr-1" />
+              {diasSemAtividade}d sem atividade
+            </Badge>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Coluna Principal */}
           <div className="md:col-span-2 space-y-6">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className={getOrigemColor(lead.origem)}>
-                {lead.origem}
-              </Badge>
-              {lead.statusQualificacao && (
-                <Badge variant={getStatusColor(lead.statusQualificacao) as any}>
-                  {lead.statusQualificacao}
-                </Badge>
-              )}
-              {diasSemAtividade > 0 && (
-                <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {diasSemAtividade}d sem atividade
-                </Badge>
-              )}
-            </div>
-
+            {/* Contato */}
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+              <h3 className="text-base font-semibold flex items-center gap-2">
                 <Phone className="h-4 w-4" />
                 Contato
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.celular && window.open(`tel:${lead.celular}`, '_self')} disabled={!lead.celular}>
-                    <Phone className="h-4 w-4 mr-2" />
-                    {lead.celular || "-"}
-                  </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>{lead.celular || "-"}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => lead.email && window.open(`mailto:${lead.email}`, '_self')} disabled={!lead.email}>
-                    <Mail className="h-4 w-4 mr-2" />
-                    {lead.email || "-"}
-                  </Button>
+                <div className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate">{lead.email || "-"}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button size="sm" variant="outline" className="w-full justify-start hover:text-green-600 hover:border-green-600" onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} disabled={!lead.celular}>
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    WhatsApp
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 border rounded-md h-9">
-                    <MapPin className="h-4 w-4" />
-                    {leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-green-50" 
+                  onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} 
+                  disabled={!lead.celular}
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  WhatsApp
+                </Button>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 border rounded-md bg-muted/30">
+                  <MapPin className="h-4 w-4" />
+                  <span className="truncate">{leadData.cidade ? `${leadData.cidade}, ${leadData.uf}` : "-"}</span>
                 </div>
               </div>
             </div>
 
             <Separator />
 
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+            {/* Informações do Plano */}
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Informações do Plano
               </h3>
               
-              {/* Vidas e Faixas */}
+              {/* Grid: Quantidade de Vidas e Faixas Etárias */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Quantidade de Vidas</p>
-                  <Badge variant="secondary" className="text-lg px-4 py-1 rounded-full">
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground mb-2">Quantidade de Vidas</p>
+                  <Badge className="text-base px-3 py-1">
                     {lead.quantidadeVidas} {lead.quantidadeVidas === 1 ? 'vida' : 'vidas'}
                   </Badge>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Faixas Etárias</p>
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground mb-2">Faixas Etárias</p>
                   <div className="flex flex-wrap gap-1">
                     {faixasPreenchidas.length > 0 ? (
                       faixasPreenchidas.map((item) => (
-                        <Badge key={item.label} variant="outline" className="text-xs bg-slate-50">
-                          {item.label}: <span className="font-bold ml-1">{item.count}</span>
+                        <Badge key={item.label} variant="outline" className="text-xs">
+                          {item.label}: {item.count}
                         </Badge>
                       ))
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <span className="text-sm text-muted-foreground">-</span>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* GRID: CNPJ e Hospitais lado a lado */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-1">
-                     <p className="text-xs font-medium uppercase">CNPJ</p>
-                     <div className="flex items-center gap-2 text-sm">
-                        <Briefcase className="h-4 w-4 text-muted-foreground" />
-                        {lead.possuiCnpj ? <span>Sim ({leadData.tipoCnpj || "N/A"})</span> : <span>Não</span>}
-                     </div>
+              {/* Grid: CNPJ e Hospitais */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground mb-2">CNPJ</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    <span>{lead.possuiCnpj ? `Sim (${leadData.tipoCnpj || "ME"})` : "Não"}</span>
                   </div>
-
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium uppercase">Hospitais de Preferência</p>
-                    <div className="flex flex-wrap gap-1">
-                      {lead.hospitaisPreferencia && lead.hospitaisPreferencia.length > 0 ? (
-                        lead.hospitaisPreferencia.map((hospital) => (
-                          <Badge key={hospital} variant="secondary" className="text-xs">{hospital}</Badge>
-                        ))
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground mb-2">Hospitais de Preferência</p>
+                  <div className="flex flex-wrap gap-1">
+                    {lead.hospitaisPreferencia && lead.hospitaisPreferencia.length > 0 ? (
+                      lead.hospitaisPreferencia.map((hospital) => (
+                        <Badge key={hospital} variant="secondary" className="text-xs">{hospital}</Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
                   </div>
+                </div>
               </div>
 
-              {/* === CARD DE DESTAQUE (LOGO PREENCHENDO TUDO) === */}
-              <div className="mt-4 mb-2 bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-                 {/* Lado Esquerdo: Plano */}
-                 <div className="flex items-center gap-4 w-full sm:w-auto">
-                    {/* CONTAINER DA LOGO */}
-                    <div className="h-24 w-36 rounded-lg bg-white border flex items-center justify-center shadow-sm shrink-0 overflow-hidden relative">
-                       {operadoraInfo ? (
-                         <img 
-                           src={operadoraInfo.src} 
-                           alt={operadoraInfo.name}
-                           // ALTERADO: object-cover para preencher todo o espaço (sem bordas brancas)
-                           className="h-full w-full object-cover"
-                           onError={(e) => e.currentTarget.style.display = 'none'}
-                         />
-                       ) : (
-                         <Shield className="h-10 w-10 text-slate-300" />
-                       )}
-                    </div>
-                    <div>
-                       <p className="text-xs font-semibol uppercase tracking-wider mb-0.5">Plano Atual</p>
-                       <h4 className="text-lg font-bold text-slate-800 leading-tight">
-                         {lead.planoAtual || "Sem plano atual"}
-                       </h4>
-                    </div>
-                 </div>
-
-                 {/* Divisor Desktop */}
-                 <div className="hidden sm:block w-px h-10 bg-slate-200"></div>
-
-                 {/* Lado Direito: Valor */}
-                 <div className="w-full sm:w-auto text-left sm:text-right">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-0.5">Valor Estimado</p>
-                    <div className="flex items-baseline sm:justify-end gap-1">
-                       <span className="text-sm font-medium text-emerald-600">R$</span>
-                       <span className="text-2xl font-bold text-emerald-600">
-                         {lead.valorMedio > 0 
-                           ? lead.valorMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
-                           : "0,00"}
-                       </span>
-                    </div>
-                 </div>
+              {/* Card Grande: Logo + Plano + Valor */}
+              <div className="border rounded-lg p-4 bg-muted/30 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-20 w-28 rounded border bg-white flex items-center justify-center overflow-hidden shrink-0">
+                    {operadoraInfo ? (
+                      <img 
+                        src={operadoraInfo.src} 
+                        alt={operadoraInfo.name}
+                        className="h-full w-full object-contain p-2"
+                        onError={(e) => e.currentTarget.style.display = 'none'}
+                      />
+                    ) : (
+                      <Shield className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Plano Atual</p>
+                    <p className="text-base font-bold">{lead.planoAtual || "Sem plano atual"}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Valor Estimado</p>
+                  <div className="flex items-baseline justify-end gap-1">
+                    <span className="text-xs text-emerald-600">R$</span>
+                    <span className="text-2xl font-bold text-emerald-600">
+                      {lead.valorMedio > 0 
+                        ? lead.valorMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                        : "0,00"}
+                    </span>
+                  </div>
+                </div>
               </div>
-
             </div>
 
             <Separator />
-            
+
+            {/* Observações */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Observações
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Observações
                 </h3>
-                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg leading-relaxed">
-                {lead.informacoes || "-"}
-                </p>
+                {canEdit && !isAddingNote && (
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => setIsAddingNote(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar
+                  </Button>
+                )}
+              </div>
+
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {isAddingNote && (
+                  <div className="border rounded-lg p-3 bg-muted/30">
+                    <Textarea 
+                      placeholder="Digite sua observação..."
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                      className="min-h-[60px] mb-2 text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleCreateNote} disabled={!noteContent.trim()}>
+                        <Check className="h-3 w-3 mr-1" />
+                        Salvar
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelEdit}>
+                        <X className="h-3 w-3 mr-1" />
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {loadingNotes ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">Carregando...</p>
+                  </div>
+                ) : notes.length > 0 ? (
+                  notes.map((note) => (
+                    <div key={note._id} className={`border rounded-lg p-3 text-sm ${note.isPinned ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}>
+                      {editingNoteId === note._id ? (
+                        <>
+                          <Textarea 
+                            value={noteContent}
+                            onChange={(e) => setNoteContent(e.target.value)}
+                            className="min-h-[60px] mb-2 text-sm"
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleUpdateNote(note._id)} disabled={!noteContent.trim()}>
+                              <Check className="h-3 w-3 mr-1" />
+                              Salvar
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={cancelEdit}>
+                              <X className="h-3 w-3 mr-1" />
+                              Cancelar
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-sm flex-1">{note.conteudo}</p>
+                            {canEdit && (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleTogglePin(note._id, note.isPinned)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  {note.isPinned ? <Pin className="h-3 w-3" /> : <PinOff className="h-3 w-3" />}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => startEditNote(note)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteNote(note._id)}
+                                  className="h-6 w-6 p-0 text-red-600"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {note.userName} • {new Date(note.createdAt).toLocaleDateString('pt-BR')}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30">
+                    {lead.informacoes || "Nenhuma observação"}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Sidebar */}
+          {/* Coluna Sidebar */}
           <div className="space-y-6">
+            {/* Responsável */}
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+              <h3 className="text-base font-semibold flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 Responsável
               </h3>
               {leadData.owners && leadData.owners.length > 0 ? (
-                <div className="flex flex-col gap-2">
+                <div className="space-y-2">
                   {leadData.owners.map((owner: any) => (
-                    <div key={owner.id} className="flex items-center gap-3 p-2 bg-muted/30 border rounded-lg">
-                      <Avatar className="h-8 w-8">
+                    <div key={owner.id} className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
+                      <Avatar className="h-9 w-9 border-2">
                         <AvatarImage src="" alt={owner.nome} />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                        <AvatarFallback className="bg-primary text-white text-xs font-semibold">
                           {owner.nome.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="overflow-hidden">
                         <p className="text-sm font-medium truncate">{owner.nome}</p>
-                        <p className="text-[10px] text-muted-foreground">Vendedor</p>
+                        <p className="text-xs text-muted-foreground">Vendedor</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-9 w-9 border-2">
                     <AvatarImage src="" alt={lead.responsavel || "Vendedor"} />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    <AvatarFallback className="bg-primary text-white text-xs font-semibold">
                       {(lead.responsavel || "VD").substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -362,50 +591,60 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit }: LeadDetailsM
               )}
             </div>
 
+            {/* Datas Importantes */}
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
+              <h3 className="text-base font-semibold flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Datas Importantes
               </h3>
-              <div className="space-y-3 text-sm bg-muted/30 border p-3 rounded-lg">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Criado em:</span>
-                  <span className="font-medium">
+              <div className="space-y-3 text-sm bg-muted/30 border rounded-lg p-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Criado em:</p>
+                  <p className="font-medium">
                     {lead.dataCriacao ? new Date(lead.dataCriacao).toLocaleDateString('pt-BR') : '-'}
-                  </span>
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Última atividade:</span>
-                  <span className="font-medium">
+                <Separator />
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Última atividade:</p>
+                  <p className="font-medium">
                     {lead.ultimaAtividade ? new Date(lead.ultimaAtividade).toLocaleDateString('pt-BR') : '-'}
-                  </span>
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* Atividades Recentes */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Atividades Recentes</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {lead.atividades && lead.atividades.length > 0 ? (
-                    lead.atividades.map((atividade) => (
-                    <div key={atividade.id} className="p-3 bg-muted/50 border rounded-lg text-sm">
-                        <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-5">
-                            {atividade.tipo}
+              <h3 className="text-base font-semibold">Atividades Recentes</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {loadingActivities ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">Carregando...</p>
+                  </div>
+                ) : activities.length > 0 ? (
+                  activities.slice(0, 5).map((atividade) => (
+                    <div key={atividade._id} className="p-3 bg-muted/30 border rounded-lg text-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <Badge variant="outline" className="text-xs">
+                          {atividade.tipo.replace(/_/g, ' ')}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">
-                            {new Date(atividade.data).toLocaleDateString('pt-BR')}
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(atividade.createdAt).toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: 'short'
+                          })}
                         </span>
-                        </div>
-                        <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{atividade.descricao}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{atividade.descricao}</p>
                     </div>
-                    ))
+                  ))
                 ) : (
-                    <div className="text-xs text-muted-foreground p-3 border border-dashed rounded-lg text-center">
-                    Nenhuma atividade registrada
-                    </div>
+                  <div className="text-center py-6 border rounded-lg bg-muted/30">
+                    <p className="text-xs text-muted-foreground">Nenhuma atividade registrada</p>
+                  </div>
                 )}
-                </div>
+              </div>
             </div>
           </div>
         </div>

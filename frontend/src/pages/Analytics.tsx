@@ -1,10 +1,9 @@
-import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Target, DollarSign } from "lucide-react";
 
 const Analytics = () => {
   return (
-    <Layout>
+    <>
       <div className="flex flex-col h-full">
         <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Analytics Avançado</h1>
@@ -32,7 +31,7 @@ const Analytics = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   );
 };
 

@@ -1,4 +1,3 @@
-import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,7 +103,7 @@ const Relatorios = () => {
   ];
 
   return (
-    <Layout>
+    <>
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
@@ -319,7 +318,7 @@ const Relatorios = () => {
           </Card>
         </div>
       </div>
-    </Layout>
+    </>
   );
 };
 

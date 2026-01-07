@@ -5,6 +5,7 @@ export interface LeadOwner {
 
 export interface Lead {
   id: string;
+  _id?: string; // ID do MongoDB
   nome: string;
   empresa?: string;
   celular: string;

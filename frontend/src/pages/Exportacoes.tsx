@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -123,7 +122,7 @@ const Exportacoes = () => {
   };
 
   return (
-    <Layout>
+    <>
       <div className="flex flex-col h-full bg-background">
         {/* Header */}
         <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
@@ -438,7 +437,7 @@ const Exportacoes = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   );
 };
 

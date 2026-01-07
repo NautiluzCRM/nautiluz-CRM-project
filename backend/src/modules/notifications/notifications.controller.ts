@@ -18,7 +18,7 @@ const notificationsService = new NotificationsService();
  * Lista todas as notificações do usuário autenticado
  */
 export const getNotifications = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const userId = req.user?.id;
+  const userId = req.user?.sub || req.user?.id;
   
   if (!userId) {
     return res.status(401).json({ message: 'Usuário não autenticado' });
@@ -39,7 +39,7 @@ export const getNotifications = asyncHandler(async (req: AuthRequest, res: Respo
  * Retorna o número de notificações não lidas
  */
 export const getUnreadCount = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const userId = req.user?.id;
+  const userId = req.user?.sub || req.user?.id;
   
   if (!userId) {
     return res.status(401).json({ message: 'Usuário não autenticado' });
@@ -55,7 +55,7 @@ export const getUnreadCount = asyncHandler(async (req: AuthRequest, res: Respons
  * Marca uma notificação como lida
  */
 export const markAsRead = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const userId = req.user?.id;
+  const userId = req.user?.sub || req.user?.id;
   const { id } = req.params;
 
   if (!userId) {
@@ -76,7 +76,7 @@ export const markAsRead = asyncHandler(async (req: AuthRequest, res: Response) =
  * Marca todas as notificações do usuário como lidas
  */
 export const markAllAsRead = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const userId = req.user?.id;
+  const userId = req.user?.sub || req.user?.id;
 
   if (!userId) {
     return res.status(401).json({ message: 'Usuário não autenticado' });
@@ -92,7 +92,7 @@ export const markAllAsRead = asyncHandler(async (req: AuthRequest, res: Response
  * Deleta uma notificação
  */
 export const deleteNotification = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const userId = req.user?.id;
+  const userId = req.user?.sub || req.user?.id;
   const { id } = req.params;
 
   if (!userId) {
@@ -113,7 +113,7 @@ export const deleteNotification = asyncHandler(async (req: AuthRequest, res: Res
  * Deleta todas as notificações lidas do usuário
  */
 export const clearReadNotifications = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const userId = req.user?.id;
+  const userId = req.user?.sub || req.user?.id;
 
   if (!userId) {
     return res.status(401).json({ message: 'Usuário não autenticado' });

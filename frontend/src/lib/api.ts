@@ -1,5 +1,6 @@
 import { Lead, Pipeline, Coluna } from "@/types/crm";
 
+// @ts-ignore - Vite env typing
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000/api";
 const storages = [localStorage, sessionStorage];
 
@@ -9,6 +10,7 @@ const clearAuthStorage = () => {
   for (const storage of storages) {
     storage.removeItem("authToken");
     storage.removeItem("refreshToken");
+    storage.removeItem("authUser");
   }
 };
 
@@ -73,6 +75,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         ...getAuthHeaders(newToken),
       };
       res = await fetch(`${API_URL}${path}`, { ...options, headers: retryHeaders });
+    } else {
+      // Refresh falhou - limpa auth e redireciona para login
+      clearAuthStorage();
+      // Só redireciona se não estiver já na página de login
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+      throw new Error('Sessão expirada');
     }
   }
 
@@ -608,6 +618,85 @@ export async function deleteNotification(notificationId: string): Promise<{ mess
  */
 export async function clearReadNotifications(): Promise<{ message: string; count: number }> {
   return request<{ message: string; count: number }>('/notifications/clear-read', {
+    method: 'DELETE',
+  });
+}
+
+// ==================== ATIVIDADES ====================
+
+export interface Activity {
+  _id: string;
+  leadId: string;
+  tipo: 'lead_criado' | 'lead_atualizado' | 'lead_movido' | 'observacao_adicionada' | 
+        'observacao_atualizada' | 'observacao_removida' | 'responsavel_alterado' | 
+        'status_alterado' | 'email_enviado' | 'ligacao_realizada' | 'whatsapp_enviado';
+  descricao: string;
+  userId: string;
+  userName: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Busca as atividades de um lead específico
+ */
+export async function fetchLeadActivities(leadId: string, limit = 20): Promise<Activity[]> {
+  return request<Activity[]>(`/leads/${leadId}/activities?limit=${limit}`);
+}
+
+/**
+ * Busca as atividades recentes (feed geral)
+ */
+export async function fetchRecentActivities(limit = 50): Promise<Activity[]> {
+  return request<Activity[]>(`/activities/recent?limit=${limit}`);
+}
+
+// ==================== OBSERVAÇÕES (NOTAS) ====================
+
+export interface Note {
+  _id: string;
+  leadId: string;
+  conteudo: string;
+  userId: string;
+  userName: string;
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Busca as observações de um lead específico
+ */
+export async function fetchLeadNotes(leadId: string): Promise<Note[]> {
+  return request<Note[]>(`/leads/${leadId}/notes`);
+}
+
+/**
+ * Cria uma nova observação para um lead
+ */
+export async function createNote(leadId: string, conteudo: string, isPinned = false): Promise<Note> {
+  return request<Note>(`/leads/${leadId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ conteudo, isPinned }),
+  });
+}
+
+/**
+ * Atualiza uma observação existente
+ */
+export async function updateNote(noteId: string, data: { conteudo?: string; isPinned?: boolean }): Promise<Note> {
+  return request<Note>(`/notes/${noteId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Deleta uma observação
+ */
+export async function deleteNote(noteId: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/notes/${noteId}`, {
     method: 'DELETE',
   });
 }
