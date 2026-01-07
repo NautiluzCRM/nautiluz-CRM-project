@@ -191,7 +191,7 @@ const Login = () => {
                 <div className="flex items-center justify-between">
                   <label 
                     htmlFor="remember" 
-                    className="flex items-center gap-2 cursor-pointer select-none"
+                    className="flex items-center gap-2 cursor-pointer select-none p-2 rounded-lg hover:bg-muted/50 transition-colors -ml-2"
                   >
                     <Checkbox
                       id="remember"

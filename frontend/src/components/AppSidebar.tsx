@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  LogOut,
 } from "lucide-react";
 
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const navigationItems = [
   { title: "Pipeline", url: "/", icon: Kanban },
@@ -29,6 +31,7 @@ const managementItems = [
 
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
+  const { logout } = useAuth();
   const isCollapsed = state === "collapsed";
 
   const handleNavClick = () => {
@@ -174,14 +177,41 @@ export function AppSidebar() {
         </div>
       </SidebarContent>
       
-      {/* Footer */}
-      {!isCollapsed && (
-        <div className="mt-auto py-3 px-4 border-t border-gray-200">
-          <p className="text-[10px] text-center text-gray-400">
-            © 2026 Nautiluz CRM
-          </p>
-        </div>
-      )}
+      {/* Footer com botão de logout */}
+      <div className="mt-auto py-4 px-4 border-t border-gray-200 bg-white">
+        {!isCollapsed && (
+          <>
+            <div className="flex justify-center mb-3">
+              <Button
+                onClick={logout}
+                variant="outline"
+                className="w-full justify-center text-red-500 hover:text-red-600 hover:bg-red-50 border-red-300"
+                size="default"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </Button>
+            </div>
+            <p className="text-[10px] text-center text-gray-400">
+              © 2026 Nautiluz CRM
+            </p>
+          </>
+        )}
+        
+        {isCollapsed && (
+          <div className="flex justify-center">
+            <Button
+              onClick={logout}
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-300"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
     </Sidebar>
   );
 }
