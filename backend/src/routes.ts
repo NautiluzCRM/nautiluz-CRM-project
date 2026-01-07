@@ -12,6 +12,7 @@ import apolicesRoutes from './modules/apolices/apolices.routes.js';
 import emailsRoutes from './modules/emails/emails.routes.js';
 import alertsRoutes from './modules/alerts/alerts.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
+import { webhookHandler } from './modules/webhooks/webhook.controller.js';
 
 const router = Router();
 
@@ -39,5 +40,6 @@ router.use('/exports', exportRoutes);
 
 // Integrações
 router.use('/integrations/meta', metaRoutes);
+router.post('/webhooks/leads', webhookHandler);
 
 export default router;
