@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, User, Shield, Bell, Palette, Database, Users, Plus, Edit, Trash2, XCircle, CheckCircle, Key, Mail, Smartphone, Save, Loader2 } from "lucide-react";
 import ImagePreviewOverlay from "@/components/ui/ImagePreviewOverlay";
 import {
@@ -761,47 +760,8 @@ const Configuracoes = () => {
 
         {/* Content */}
         <div className="flex-1 p-4 sm:p-6 overflow-auto">
-          <Tabs defaultValue="perfil" className="space-y-4 sm:space-y-6">
-            <TabsList className="flex flex-wrap h-auto gap-1 sm:gap-0 sm:grid sm:w-full sm:grid-cols-6 overflow-x-auto">
-              <TabsTrigger value="perfil" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
-                <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">Perfil</span>
-              </TabsTrigger>
-
-              {isAdmin && (
-                <TabsTrigger value="usuarios" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
-                  <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Usuários</span>
-                </TabsTrigger>
-              )}
-
-              {isAdmin && (
-                <TabsTrigger value="pipeline" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
-                  <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Pipeline</span>
-                </TabsTrigger>
-              )}
-
-              <TabsTrigger value="notificacoes" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
-                <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">Notificações</span>
-              </TabsTrigger>
-
-              <TabsTrigger value="sistema" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10">
-                <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">Sistema</span>
-              </TabsTrigger>
-
-              {/* 
-              <TabsTrigger value="seguranca" className="flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                Segurança
-              </TabsTrigger>
-              */}
-            </TabsList>
-
-            {/* Aba Perfil */}
-            <TabsContent value="perfil" className="space-y-4 sm:space-y-6">
+          <div className="space-y-4 sm:space-y-6">
+            {/* Perfil */}
               <Card>
                 <CardHeader className="p-4 sm:p-6">
                   <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -980,11 +940,10 @@ const Configuracoes = () => {
                   </Button>
                 </CardContent>
               </Card>
-            </TabsContent>
 
-            {/* Aba Usuários */}
+            {/* Usuários */}
             {isAdmin && (
-              <TabsContent value="usuarios" className="space-y-6">
+              <div className="space-y-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
@@ -1162,12 +1121,12 @@ const Configuracoes = () => {
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
             )}
 
-            {/* Aba Pipeline */}
+            {/* Pipeline */}
             {isAdmin && (
-              <TabsContent value="pipeline" className="space-y-6">
+              <div className="space-y-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1301,11 +1260,11 @@ const Configuracoes = () => {
                     </Button>
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
             )}
 
-            {/* Aba Notificações */}
-            <TabsContent value="notificacoes" className="space-y-6">
+            {/* Notificações */}
+            <div className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1362,10 +1321,10 @@ const Configuracoes = () => {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
+            </div>
 
-            {/* Aba Sistema */}
-            <TabsContent value="sistema" className="space-y-6">
+            {/* Sistema */}
+            <div className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1427,48 +1386,8 @@ const Configuracoes = () => {
 
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            {/* Aba Segurança */}
-
-            <TabsContent value="seguranca" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    Configurações de Segurança
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="p-4 border border-border rounded-lg">
-                      <h4 className="font-medium mb-2">Autenticação de Dois Fatores (2FA)</h4>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Adicione uma camada extra de segurança à sua conta
-                      </p>
-                      <Button variant="outline">Ativar 2FA</Button>
-                    </div>
-
-                    <div className="p-4 border border-border rounded-lg">
-                      <h4 className="font-medium mb-2">Sessões Ativas</h4>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Gerencie dispositivos conectados à sua conta
-                      </p>
-                      <Button variant="outline">Ver Sessões</Button>
-                    </div>
-
-                    <div className="p-4 border border-border rounded-lg">
-                      <h4 className="font-medium mb-2">Log de Atividades</h4>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Visualize todas as ações realizadas no sistema
-                      </p>
-                      <Button variant="outline">Ver Logs</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -442,3 +442,172 @@ export async function reorderStagesApi(pipelineId: string, orderedIds: string[])
     body: JSON.stringify({ ids: orderedIds }),
   });
 }
+
+// --- Funções de Exportação ---
+
+interface ExportFilters {
+  stageId?: string;
+  origin?: string;
+  owners?: string[];
+  startDate?: string;
+  endDate?: string;
+  pipelineId?: string;
+}
+
+interface ExportFields {
+  basico: boolean;
+  contato: boolean;
+  cnpj: boolean;
+  vidas: boolean;
+  hospitais: boolean;
+  responsaveis: boolean;
+  observacoes: boolean;
+}
+
+export async function exportToXLSX(filters: ExportFilters, fields: ExportFields) {
+  const token = getStoredValue("authToken");
+  const response = await fetch(`${API_URL}/leads/export/xlsx`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify({ filters, fields }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Erro ao exportar para XLSX");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `Leads_Nautiluz_${new Date().toISOString().split('T')[0]}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+export async function exportToCSV(filters: ExportFilters, fields: ExportFields) {
+  const token = getStoredValue("authToken");
+  const response = await fetch(`${API_URL}/leads/export/csv`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify({ filters, fields }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Erro ao exportar para CSV");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `Leads_Nautiluz_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+export async function exportToPDF(filters: ExportFilters, fields: ExportFields) {
+  const token = getStoredValue("authToken");
+  const response = await fetch(`${API_URL}/leads/export/pdf`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify({ filters, fields }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Erro ao exportar para PDF");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `Leads_Nautiluz_${new Date().toISOString().split('T')[0]}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+// ==================== NOTIFICATIONS API ====================
+
+export interface Notification {
+  _id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'lead' | 'system';
+  read: boolean;
+  link?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Busca todas as notificações do usuário
+ */
+export async function fetchNotifications(unreadOnly = false): Promise<Notification[]> {
+  const query = unreadOnly ? '?unreadOnly=true' : '';
+  return request<Notification[]>(`/notifications${query}`);
+}
+
+/**
+ * Busca a contagem de notificações não lidas
+ */
+export async function fetchUnreadCount(): Promise<number> {
+  const data = await request<{ count: number }>('/notifications/unread-count');
+  return data.count;
+}
+
+/**
+ * Marca uma notificação como lida
+ */
+export async function markNotificationAsRead(notificationId: string): Promise<Notification> {
+  return request<Notification>(`/notifications/${notificationId}/read`, {
+    method: 'PATCH',
+  });
+}
+
+/**
+ * Marca todas as notificações como lidas
+ */
+export async function markAllNotificationsAsRead(): Promise<{ message: string; count: number }> {
+  return request<{ message: string; count: number }>('/notifications/mark-all-read', {
+    method: 'PATCH',
+  });
+}
+
+/**
+ * Deleta uma notificação
+ */
+export async function deleteNotification(notificationId: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/notifications/${notificationId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Limpa todas as notificações lidas
+ */
+export async function clearReadNotifications(): Promise<{ message: string; count: number }> {
+  return request<{ message: string; count: number }>('/notifications/clear-read', {
+    method: 'DELETE',
+  });
+}
