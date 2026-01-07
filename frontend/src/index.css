@@ -261,31 +261,31 @@ All colors MUST be HSL. Blue-focused color palette for professional CRM interfac
   /* Custom Scrollbar for Kanban columns and other scrollable areas */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted) / 0.5);
+    scrollbar-color: hsl(var(--border)) hsl(var(--muted));
   }
   
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
     height: 8px;
+    display: block;
   }
   
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: hsl(var(--muted) / 0.5);
+    background: hsl(var(--muted));
     border-radius: 4px;
-    margin: 4px;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.3);
+    background: hsl(var(--border));
     border-radius: 4px;
-    transition: background 0.2s ease;
+    border: 1px solid hsl(var(--muted));
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
+    background: hsl(var(--muted-foreground) / 0.6);
   }
   
   .scrollbar-thin::-webkit-scrollbar-corner {
-    background: transparent;
+    background: hsl(var(--muted));
   }
 }
