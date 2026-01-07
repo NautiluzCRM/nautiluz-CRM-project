@@ -4,9 +4,9 @@ import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
-
 import mongoose from 'mongoose';
 
+// Interfaces novas vindas da develop (mantenha isso)
 interface UserAuth {
   sub: string;
   role: string;
@@ -27,47 +27,54 @@ interface LeadFilter {
 export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
   const query: any = {};
 
-  // Filtro por responsável
-  if (filter.owners) {
+  // --- 1. REGRA DE SEGURANÇA (Sua Lógica + Estrutura Nova) ---
+  // Se tem usuário e ele NÃO é admin, forçamos o filtro para ver apenas os dele.
+  if (user && user.role !== 'admin') {
+    query.owners = user.sub;
+  } 
+  // Se for admin e escolheu filtrar por alguém específico, usamos o filtro.
+  else if (filter.owners) {
     query.owners = filter.owners;
   }
 
-  // Busca textual por nome (case-insensitive)
+ // --- 2. BUSCA TEXTUAL ---
   if (filter.search || filter.name) {
     const searchTerm = filter.search || filter.name;
-    query.name = { $regex: searchTerm, $options: 'i' };
+    const regex = { $regex: searchTerm, $options: 'i' };
+    // Procura em Nome, Email ou Telefone ao mesmo tempo
+    query.$or = [
+      { name: regex },
+      { email: regex },
+      { phone: regex }
+    ];
   }
 
-  // Filtro por status de qualificação
+  // --- 3. FILTROS NOVOS (Vindos da Develop) ---
   if (filter.qualificationStatus && filter.qualificationStatus !== 'all') {
     query.qualificationStatus = filter.qualificationStatus;
   }
 
-  // Filtro por origem
   if (filter.origin && filter.origin !== 'all') {
     query.origin = filter.origin;
   }
 
-  // Filtro por intervalo de datas
+  // Filtro de Data
   if (filter.startDate || filter.endDate) {
     query.createdAt = {};
     if (filter.startDate) {
       query.createdAt.$gte = new Date(filter.startDate);
     }
     if (filter.endDate) {
-      // Adiciona 1 dia para incluir o dia final completo
       const endDate = new Date(filter.endDate);
-      endDate.setDate(endDate.getDate() + 1);
+      endDate.setDate(endDate.getDate() + 1); // Ajuste para incluir o dia final
       query.createdAt.$lte = endDate;
     }
   }
 
-  // Filtro por pipeline
   if (filter.pipelineId) {
     query.pipelineId = filter.pipelineId;
   }
 
-  // Filtro por stage/etapa
   if (filter.stageId) {
     query.stageId = filter.stageId;
   }
@@ -78,6 +85,7 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
     .populate('owner', 'name email');
 }
 
+// ... resto das funções ...
 export function getLead(id: string) {
   return LeadModel.findById(id)
     .populate('owners', 'name email')
