@@ -183,8 +183,9 @@ export async function exportLeadsXlsx(filter: Record<string, unknown> = {}) {
 }
 
 export function mapApiStageToColuna(stage: any): Coluna {
+  const stageId = stage._id || stage.id;
   return {
-    id: stage._id || stage.id,
+    id: typeof stageId === 'object' ? stageId.toString() : stageId,
     nome: stage.name,
     cor: stage.color || "#3B82F6",
     ordem: stage.order,
@@ -217,8 +218,12 @@ export function mapApiLeadToLead(api: any): Lead {
   // 4. Extrai IDs para uso no formulário de edição (checkboxes)
   const ownersIds = normalizedOwners.map((o: any) => o.id);
 
+  // 5. Garante que os IDs são strings
+  const leadId = api._id || api.id;
+  const stageId = api.stageId || api.colunaAtual;
+
   return {
-    id: api._id || api.id,
+    id: typeof leadId === 'object' ? leadId.toString() : leadId,
     nome: api.name || api.nome || "Lead",
     empresa: api.company,
     celular: api.phone || api.celular || "",
@@ -247,7 +252,7 @@ export function mapApiLeadToLead(api: any): Lead {
     
     statusQualificacao: api.qualificationStatus || "Qualificado",
     motivoPerda: api.lostReason,
-    colunaAtual: api.stageId || api.colunaAtual,
+    colunaAtual: typeof stageId === 'object' ? stageId.toString() : stageId,
     dataCriacao: api.createdAt ? new Date(api.createdAt) : new Date(),
     ultimaAtividade: api.lastActivityAt ? new Date(api.lastActivityAt) : new Date(),
     arquivos: [],

@@ -54,7 +54,7 @@ export type QualificationStatus = typeof qualificationStatuses[number];
 /**
  * Tipos de CNPJ
  */
-export const cnpjTypes = ['MEI', 'ME', 'EPP', 'Média', 'Grande', 'Outro'] as const;
+export const cnpjTypes = ['MEI', 'EI', 'ME', 'EPP', 'SLU', 'LTDA', 'SS', 'SA', 'Média', 'Grande', 'Outro', 'Outros'] as const;
 export type CnpjType = typeof cnpjTypes[number];
 
 /**
