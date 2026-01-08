@@ -8,6 +8,7 @@ import {
   ChevronRight,
   X,
   LogOut,
+  UsersRound,
 } from "lucide-react";
 
 import {
@@ -24,6 +25,11 @@ const navigationItems = [
   { title: "Leads", url: "/leads", icon: Users },
 ];
 
+// Item apenas para admin
+const adminItems = [
+  { title: "Gestão de Vendedores", url: "/gestao-vendedores", icon: UsersRound },
+];
+
 const managementItems = [
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Exportações", url: "/exportacoes", icon: FileText },
@@ -31,7 +37,8 @@ const managementItems = [
 
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const isCollapsed = state === "collapsed";
 
   const handleNavClick = () => {
@@ -140,6 +147,48 @@ export function AppSidebar() {
 
         {/* Separador */}
         <div className={cn("h-px bg-gray-200", isCollapsed ? "mx-1" : "mx-4")} />
+
+        {/* Admin Only */}
+        {isAdmin && (
+          <>
+            <div className={cn("mt-6", isCollapsed ? "px-0" : "px-3")}>
+              {!isCollapsed && (
+                <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2 px-3">
+                  Administração
+                </p>
+              )}
+              <nav className="space-y-1">
+                {adminItems.map((item) => (
+                  <NavLink
+                    key={item.title}
+                    to={item.url}
+                    onClick={handleNavClick}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center rounded-lg transition-colors",
+                        isCollapsed 
+                          ? "w-10 h-10 justify-center mx-auto" 
+                          : "gap-3 px-3 py-2.5",
+                        isActive
+                          ? "bg-blue-600 text-white shadow-md"
+                          : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                      )
+                    }
+                    title={isCollapsed ? item.title : undefined}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="text-sm font-medium">{item.title}</span>
+                    )}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+
+            {/* Separador */}
+            <div className={cn("h-px bg-gray-200 mt-6", isCollapsed ? "mx-1" : "mx-4")} />
+          </>
+        )}
 
         {/* Gestão */}
         <div className={cn("mt-6", isCollapsed ? "px-0" : "px-3")}>

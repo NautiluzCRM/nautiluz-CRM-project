@@ -328,6 +328,39 @@ export async function fetchUsers() {
   return data.map(mapApiUserToUsuario);
 }
 
+// Estatísticas de vendedores - APENAS ADMIN
+export async function fetchSellersStats() {
+  return request<{
+    sellers: Array<{
+      id: string;
+      nome: string;
+      email: string;
+      foto: string | null;
+      ativo: boolean;
+      perfil: string;
+      ultimoAcesso: string;
+      totalLeads: number;
+      leadsQualificados: number;
+      leadsConvertidos: number;
+      valorTotalPipeline: number;
+      valorConvertido: number;
+      taxaConversao: number;
+      ticketMedio: number;
+      leadsUltimos30Dias: number;
+      tendencia: 'up' | 'down' | 'stable';
+    }>;
+    totals: {
+      totalVendedores: number;
+      vendedoresAtivos: number;
+      totalLeadsEquipe: number;
+      totalConvertidos: number;
+      valorTotalEquipe: number;
+      valorConvertidoEquipe: number;
+      mediaConversao: number;
+    };
+  }>("/users/sellers/stats");
+}
+
 function mapApiUserToUsuario(apiUser: any) {
   let perfil = 'Vendedor';
   if (apiUser.role === 'admin') perfil = 'Administrador';
