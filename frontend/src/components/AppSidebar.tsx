@@ -9,6 +9,7 @@ import {
   X,
   LogOut,
   UsersRound,
+  Plug,
 } from "lucide-react";
 
 import {
@@ -25,9 +26,10 @@ const navigationItems = [
   { title: "Leads", url: "/leads", icon: Users },
 ];
 
-// Item apenas para admin
+// Itens apenas para admin
 const adminItems = [
   { title: "Gestão de Vendedores", url: "/gestao-vendedores", icon: UsersRound },
+  { title: "Integrações", url: "/integracoes", icon: Plug },
 ];
 
 const managementItems = [
