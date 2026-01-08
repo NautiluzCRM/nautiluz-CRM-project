@@ -1,6 +1,7 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Header } from "@/components/Header";
+import { BottomNav } from "./BottomNav";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,6 +17,7 @@ export function Layout({ children }: LayoutProps) {
           <main className="flex-1 overflow-hidden h-full">
             {children}
           </main>
+          <BottomNav />
         </div>
       </div>
     </SidebarProvider>
