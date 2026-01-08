@@ -1291,22 +1291,6 @@ const Configuracoes = () => {
 
                     <div className="flex items-center justify-between p-4 border border-border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <Smartphone className="h-5 w-5 text-primary" />
-                        <div>
-                          <h4 className="font-medium">Notificações por SMS</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Alertas urgentes para leads quentes
-                          </p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={notificacaoSMS}
-                        onCheckedChange={setNotificacaoSMS}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                      <div className="flex items-center gap-3">
                         <Bell className="h-5 w-5 text-primary" />
                         <div>
                           <h4 className="font-medium">Alertas SLA</h4>

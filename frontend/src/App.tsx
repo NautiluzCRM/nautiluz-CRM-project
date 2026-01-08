@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Leads from "./pages/Leads";
 import GestaoVendedores from "./pages/GestaoVendedores";
+import Integracoes from "./pages/Integracoes";
 import Configuracoes from "./pages/Configuracoes";
 import Exportacoes from "./pages/Exportacoes";
 import Login from "./pages/Login";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/leads" element={<Leads />} />
               <Route path="/gestao-vendedores" element={<GestaoVendedores />} />
+              <Route path="/integracoes" element={<Integracoes />} />
               
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/exportacoes" element={<Exportacoes />} />

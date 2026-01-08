@@ -733,3 +733,89 @@ export async function deleteNote(noteId: string): Promise<{ message: string }> {
     method: 'DELETE',
   });
 }
+
+// ============================================
+// Integrações (Meta Lead Ads, etc.)
+// ============================================
+
+export interface Integration {
+  _id: string;
+  type: 'meta_lead_ads' | 'google_ads' | 'webhook_generico';
+  name: string;
+  active: boolean;
+  config: {
+    appId?: string;
+    appSecret?: string;
+    accessToken?: string;
+    pageId?: string;
+    formId?: string;
+    verifyToken?: string;
+    fieldMapping?: Record<string, string>;
+    defaultPipelineId?: string;
+    defaultStageId?: string;
+    defaultOwnerId?: string;
+    origin?: string;
+  };
+  stats: {
+    leadsReceived: number;
+    leadsCreated: number;
+    lastLeadAt?: string;
+    errors: number;
+  };
+  webhookUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Lista todas as integrações
+ */
+export async function fetchIntegrations(): Promise<Integration[]> {
+  return request<Integration[]>('/integrations/meta');
+}
+
+/**
+ * Busca uma integração por ID
+ */
+export async function fetchIntegration(id: string): Promise<Integration> {
+  return request<Integration>(`/integrations/meta/${id}`);
+}
+
+/**
+ * Cria uma nova integração
+ */
+export async function createIntegrationApi(data: Partial<Integration>): Promise<Integration> {
+  return request<Integration>('/integrations/meta', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Atualiza uma integração existente
+ */
+export async function updateIntegrationApi(id: string, data: Partial<Integration>): Promise<Integration> {
+  return request<Integration>(`/integrations/meta/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Deleta uma integração
+ */
+export async function deleteIntegrationApi(id: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/integrations/meta/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Testa uma integração criando um lead de teste
+ */
+export async function testIntegrationApi(id: string): Promise<{ success: boolean; lead?: any; error?: string }> {
+  return request<{ success: boolean; lead?: any; error?: string }>(`/integrations/meta/${id}/test`, {
+    method: 'POST',
+  });
+}
+
