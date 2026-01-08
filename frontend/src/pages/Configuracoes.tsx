@@ -27,6 +27,7 @@ import {
 import { Coluna } from "@/types/crm";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 import {
   AlertDialog,
@@ -1069,22 +1070,33 @@ const Configuracoes = () => {
                   <CardContent>
                     <div className="space-y-4">
                       {usuarios.map((usuario) => (
-                        <div key={usuario.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
-                          <div className="flex items-center gap-4">
-                            <Avatar>
+                        <div key={usuario.id} className="grid grid-cols-[1fr_auto] items-center gap-2 sm:gap-4 p-3 sm:p-4 border border-border rounded-lg">
+
+                          {/* LADO ESQUERDO: Avatar + Infos */}
+                          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                            <Avatar className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
                               <AvatarImage src={usuario.foto} alt={usuario.nome} />
-                              <AvatarFallback className="bg-primary text-primary-foreground">
-                                {usuario.nome.split(' ').map(n => n[0]).join('')}
+                              <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
+                                {usuario.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <h4 className="font-medium">{usuario.nome}</h4>
-                              <p className="text-sm text-muted-foreground">{usuario.email}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs text-muted-foreground">{usuario.perfil}</span>
-                                <span className={`text-xs px-2 py-1 rounded-full ${usuario.ativo
-                                  ? 'bg-success/20 text-success'
-                                  : 'bg-muted text-muted-foreground'
+
+                            <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
+                              <h4 className="font-medium text-sm sm:text-base truncate" title={usuario.nome}>
+                                {usuario.nome}
+                              </h4>
+
+                              <p className="text-xs sm:text-sm text-muted-foreground truncate" title={usuario.email}>
+                                {usuario.email}
+                              </p>
+
+                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1">
+                                <span className="text-[10px] sm:text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/50 whitespace-nowrap">
+                                  {usuario.perfil}
+                                </span>
+                                <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full border whitespace-nowrap ${usuario.ativo
+                                    ? 'bg-green-50 text-green-700 border-green-200'
+                                    : 'bg-gray-100 text-gray-500 border-gray-200'
                                   }`}>
                                   {usuario.ativo ? 'Ativo' : 'Inativo'}
                                 </span>
@@ -1092,10 +1104,12 @@ const Configuracoes = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          {/* LADO DIREITO: Botões (Fixo) */}
+                          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary"
                               onClick={() => handleEditarUsuario(usuario)}
                             >
                               <Edit className="h-4 w-4" />
@@ -1103,8 +1117,8 @@ const Configuracoes = () => {
 
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className={usuario.ativo ? "text-destructive hover:text-destructive" : "text-green-600 hover:text-green-700"}
+                              size="icon"
+                              className={cn("h-8 w-8", usuario.ativo ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-green-600 hover:text-green-700 hover:bg-green-50")}
                               onClick={() => handleClickStatus(usuario)}
                               title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
                             >
@@ -1115,6 +1129,7 @@ const Configuracoes = () => {
                               )}
                             </Button>
                           </div>
+
                         </div>
                       ))}
                     </div>
@@ -1382,12 +1397,18 @@ const Configuracoes = () => {
 
       {/* --- MODAL DE CONFIRMAÇÃO: EXCLUIR --- */}
       <AlertDialog open={alertExclusaoOpen} onOpenChange={setAlertExclusaoOpen}>
-        <AlertDialogContent>
+        {/* Adicionado: max-w-[90vw] para segurança no mobile */}
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
             <AlertDialogDescription>
               Essa ação não pode ser desfeita. Isso excluirá permanentemente o usuário
-              <span className="font-bold text-foreground"> {usuarioEmEdicao?.nome} </span>
+              <br />
+              {/* Adicionado: break-all para quebrar nomes gigantes */}
+              <span className="font-bold text-foreground break-all">
+                {usuarioEmEdicao?.nome}
+              </span>
+              <br />
               e removerá seus dados dos nossos servidores.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1405,15 +1426,24 @@ const Configuracoes = () => {
 
       {/* --- MODAL DE CONFIRMAÇÃO: STATUS --- */}
       <AlertDialog open={alertStatusOpen} onOpenChange={setAlertStatusOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {usuarioParaStatus?.ativo ? "Inativar Usuário" : "Reativar Usuário"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja {usuarioParaStatus?.ativo ? "inativar" : "ativar"} o acesso de
-              <span className="font-bold text-foreground"> {usuarioParaStatus?.nome}</span>?
-              {usuarioParaStatus?.ativo && " Ele perderá o acesso ao sistema imediatamente."}
+              <br />
+              <span className="font-bold text-foreground break-all">
+                {usuarioParaStatus?.nome}
+              </span>
+              ?
+              <br />
+              {usuarioParaStatus?.ativo && (
+                <span className="block mt-2">
+                  Ele perderá o acesso ao sistema imediatamente.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
