@@ -368,7 +368,162 @@ export async function updateIntegration(id: string, data: any) {
 }
 
 export async function deleteIntegration(id: string) {
+  // Antes de deletar, desregistrar webhook se tiver credenciais
+  const integration = await IntegrationModel.findById(id);
+  if (integration?.config?.accessToken && integration?.config?.pageId) {
+    try {
+      await unsubscribePageWebhook(integration.config.pageId, integration.config.accessToken);
+    } catch (error) {
+      logger.warn(`Não foi possível desregistrar webhook ao deletar integração: ${error}`);
+    }
+  }
   return IntegrationModel.findByIdAndDelete(id);
+}
+
+// ==========================================
+// FACEBOOK GRAPH API - Conexão Direta
+// ==========================================
+
+// Validar credenciais do Facebook e retornar informações da página
+export async function validateFacebookCredentials(accessToken: string, pageId?: string) {
+  try {
+    // 1. Verificar se o token é válido
+    const debugUrl = `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${accessToken}`;
+    const debugResponse = await fetch(debugUrl);
+    const debugData = await debugResponse.json() as any;
+    
+    if (debugData.error) {
+      return { valid: false, error: debugData.error.message };
+    }
+    
+    if (!debugData.data?.is_valid) {
+      return { valid: false, error: 'Token inválido ou expirado' };
+    }
+    
+    // 2. Verificar permissões necessárias
+    const requiredPermissions = ['pages_manage_ads', 'leads_retrieval', 'pages_read_engagement'];
+    const grantedPermissions = debugData.data.scopes || [];
+    const missingPermissions = requiredPermissions.filter(p => !grantedPermissions.includes(p));
+    
+    if (missingPermissions.length > 0) {
+      return { 
+        valid: false, 
+        error: `Permissões faltando: ${missingPermissions.join(', ')}. Vá em Meta Business Suite e autorize.`,
+        missingPermissions 
+      };
+    }
+    
+    // 3. Buscar informações da página se pageId fornecido
+    let pageInfo = null;
+    if (pageId) {
+      const pageUrl = `https://graph.facebook.com/v21.0/${pageId}?fields=name,id,access_token,leadgen_tos_accepted&access_token=${accessToken}`;
+      const pageResponse = await fetch(pageUrl);
+      const pageData = await pageResponse.json() as any;
+      
+      if (pageData.error) {
+        return { valid: false, error: `Erro ao acessar página: ${pageData.error.message}` };
+      }
+      
+      pageInfo = pageData;
+      
+      // Verificar se os termos do Lead Gen foram aceitos
+      if (!pageData.leadgen_tos_accepted) {
+        return { 
+          valid: false, 
+          error: 'Termos do Facebook Lead Ads não foram aceitos. Vá nas configurações da página e aceite.',
+          pageInfo
+        };
+      }
+    }
+    
+    return { 
+      valid: true, 
+      tokenInfo: debugData.data,
+      pageInfo,
+      expiresAt: debugData.data.expires_at ? new Date(debugData.data.expires_at * 1000) : null
+    };
+  } catch (error) {
+    logger.error(`Erro ao validar credenciais: ${error instanceof Error ? error.message : String(error)}`);
+    return { valid: false, error: 'Erro ao conectar com Facebook API' };
+  }
+}
+
+// Registrar webhook para receber leads da página
+export async function subscribePageWebhook(pageId: string, pageAccessToken: string, callbackUrl: string) {
+  try {
+    // Inscrever a página para receber webhooks de leadgen
+    const subscribeUrl = `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`;
+    
+    const response = await fetch(subscribeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscribed_fields: ['leadgen'],
+        access_token: pageAccessToken
+      })
+    });
+    
+    const data = await response.json() as any;
+    
+    if (data.error) {
+      logger.error(`Erro ao registrar webhook: ${data.error.message}`);
+      return { success: false, error: data.error.message };
+    }
+    
+    if (data.success) {
+      logger.info(`✅ Webhook registrado para página ${pageId}`);
+      return { success: true };
+    }
+    
+    return { success: false, error: 'Resposta inesperada do Facebook' };
+  } catch (error) {
+    logger.error(`Erro ao registrar webhook: ${error instanceof Error ? error.message : String(error)}`);
+    return { success: false, error: 'Erro ao conectar com Facebook API' };
+  }
+}
+
+// Desregistrar webhook da página
+export async function unsubscribePageWebhook(pageId: string, pageAccessToken: string) {
+  try {
+    const unsubscribeUrl = `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`;
+    
+    const response = await fetch(unsubscribeUrl, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        access_token: pageAccessToken
+      })
+    });
+    
+    const data = await response.json() as any;
+    
+    if (data.success) {
+      logger.info(`Webhook desregistrado da página ${pageId}`);
+      return { success: true };
+    }
+    
+    return { success: false, error: data.error?.message || 'Erro desconhecido' };
+  } catch (error) {
+    return { success: false, error: 'Erro ao conectar com Facebook API' };
+  }
+}
+
+// Buscar formulários de Lead Ads da página
+export async function fetchPageLeadForms(pageId: string, accessToken: string) {
+  try {
+    const url = `https://graph.facebook.com/v21.0/${pageId}/leadgen_forms?fields=id,name,status,questions,created_time&access_token=${accessToken}`;
+    
+    const response = await fetch(url);
+    const data = await response.json() as any;
+    
+    if (data.error) {
+      return { success: false, error: data.error.message, forms: [] };
+    }
+    
+    return { success: true, forms: data.data || [] };
+  } catch (error) {
+    return { success: false, error: 'Erro ao buscar formulários', forms: [] };
+  }
 }
 
 // Gerar URL do webhook para o usuário
