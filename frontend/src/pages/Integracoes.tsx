@@ -84,10 +84,16 @@ const Integracoes = () => {
     name: '',
     type: 'meta_lead_ads' as const,
     active: true,
+    connectionType: 'webhook' as 'webhook' | 'direct',
     config: {
       origin: 'Meta Lead Ads',
       defaultPipelineId: '',
-      defaultOwnerId: ''
+      defaultOwnerId: '',
+      // Campos para conexão direta com Facebook
+      appId: '',
+      appSecret: '',
+      accessToken: '',
+      pageId: ''
     }
   });
 
@@ -136,15 +142,48 @@ const Integracoes = () => {
       return;
     }
 
+    // Validar campos obrigatórios para conexão direta
+    if (formData.connectionType === 'direct') {
+      if (!formData.config.appId || !formData.config.appSecret || !formData.config.accessToken || !formData.config.pageId) {
+        toast({
+          variant: "destructive",
+          title: "Campos obrigatórios",
+          description: "Para conexão direta, preencha App ID, App Secret, Access Token e Page ID."
+        });
+        return;
+      }
+    }
+
     setIsCreating(true);
     try {
-      const newIntegration = await createIntegrationApi(formData);
+      // Preparar dados - remover campos vazios e connectionType que não vai pro backend
+      const dataToSend = {
+        name: formData.name,
+        type: formData.type,
+        active: formData.active,
+        config: {
+          origin: formData.config.origin,
+          defaultPipelineId: formData.config.defaultPipelineId || undefined,
+          defaultOwnerId: formData.config.defaultOwnerId || undefined,
+          // Incluir credenciais apenas se for conexão direta
+          ...(formData.connectionType === 'direct' ? {
+            appId: formData.config.appId,
+            appSecret: formData.config.appSecret,
+            accessToken: formData.config.accessToken,
+            pageId: formData.config.pageId
+          } : {})
+        }
+      };
+
+      const newIntegration = await createIntegrationApi(dataToSend);
       setIntegrations([newIntegration, ...integrations]);
       setShowCreateDialog(false);
       resetForm();
       toast({
         title: "✅ Integração criada!",
-        description: "Agora copie a URL do Webhook e configure no Make."
+        description: formData.connectionType === 'direct' 
+          ? "Conexão direta com Facebook configurada!" 
+          : "Agora copie a URL do Webhook e configure no Make."
       });
     } catch (error: any) {
       console.error("Erro ao criar integração:", error);
@@ -163,7 +202,25 @@ const Integracoes = () => {
     
     setIsCreating(true);
     try {
-      const updated = await updateIntegrationApi(editingIntegration._id, formData);
+      // Preparar dados para atualização
+      const dataToSend = {
+        name: formData.name,
+        type: formData.type,
+        active: formData.active,
+        config: {
+          origin: formData.config.origin,
+          defaultPipelineId: formData.config.defaultPipelineId || undefined,
+          defaultOwnerId: formData.config.defaultOwnerId || undefined,
+          ...(formData.connectionType === 'direct' ? {
+            appId: formData.config.appId,
+            appSecret: formData.config.appSecret,
+            accessToken: formData.config.accessToken,
+            pageId: formData.config.pageId
+          } : {})
+        }
+      };
+
+      const updated = await updateIntegrationApi(editingIntegration._id, dataToSend);
       setIntegrations(integrations.map(i => i._id === updated._id ? updated : i));
       setShowCreateDialog(false);
       setEditingIntegration(null);
@@ -247,20 +304,36 @@ const Integracoes = () => {
       name: '',
       type: 'meta_lead_ads',
       active: true,
-      config: { origin: 'Meta Lead Ads', defaultPipelineId: '', defaultOwnerId: '' }
+      connectionType: 'webhook',
+      config: { 
+        origin: 'Meta Lead Ads', 
+        defaultPipelineId: '', 
+        defaultOwnerId: '',
+        appId: '',
+        appSecret: '',
+        accessToken: '',
+        pageId: ''
+      }
     });
   };
 
   const openEditDialog = (integration: Integration) => {
     setEditingIntegration(integration);
+    // Detectar tipo de conexão baseado na presença de credenciais
+    const hasDirectCredentials = !!(integration.config as any).appId || !!(integration.config as any).accessToken;
     setFormData({
       name: integration.name,
-      type: 'meta_lead_ads' as const, // Always use meta_lead_ads for this page
+      type: 'meta_lead_ads' as const,
       active: integration.active,
+      connectionType: hasDirectCredentials ? 'direct' : 'webhook',
       config: {
         origin: integration.config.origin || 'Meta Lead Ads',
         defaultPipelineId: integration.config.defaultPipelineId || '',
-        defaultOwnerId: integration.config.defaultOwnerId || ''
+        defaultOwnerId: integration.config.defaultOwnerId || '',
+        appId: (integration.config as any).appId || '',
+        appSecret: (integration.config as any).appSecret || '',
+        accessToken: (integration.config as any).accessToken || '',
+        pageId: (integration.config as any).pageId || ''
       }
     });
     setShowCreateDialog(true);
@@ -289,10 +362,10 @@ const Integracoes = () => {
               <div className="p-2 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg">
                 <Instagram className="h-5 w-5 text-white" />
               </div>
-              Meta Lead Ads
+              Integrações - Meta Lead Ads
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Receba leads automaticamente via Make/Zapier
+              Receba leads via Make/Zapier ou diretamente do Facebook
             </p>
           </div>
 
@@ -309,76 +382,115 @@ const Integracoes = () => {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6">
         {/* Instruções */}
-        <Card className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+        <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-green-600" />
-              Como funciona: Make + Meta Lead Ads
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              Duas formas de integrar
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center gap-3 py-4">
-              <div className="text-center">
-                <div className="w-14 h-14 mx-auto bg-pink-100 rounded-full flex items-center justify-center mb-2">
-                  <Instagram className="h-7 w-7 text-pink-600" />
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Opção 1: Make/Zapier */}
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="h-5 w-5 text-purple-600" />
+                  <h3 className="font-semibold text-purple-800">Via Make / Zapier</h3>
                 </div>
-                <p className="text-xs font-medium">Anúncio Meta</p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
-              <div className="text-center">
-                <div className="w-14 h-14 mx-auto bg-purple-100 rounded-full flex items-center justify-center mb-2">
-                  <FileText className="h-7 w-7 text-purple-600" />
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <Badge className="shrink-0 bg-purple-500 text-xs">1</Badge>
+                    <span>Crie integração e copie a URL do Webhook</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Badge className="shrink-0 bg-purple-500 text-xs">2</Badge>
+                    <span>No Make, conecte "Facebook Lead Ads"</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Badge className="shrink-0 bg-purple-500 text-xs">3</Badge>
+                    <span>Adicione "HTTP Request" com a URL</span>
+                  </div>
                 </div>
-                <p className="text-xs font-medium">Lead preenche</p>
               </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
-              <div className="text-center">
-                <div className="w-14 h-14 mx-auto bg-violet-100 rounded-full flex items-center justify-center mb-2">
-                  <Zap className="h-7 w-7 text-violet-600" />
+
+              {/* Opção 2: Conexão Direta */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Instagram className="h-5 w-5 text-blue-600" />
+                  <h3 className="font-semibold text-blue-800">Conexão Direta</h3>
                 </div>
-                <p className="text-xs font-medium">Make envia</p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
-              <div className="text-center">
-                <div className="w-14 h-14 mx-auto bg-green-100 rounded-full flex items-center justify-center mb-2">
-                  <Users className="h-7 w-7 text-green-600" />
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <Badge className="shrink-0 bg-blue-500 text-xs">1</Badge>
+                    <span>Crie app no Meta for Developers</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Badge className="shrink-0 bg-blue-500 text-xs">2</Badge>
+                    <span>Configure App ID, Secret e Token</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Badge className="shrink-0 bg-blue-500 text-xs">3</Badge>
+                    <span>Leads chegam automaticamente!</span>
+                  </div>
                 </div>
-                <p className="text-xs font-medium">Lead no CRM</p>
-              </div>
-            </div>
-            <Separator className="my-4" />
-            <div className="grid md:grid-cols-3 gap-4 text-sm">
-              <div className="flex items-start gap-2">
-                <Badge className="shrink-0 bg-pink-500">1</Badge>
-                <span>Crie uma integração e copie a <strong>URL do Webhook</strong></span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Badge className="shrink-0 bg-purple-500">2</Badge>
-                <span>No Make, use o módulo <strong>Facebook Lead Ads</strong></span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Badge className="shrink-0 bg-green-500">3</Badge>
-                <span>Adicione <strong>HTTP Request</strong> com a URL copiada</span>
               </div>
             </div>
           </CardContent>
         </Card>
-
         {/* Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={(open) => {
           setShowCreateDialog(open);
           if (!open) { setEditingIntegration(null); resetForm(); }
         }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Instagram className="h-5 w-5 text-pink-500" />
                 {editingIntegration ? 'Editar Integração' : 'Nova Integração Meta Lead Ads'}
               </DialogTitle>
-              <DialogDescription>Configure para receber leads do Make/Zapier</DialogDescription>
+              <DialogDescription>Escolha como deseja receber os leads</DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4 py-4">
+              {/* Tipo de Conexão */}
+              <div className="space-y-3">
+                <Label>Tipo de Conexão</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, connectionType: 'webhook' })}
+                    className={`p-4 rounded-lg border-2 text-left transition-all ${
+                      formData.connectionType === 'webhook' 
+                        ? 'border-purple-500 bg-purple-50' 
+                        : 'border-muted hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="h-5 w-5 text-purple-600" />
+                      <span className="font-medium">Make / Zapier</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Receba leads via webhook usando Make ou Zapier</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, connectionType: 'direct' })}
+                    className={`p-4 rounded-lg border-2 text-left transition-all ${
+                      formData.connectionType === 'direct' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-muted hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Instagram className="h-5 w-5 text-blue-600" />
+                      <span className="font-medium">Facebook Direto</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Conexão direta com Facebook Lead Ads API</p>
+                  </button>
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="space-y-2">
                 <Label htmlFor="name">Nome da Integração *</Label>
                 <Input
@@ -399,6 +511,66 @@ const Integracoes = () => {
                 />
                 <p className="text-xs text-muted-foreground">Aparece no lead para identificar de onde veio</p>
               </div>
+
+              {/* Campos para conexão direta com Facebook */}
+              {formData.connectionType === 'direct' && (
+                <>
+                  <Separator />
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertTitle className="text-blue-800">Credenciais do Facebook</AlertTitle>
+                    <AlertDescription className="text-blue-700 text-sm">
+                      Obtenha essas informações no{' '}
+                      <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+                        Meta for Developers
+                      </a>
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="appId">App ID *</Label>
+                    <Input
+                      id="appId"
+                      value={formData.config.appId}
+                      onChange={(e) => setFormData({ ...formData, config: { ...formData.config, appId: e.target.value }})}
+                      placeholder="Ex: 123456789012345"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="appSecret">App Secret *</Label>
+                    <Input
+                      id="appSecret"
+                      type="password"
+                      value={formData.config.appSecret}
+                      onChange={(e) => setFormData({ ...formData, config: { ...formData.config, appSecret: e.target.value }})}
+                      placeholder="Seu App Secret"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="accessToken">Page Access Token *</Label>
+                    <Input
+                      id="accessToken"
+                      type="password"
+                      value={formData.config.accessToken}
+                      onChange={(e) => setFormData({ ...formData, config: { ...formData.config, accessToken: e.target.value }})}
+                      placeholder="Token de acesso da página"
+                    />
+                    <p className="text-xs text-muted-foreground">Token com permissão leads_retrieval e pages_manage_ads</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pageId">Page ID *</Label>
+                    <Input
+                      id="pageId"
+                      value={formData.config.pageId}
+                      onChange={(e) => setFormData({ ...formData, config: { ...formData.config, pageId: e.target.value }})}
+                      placeholder="ID da sua página do Facebook"
+                    />
+                  </div>
+                </>
+              )}
 
               <Separator />
 
