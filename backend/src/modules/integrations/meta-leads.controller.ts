@@ -230,3 +230,98 @@ export const getIntegrationStatsHandler = asyncHandler(async (req: Request, res:
     lastUpdated: integration.updatedAt
   });
 });
+
+// ==========================================
+// CONEXÃO DIRETA COM FACEBOOK
+// ==========================================
+
+import { 
+  validateFacebookCredentials, 
+  subscribePageWebhook, 
+  fetchPageLeadForms 
+} from './meta-leads.service.js';
+
+// Validar credenciais do Facebook
+export const validateCredentialsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { accessToken, pageId } = req.body;
+  
+  if (!accessToken) {
+    return res.status(400).json({ valid: false, error: 'Access Token é obrigatório' });
+  }
+  
+  const result = await validateFacebookCredentials(accessToken, pageId);
+  res.json(result);
+});
+
+// Ativar conexão direta (registrar webhook)
+export const activateDirectConnectionHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  const integration = await getIntegration(id);
+  if (!integration) {
+    return res.status(404).json({ error: 'Integração não encontrada' });
+  }
+  
+  const { accessToken, pageId } = integration.config;
+  if (!accessToken || !pageId) {
+    return res.status(400).json({ 
+      error: 'Credenciais incompletas. Configure App ID, Access Token e Page ID.' 
+    });
+  }
+  
+  // 1. Validar credenciais
+  const validation = await validateFacebookCredentials(accessToken, pageId);
+  if (!validation.valid) {
+    return res.status(400).json({ 
+      error: validation.error,
+      details: validation 
+    });
+  }
+  
+  // 2. Gerar URL do webhook para esta integração
+  const baseUrl = process.env.API_BASE_URL || `http://localhost:${env.PORT}`;
+  const webhookUrl = `${baseUrl}/api/integrations/meta/webhook/${id}`;
+  
+  // 3. Registrar webhook na página do Facebook
+  const subscribeResult = await subscribePageWebhook(pageId, accessToken, webhookUrl);
+  if (!subscribeResult.success) {
+    return res.status(400).json({ 
+      error: `Falha ao registrar webhook: ${subscribeResult.error}`,
+      hint: 'Certifique-se de que o App do Facebook está configurado corretamente no Meta for Developers'
+    });
+  }
+  
+  // 4. Atualizar integração como "ativada"
+  await updateIntegration(id, { 
+    active: true,
+    'config.webhookRegistered': true,
+    'config.webhookRegisteredAt': new Date()
+  });
+  
+  logger.info(`✅ Conexão direta ativada para integração ${id}`);
+  
+  res.json({
+    success: true,
+    message: 'Conexão direta ativada com sucesso!',
+    webhookUrl,
+    pageInfo: validation.pageInfo
+  });
+});
+
+// Buscar formulários de Lead Ads da página
+export const getLeadFormsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  const integration = await getIntegration(id);
+  if (!integration) {
+    return res.status(404).json({ error: 'Integração não encontrada' });
+  }
+  
+  const { accessToken, pageId } = integration.config;
+  if (!accessToken || !pageId) {
+    return res.status(400).json({ error: 'Credenciais não configuradas' });
+  }
+  
+  const result = await fetchPageLeadForms(pageId, accessToken);
+  res.json(result);
+});
