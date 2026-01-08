@@ -9,7 +9,7 @@ import { env } from '../config/env.js';
 import crypto from 'crypto';
 
 export async function login(email: string, password: string) {
-  const user = await UserModel.findOne({ email, active: true });
+  const user = await UserModel.findOne({ email, active: true }).select('+passwordHash');
   if (!user) throw new AppError('Credenciais inválidas', StatusCodes.UNAUTHORIZED);
   const ok = await verifyPassword(user.passwordHash, password);
   if (!ok) throw new AppError('Credenciais inválidas', StatusCodes.UNAUTHORIZED);

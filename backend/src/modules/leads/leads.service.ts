@@ -4,9 +4,11 @@ import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
-
 import mongoose from 'mongoose';
+import { ActivityService } from '../../services/activity.service.js';
+import { UserModel } from '../users/user.model.js';
 
+// Interfaces novas vindas da develop (mantenha isso)
 interface UserAuth {
   sub: string;
   role: string;
@@ -27,47 +29,54 @@ interface LeadFilter {
 export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
   const query: any = {};
 
-  // Filtro por responsável
-  if (filter.owners) {
+  // --- 1. REGRA DE SEGURANÇA (Sua Lógica + Estrutura Nova) ---
+  // Se tem usuário e ele NÃO é admin, forçamos o filtro para ver apenas os dele.
+  if (user && user.role !== 'admin') {
+    query.owners = user.sub;
+  } 
+  // Se for admin e escolheu filtrar por alguém específico, usamos o filtro.
+  else if (filter.owners) {
     query.owners = filter.owners;
   }
 
-  // Busca textual por nome (case-insensitive)
+ // --- 2. BUSCA TEXTUAL ---
   if (filter.search || filter.name) {
     const searchTerm = filter.search || filter.name;
-    query.name = { $regex: searchTerm, $options: 'i' };
+    const regex = { $regex: searchTerm, $options: 'i' };
+    // Procura em Nome, Email ou Telefone ao mesmo tempo
+    query.$or = [
+      { name: regex },
+      { email: regex },
+      { phone: regex }
+    ];
   }
 
-  // Filtro por status de qualificação
+  // --- 3. FILTROS NOVOS (Vindos da Develop) ---
   if (filter.qualificationStatus && filter.qualificationStatus !== 'all') {
     query.qualificationStatus = filter.qualificationStatus;
   }
 
-  // Filtro por origem
   if (filter.origin && filter.origin !== 'all') {
     query.origin = filter.origin;
   }
 
-  // Filtro por intervalo de datas
+  // Filtro de Data
   if (filter.startDate || filter.endDate) {
     query.createdAt = {};
     if (filter.startDate) {
       query.createdAt.$gte = new Date(filter.startDate);
     }
     if (filter.endDate) {
-      // Adiciona 1 dia para incluir o dia final completo
       const endDate = new Date(filter.endDate);
-      endDate.setDate(endDate.getDate() + 1);
+      endDate.setDate(endDate.getDate() + 1); // Ajuste para incluir o dia final
       query.createdAt.$lte = endDate;
     }
   }
 
-  // Filtro por pipeline
   if (filter.pipelineId) {
     query.pipelineId = filter.pipelineId;
   }
 
-  // Filtro por stage/etapa
   if (filter.stageId) {
     query.stageId = filter.stageId;
   }
@@ -78,6 +87,7 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
     .populate('owner', 'name email');
 }
 
+// ... resto das funções ...
 export function getLead(id: string) {
   return LeadModel.findById(id)
     .populate('owners', 'name email')
@@ -109,6 +119,19 @@ export async function createLead(input: any, user?: UserAuth) {
     lastActivity: input.createdAt || new Date()
   });
 
+  // Usar o novo ActivityService
+  const userDoc = userId ? await UserModel.findById(userId) : null;
+  const userName = userDoc?.name || 'Sistema';
+  
+  await ActivityService.createActivity({
+    leadId: lead._id.toString(),
+    tipo: 'lead_criado',
+    descricao: `Lead criado por ${userName}`,
+    userId: userId || 'sistema',
+    userName: userName
+  });
+
+  // Mantém a atividade antiga para compatibilidade
   await ActivityModel.create({ 
     leadId: lead._id, 
     type: 'Sistema',        
@@ -141,6 +164,68 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     .populate('owners', 'name email')
     .populate('owner', 'name email');
   
+  // Detectar mudanças importantes e logar atividades específicas
+  const userDoc = user?.sub ? await UserModel.findById(user.sub) : null;
+  const userName = userDoc?.name || 'Sistema';
+  const userId = user?.sub || 'sistema';
+
+  // Mudança de stage (mover lead no pipeline)
+  if (input.stageId && input.stageId !== existingLead.stageId?.toString()) {
+    const oldStage = await StageModel.findById(existingLead.stageId);
+    const newStage = await StageModel.findById(input.stageId);
+    
+    await ActivityService.createActivity({
+      leadId: id,
+      tipo: 'lead_movido',
+      descricao: `${userName} moveu o lead de "${oldStage?.name || 'N/A'}" para "${newStage?.name || 'N/A'}"`,
+      userId: userId,
+      userName: userName,
+      metadata: {
+        from: oldStage?.name || 'N/A',
+        to: newStage?.name || 'N/A'
+      }
+    });
+  }
+
+  // Mudança de responsáveis
+  const oldOwners = existingLead.owners?.map((o: any) => o.toString()).sort() || [];
+  const newOwners = input.owners?.map((o: any) => o.toString()).sort() || [];
+  
+  if (input.owners && JSON.stringify(oldOwners) !== JSON.stringify(newOwners)) {
+    await ActivityService.createActivity({
+      leadId: id,
+      tipo: 'responsavel_alterado',
+      descricao: `${userName} alterou os responsáveis pelo lead`,
+      userId: userId,
+      userName: userName
+    });
+  }
+
+  // Mudança de status de qualificação
+  if (input.qualificationStatus && input.qualificationStatus !== existingLead.qualificationStatus) {
+    await ActivityService.createActivity({
+      leadId: id,
+      tipo: 'status_alterado',
+      descricao: `${userName} alterou o status de qualificação para "${input.qualificationStatus}"`,
+      userId: userId,
+      userName: userName,
+      metadata: {
+        from: existingLead.qualificationStatus || 'N/A',
+        to: input.qualificationStatus
+      }
+    });
+  }
+
+  // Atividade genérica de atualização
+  await ActivityService.createActivity({
+    leadId: id,
+    tipo: 'lead_atualizado',
+    descricao: `${userName} atualizou os dados do lead`,
+    userId: userId,
+    userName: userName
+  });
+  
+  // Mantém a atividade antiga para compatibilidade
   await ActivityModel.create({ 
     leadId: lead!._id, 
     type: 'Alteração', 

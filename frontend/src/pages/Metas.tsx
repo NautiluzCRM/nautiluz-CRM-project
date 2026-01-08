@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -161,7 +160,7 @@ const Metas = () => {
   };
 
   return (
-    <Layout>
+    <>
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="bg-card border-b border-border p-4 sm:p-6 shadow-card">
@@ -423,7 +422,7 @@ const Metas = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   );
 };
 

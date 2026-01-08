@@ -1,5 +1,6 @@
 import { Lead, Pipeline, Coluna } from "@/types/crm";
 
+// @ts-ignore - Vite env typing
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000/api";
 const storages = [localStorage, sessionStorage];
 
@@ -9,6 +10,7 @@ const clearAuthStorage = () => {
   for (const storage of storages) {
     storage.removeItem("authToken");
     storage.removeItem("refreshToken");
+    storage.removeItem("authUser");
   }
 };
 
@@ -73,6 +75,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         ...getAuthHeaders(newToken),
       };
       res = await fetch(`${API_URL}${path}`, { ...options, headers: retryHeaders });
+    } else {
+      // Refresh falhou - limpa auth e redireciona para login
+      clearAuthStorage();
+      // Só redireciona se não estiver já na página de login
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+      throw new Error('Sessão expirada');
     }
   }
 
@@ -183,8 +193,9 @@ export async function exportLeadsXlsx(filter: Record<string, unknown> = {}) {
 }
 
 export function mapApiStageToColuna(stage: any): Coluna {
+  const stageId = stage._id || stage.id;
   return {
-    id: stage._id || stage.id,
+    id: typeof stageId === 'object' ? stageId.toString() : stageId,
     nome: stage.name,
     cor: stage.color || "#3B82F6",
     ordem: stage.order,
@@ -217,8 +228,12 @@ export function mapApiLeadToLead(api: any): Lead {
   // 4. Extrai IDs para uso no formulário de edição (checkboxes)
   const ownersIds = normalizedOwners.map((o: any) => o.id);
 
+  // 5. Garante que os IDs são strings
+  const leadId = api._id || api.id;
+  const stageId = api.stageId || api.colunaAtual;
+
   return {
-    id: api._id || api.id,
+    id: typeof leadId === 'object' ? leadId.toString() : leadId,
     nome: api.name || api.nome || "Lead",
     empresa: api.company,
     celular: api.phone || api.celular || "",
@@ -247,7 +262,7 @@ export function mapApiLeadToLead(api: any): Lead {
     
     statusQualificacao: api.qualificationStatus || "Qualificado",
     motivoPerda: api.lostReason,
-    colunaAtual: api.stageId || api.colunaAtual,
+    colunaAtual: typeof stageId === 'object' ? stageId.toString() : stageId,
     dataCriacao: api.createdAt ? new Date(api.createdAt) : new Date(),
     ultimaAtividade: api.lastActivityAt ? new Date(api.lastActivityAt) : new Date(),
     arquivos: [],
@@ -311,6 +326,39 @@ export async function fetchPipelineData(): Promise<Pipeline> {
 export async function fetchUsers() {
   const data = await request<any[]>("/users");
   return data.map(mapApiUserToUsuario);
+}
+
+// Estatísticas de vendedores - APENAS ADMIN
+export async function fetchSellersStats() {
+  return request<{
+    sellers: Array<{
+      id: string;
+      nome: string;
+      email: string;
+      foto: string | null;
+      ativo: boolean;
+      perfil: string;
+      ultimoAcesso: string;
+      totalLeads: number;
+      leadsQualificados: number;
+      leadsConvertidos: number;
+      valorTotalPipeline: number;
+      valorConvertido: number;
+      taxaConversao: number;
+      ticketMedio: number;
+      leadsUltimos30Dias: number;
+      tendencia: 'up' | 'down' | 'stable';
+    }>;
+    totals: {
+      totalVendedores: number;
+      vendedoresAtivos: number;
+      totalLeadsEquipe: number;
+      totalConvertidos: number;
+      valorTotalEquipe: number;
+      valorConvertidoEquipe: number;
+      mediaConversao: number;
+    };
+  }>("/users/sellers/stats");
 }
 
 function mapApiUserToUsuario(apiUser: any) {
@@ -437,3 +485,337 @@ export async function reorderStagesApi(pipelineId: string, orderedIds: string[])
     body: JSON.stringify({ ids: orderedIds }),
   });
 }
+
+// --- Funções de Exportação ---
+
+interface ExportFilters {
+  stageId?: string;
+  origin?: string;
+  owners?: string[];
+  startDate?: string;
+  endDate?: string;
+  pipelineId?: string;
+}
+
+interface ExportFields {
+  basico: boolean;
+  contato: boolean;
+  cnpj: boolean;
+  vidas: boolean;
+  hospitais: boolean;
+  responsaveis: boolean;
+  observacoes: boolean;
+}
+
+export async function exportToXLSX(filters: ExportFilters, fields: ExportFields) {
+  const token = getStoredValue("authToken");
+  const response = await fetch(`${API_URL}/leads/export/xlsx`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify({ filters, fields }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Erro ao exportar para XLSX");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `Leads_Nautiluz_${new Date().toISOString().split('T')[0]}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+export async function exportToCSV(filters: ExportFilters, fields: ExportFields) {
+  const token = getStoredValue("authToken");
+  const response = await fetch(`${API_URL}/leads/export/csv`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify({ filters, fields }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Erro ao exportar para CSV");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `Leads_Nautiluz_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+export async function exportToPDF(filters: ExportFilters, fields: ExportFields) {
+  const token = getStoredValue("authToken");
+  const response = await fetch(`${API_URL}/leads/export/pdf`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify({ filters, fields }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Erro ao exportar para PDF");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `Leads_Nautiluz_${new Date().toISOString().split('T')[0]}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+// ==================== NOTIFICATIONS API ====================
+
+export interface Notification {
+  _id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'lead' | 'system';
+  read: boolean;
+  link?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Busca todas as notificações do usuário
+ */
+export async function fetchNotifications(unreadOnly = false): Promise<Notification[]> {
+  const query = unreadOnly ? '?unreadOnly=true' : '';
+  return request<Notification[]>(`/notifications${query}`);
+}
+
+/**
+ * Busca a contagem de notificações não lidas
+ */
+export async function fetchUnreadCount(): Promise<number> {
+  const data = await request<{ count: number }>('/notifications/unread-count');
+  return data.count;
+}
+
+/**
+ * Marca uma notificação como lida
+ */
+export async function markNotificationAsRead(notificationId: string): Promise<Notification> {
+  return request<Notification>(`/notifications/${notificationId}/read`, {
+    method: 'PATCH',
+  });
+}
+
+/**
+ * Marca todas as notificações como lidas
+ */
+export async function markAllNotificationsAsRead(): Promise<{ message: string; count: number }> {
+  return request<{ message: string; count: number }>('/notifications/mark-all-read', {
+    method: 'PATCH',
+  });
+}
+
+/**
+ * Deleta uma notificação
+ */
+export async function deleteNotification(notificationId: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/notifications/${notificationId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Limpa todas as notificações lidas
+ */
+export async function clearReadNotifications(): Promise<{ message: string; count: number }> {
+  return request<{ message: string; count: number }>('/notifications/clear-read', {
+    method: 'DELETE',
+  });
+}
+
+// ==================== ATIVIDADES ====================
+
+export interface Activity {
+  _id: string;
+  leadId: string;
+  tipo: 'lead_criado' | 'lead_atualizado' | 'lead_movido' | 'observacao_adicionada' | 
+        'observacao_atualizada' | 'observacao_removida' | 'responsavel_alterado' | 
+        'status_alterado' | 'email_enviado' | 'ligacao_realizada' | 'whatsapp_enviado';
+  descricao: string;
+  userId: string;
+  userName: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Busca as atividades de um lead específico
+ */
+export async function fetchLeadActivities(leadId: string, limit = 20): Promise<Activity[]> {
+  return request<Activity[]>(`/leads/${leadId}/activities?limit=${limit}`);
+}
+
+/**
+ * Busca as atividades recentes (feed geral)
+ */
+export async function fetchRecentActivities(limit = 50): Promise<Activity[]> {
+  return request<Activity[]>(`/activities/recent?limit=${limit}`);
+}
+
+// ==================== OBSERVAÇÕES (NOTAS) ====================
+
+export interface Note {
+  _id: string;
+  leadId: string;
+  conteudo: string;
+  userId: string;
+  userName: string;
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Busca as observações de um lead específico
+ */
+export async function fetchLeadNotes(leadId: string): Promise<Note[]> {
+  return request<Note[]>(`/leads/${leadId}/notes`);
+}
+
+/**
+ * Cria uma nova observação para um lead
+ */
+export async function createNote(leadId: string, conteudo: string, isPinned = false): Promise<Note> {
+  return request<Note>(`/leads/${leadId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ conteudo, isPinned }),
+  });
+}
+
+/**
+ * Atualiza uma observação existente
+ */
+export async function updateNote(noteId: string, data: { conteudo?: string; isPinned?: boolean }): Promise<Note> {
+  return request<Note>(`/notes/${noteId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Deleta uma observação
+ */
+export async function deleteNote(noteId: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/notes/${noteId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ============================================
+// Integrações (Meta Lead Ads, etc.)
+// ============================================
+
+export interface Integration {
+  _id: string;
+  type: 'meta_lead_ads' | 'google_ads' | 'webhook_generico';
+  name: string;
+  active: boolean;
+  config: {
+    appId?: string;
+    appSecret?: string;
+    accessToken?: string;
+    pageId?: string;
+    formId?: string;
+    verifyToken?: string;
+    fieldMapping?: Record<string, string>;
+    defaultPipelineId?: string;
+    defaultStageId?: string;
+    defaultOwnerId?: string;
+    origin?: string;
+  };
+  stats: {
+    leadsReceived: number;
+    leadsCreated: number;
+    lastLeadAt?: string;
+    errors: number;
+  };
+  webhookUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Lista todas as integrações
+ */
+export async function fetchIntegrations(): Promise<Integration[]> {
+  return request<Integration[]>('/integrations/meta');
+}
+
+/**
+ * Busca uma integração por ID
+ */
+export async function fetchIntegration(id: string): Promise<Integration> {
+  return request<Integration>(`/integrations/meta/${id}`);
+}
+
+/**
+ * Cria uma nova integração
+ */
+export async function createIntegrationApi(data: Partial<Integration>): Promise<Integration> {
+  return request<Integration>('/integrations/meta', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Atualiza uma integração existente
+ */
+export async function updateIntegrationApi(id: string, data: Partial<Integration>): Promise<Integration> {
+  return request<Integration>(`/integrations/meta/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Deleta uma integração
+ */
+export async function deleteIntegrationApi(id: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/integrations/meta/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Testa uma integração criando um lead de teste
+ */
+export async function testIntegrationApi(id: string): Promise<{ success: boolean; lead?: any; error?: string }> {
+  return request<{ success: boolean; lead?: any; error?: string }>(`/integrations/meta/${id}/test`, {
+    method: 'POST',
+  });
+}
+

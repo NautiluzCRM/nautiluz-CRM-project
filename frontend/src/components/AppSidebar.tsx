@@ -7,6 +7,9 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  LogOut,
+  UsersRound,
+  Plug,
 } from "lucide-react";
 
 import {
@@ -16,10 +19,17 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const navigationItems = [
   { title: "Pipeline", url: "/", icon: Kanban },
   { title: "Leads", url: "/leads", icon: Users },
+];
+
+// Itens apenas para admin
+const adminItems = [
+  { title: "Gestão de Vendedores", url: "/gestao-vendedores", icon: UsersRound },
+  { title: "Integrações", url: "/integracoes", icon: Plug },
 ];
 
 const managementItems = [
@@ -29,6 +39,8 @@ const managementItems = [
 
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
+  const { logout, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const isCollapsed = state === "collapsed";
 
   const handleNavClick = () => {
@@ -138,6 +150,48 @@ export function AppSidebar() {
         {/* Separador */}
         <div className={cn("h-px bg-gray-200", isCollapsed ? "mx-1" : "mx-4")} />
 
+        {/* Admin Only */}
+        {isAdmin && (
+          <>
+            <div className={cn("mt-6", isCollapsed ? "px-0" : "px-3")}>
+              {!isCollapsed && (
+                <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2 px-3">
+                  Administração
+                </p>
+              )}
+              <nav className="space-y-1">
+                {adminItems.map((item) => (
+                  <NavLink
+                    key={item.title}
+                    to={item.url}
+                    onClick={handleNavClick}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center rounded-lg transition-colors",
+                        isCollapsed 
+                          ? "w-10 h-10 justify-center mx-auto" 
+                          : "gap-3 px-3 py-2.5",
+                        isActive
+                          ? "bg-blue-600 text-white shadow-md"
+                          : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                      )
+                    }
+                    title={isCollapsed ? item.title : undefined}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="text-sm font-medium">{item.title}</span>
+                    )}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+
+            {/* Separador */}
+            <div className={cn("h-px bg-gray-200 mt-6", isCollapsed ? "mx-1" : "mx-4")} />
+          </>
+        )}
+
         {/* Gestão */}
         <div className={cn("mt-6", isCollapsed ? "px-0" : "px-3")}>
           {!isCollapsed && (
@@ -174,14 +228,41 @@ export function AppSidebar() {
         </div>
       </SidebarContent>
       
-      {/* Footer */}
-      {!isCollapsed && (
-        <div className="mt-auto py-3 px-4 border-t border-gray-200">
-          <p className="text-[10px] text-center text-gray-400">
-            © 2026 Nautiluz CRM
-          </p>
-        </div>
-      )}
+      {/* Footer com botão de logout */}
+      <div className="mt-auto py-4 px-4 border-t border-gray-200 bg-white">
+        {!isCollapsed && (
+          <>
+            <div className="flex justify-center mb-3">
+              <Button
+                onClick={logout}
+                variant="outline"
+                className="w-full justify-center text-red-500 hover:text-red-600 hover:bg-red-50 border-red-300"
+                size="default"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </Button>
+            </div>
+            <p className="text-[10px] text-center text-gray-400">
+              © 2026 Nautiluz CRM
+            </p>
+          </>
+        )}
+        
+        {isCollapsed && (
+          <div className="flex justify-center">
+            <Button
+              onClick={logout}
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-300"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
     </Sidebar>
   );
 }
