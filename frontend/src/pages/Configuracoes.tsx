@@ -54,9 +54,9 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { 
-  restrictToVerticalAxis, 
-  restrictToParentElement 
+import {
+  restrictToVerticalAxis,
+  restrictToParentElement
 } from "@dnd-kit/modifiers";
 
 import { SortableStageRow } from "@/components/ui/sortable-stage-row";
@@ -445,10 +445,10 @@ const Configuracoes = () => {
   // 3. Salvar Edição (Nome, Cor, SLA)
   const handleSalvarEdicaoEtapa = async (stage: Coluna) => {
     if (editForm.nome !== undefined && editForm.nome.trim() === "") {
-      toast({ 
-        variant: "destructive", 
-        title: "Nome inválido", 
-        description: "O nome da etapa não pode ficar vazio." 
+      toast({
+        variant: "destructive",
+        title: "Nome inválido",
+        description: "O nome da etapa não pode ficar vazio."
       });
       return;
     }
@@ -479,15 +479,15 @@ const Configuracoes = () => {
     } catch (error: any) {
       let msg = "Não foi possível excluir.";
       try {
-         const parsed = JSON.parse(error.message); 
-         if (parsed.message) msg = parsed.message;
+        const parsed = JSON.parse(error.message);
+        if (parsed.message) msg = parsed.message;
       } catch (e) {
-         if (error.message) msg = error.message;
+        if (error.message) msg = error.message;
       }
 
-      toast({ 
-        variant: "destructive", 
-        title: "Operação Bloqueada", 
+      toast({
+        variant: "destructive",
+        title: "Operação Bloqueada",
         description: msg
       });
     } finally {
@@ -519,13 +519,13 @@ const Configuracoes = () => {
     setStages((items) => {
       const oldIndex = items.findIndex((item) => item.id === active.id);
       const newIndex = items.findIndex((item) => item.id === over.id);
-      
+
       const newOrder = arrayMove(items, oldIndex, newIndex);
-      
+
       // 2. Chama a API em background para salvar a nova ordem
       if (selectedPipelineId) {
         const idsOrdenados = newOrder.map(s => s.id);
-        
+
         reorderStagesApi(selectedPipelineId, idsOrdenados)
           .then(() => {
             console.log("Ordem salva com sucesso");
@@ -761,184 +761,184 @@ const Configuracoes = () => {
         <div className="flex-1 p-4 sm:p-6 overflow-auto">
           <div className="space-y-4 sm:space-y-6">
             {/* Perfil */}
-              <Card>
-                <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <User className="h-4 w-4 sm:h-5 sm:w-5" />
-                    Informações do Perfil
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6 pt-0">
+            <Card>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <User className="h-4 w-4 sm:h-5 sm:w-5" />
+                  Informações do Perfil
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6 pt-0">
 
-                  <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
-                    <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" />
-                    <AvatarFallback className="text-base sm:text-lg bg-primary text-primary-foreground">
-                      {(user?.name || "N").slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
+                <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
+                  <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" />
+                  <AvatarFallback className="text-base sm:text-lg bg-primary text-primary-foreground">
+                    {(user?.name || "N").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
 
-                    <Button variant="outline" size="sm" onClick={handleButtonClick} className="h-8 text-xs sm:text-sm">
-                      Alterar Foto
-                    </Button>
-
-                    {/* BOTÃO REMOVER (Só aparece se tiver foto) */}
-                    {fotoPerfil && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
-                        onClick={handleRemoverFoto}
-                        title="Remover foto de perfil"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-
-                    <p className="text-[10px] sm:text-xs text-muted-foreground w-full sm:w-auto">
-                      JPG, PNG ou GIF. Máximo 2MB.
-                    </p>
-
-                    {/* Modal de preview */}
-                    {isPreviewOpen && previewUrl && (
-                      <ImagePreviewOverlay
-                        imageUrl={previewUrl}
-                        onCancel={handleCancelPreview}
-                        onConfirm={handleConfirmPreview}
-                      />
-                    )}
-                  </div>
-
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="nome">
-                        Nome Completo <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="nome"
-                        value={perfilNome}
-                        onChange={(e) => setPerfilNome(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">
-                        E-mail <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={perfilEmail}
-                        onChange={(e) => setPerfilEmail(e.target.value)}
-
-                        disabled={!isAdmin}
-                        className={!isAdmin ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
-                      // --------------------
-                      />
-                      {!isAdmin && (
-                        <p className="text-[10px] text-muted-foreground">
-                          Para alterar seu e-mail, contate um administrador.
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="telefone">Telefone</Label>
-                      <Input
-                        id="telefone"
-                        value={perfilTelefone}
-                        onChange={handleTelefoneChange}
-                        placeholder="(99) 99999-9999"
-                        maxLength={15}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cargo">Cargo</Label>
-                      <Input
-                        id="cargo"
-                        value={perfilCargo}
-                        onChange={e => setPerfilCargo(e.target.value)}
-                        disabled={!isAdmin}
-                        className={!isAdmin ? "bg-muted text-muted-foreground" : ""}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="assinatura">Assinatura de E-mail</Label>
-                    <Textarea
-                      id="assinatura"
-                      value={perfilAssinatura}
-                      onChange={e => setPerfilAssinatura(e.target.value)}
-                      placeholder="Sua assinatura..."
-                    />
-                  </div>
-                  <div className="flex justify-begin">
-                    <Button
-                      onClick={handleSalvarDados}
-                      disabled={!temAlteracoesPerfil}
-                      className="bg-gradient-primary hover:bg-primary-hover disabled:opacity-50"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Salvar Alterações
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Key className="h-5 w-5" />
-                    Alterar Senha
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="senhaAtual">Senha Atual</Label>
-                    <Input
-                      id="senhaAtual"
-                      type="password"
-                      value={senhaAtual}
-                      onChange={(e) => setSenhaAtual(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="novaSenha">Nova Senha</Label>
-                      <Input
-                        id="novaSenha"
-                        type="password"
-                        value={novaSenha}
-                        onChange={(e) => setNovaSenha(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
-                      <Input
-                        id="confirmarSenha"
-                        type="password"
-                        value={confirmarSenha}
-                        onChange={(e) => setConfirmarSenha(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    onClick={handleAlterarSenha}
-                    disabled={!podeSalvarSenha}
-                  >
-                    Alterar Senha
+                  <Button variant="outline" size="sm" onClick={handleButtonClick} className="h-8 text-xs sm:text-sm">
+                    Alterar Foto
                   </Button>
-                </CardContent>
-              </Card>
+
+                  {/* BOTÃO REMOVER (Só aparece se tiver foto) */}
+                  {fotoPerfil && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
+                      onClick={handleRemoverFoto}
+                      title="Remover foto de perfil"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+
+                  <p className="text-[10px] sm:text-xs text-muted-foreground w-full sm:w-auto">
+                    JPG, PNG ou GIF. Máximo 2MB.
+                  </p>
+
+                  {/* Modal de preview */}
+                  {isPreviewOpen && previewUrl && (
+                    <ImagePreviewOverlay
+                      imageUrl={previewUrl}
+                      onCancel={handleCancelPreview}
+                      onConfirm={handleConfirmPreview}
+                    />
+                  )}
+                </div>
+
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="nome">
+                      Nome Completo <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="nome"
+                      value={perfilNome}
+                      onChange={(e) => setPerfilNome(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">
+                      E-mail <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={perfilEmail}
+                      onChange={(e) => setPerfilEmail(e.target.value)}
+
+                      disabled={!isAdmin}
+                      className={!isAdmin ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
+                    // --------------------
+                    />
+                    {!isAdmin && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Para alterar seu e-mail, contate um administrador.
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="telefone">Telefone</Label>
+                    <Input
+                      id="telefone"
+                      value={perfilTelefone}
+                      onChange={handleTelefoneChange}
+                      placeholder="(99) 99999-9999"
+                      maxLength={15}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cargo">Cargo</Label>
+                    <Input
+                      id="cargo"
+                      value={perfilCargo}
+                      onChange={e => setPerfilCargo(e.target.value)}
+                      disabled={!isAdmin}
+                      className={!isAdmin ? "bg-muted text-muted-foreground" : ""}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="assinatura">Assinatura de E-mail</Label>
+                  <Textarea
+                    id="assinatura"
+                    value={perfilAssinatura}
+                    onChange={e => setPerfilAssinatura(e.target.value)}
+                    placeholder="Sua assinatura..."
+                  />
+                </div>
+                <div className="flex justify-begin">
+                  <Button
+                    onClick={handleSalvarDados}
+                    disabled={!temAlteracoesPerfil}
+                    className="bg-gradient-primary hover:bg-primary-hover disabled:opacity-50"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Salvar Alterações
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  Alterar Senha
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="senhaAtual">Senha Atual</Label>
+                  <Input
+                    id="senhaAtual"
+                    type="password"
+                    value={senhaAtual}
+                    onChange={(e) => setSenhaAtual(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="novaSenha">Nova Senha</Label>
+                    <Input
+                      id="novaSenha"
+                      type="password"
+                      value={novaSenha}
+                      onChange={(e) => setNovaSenha(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
+                    <Input
+                      id="confirmarSenha"
+                      type="password"
+                      value={confirmarSenha}
+                      onChange={(e) => setConfirmarSenha(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={handleAlterarSenha}
+                  disabled={!podeSalvarSenha}
+                >
+                  Alterar Senha
+                </Button>
+              </CardContent>
+            </Card>
 
             {/* Usuários */}
             {isAdmin && (
@@ -956,8 +956,8 @@ const Configuracoes = () => {
                           className="bg-gradient-primary hover:bg-primary-hover"
                           onClick={handleNovoUsuario}
                         >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Novo Usuário
+                          <Plus className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Novo Usuário</span>
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl">
@@ -1156,95 +1156,101 @@ const Configuracoes = () => {
 
                               return (
                                 <SortableStageRow key={stage.id} id={stage.id}>
+                                  <div className="grid grid-cols-[1fr_auto] items-center w-full gap-2 sm:gap-4 py-1 pr-1">
 
-                                  {/* GRUPO 1: LADO ESQUERDO (Cor + Nome) */}
-                                  {/* flex-1 aqui é crucial: ele diz "ocupe todo o espaço possível", empurrando o resto p/ direita */}
-                                  <div className="flex items-center gap-3 flex-1">
+                                    {/* LADO ESQUERDO: Cor + Nome */}
+                                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
 
-                                    {/* Cor */}
-                                    {isEditing ? (
-                                      <input
-                                        type="color"
-                                        className="h-8 w-8 rounded cursor-pointer border-none p-0 bg-transparent shrink-0"
-                                        value={editForm.cor || stage.cor}
-                                        onChange={(e) => setEditForm({ ...editForm, cor: e.target.value })}
-                                      />
-                                    ) : (
-                                      <div
-                                        className="w-6 h-6 rounded-full border border-gray-100 shadow-sm shrink-0"
-                                        style={{ backgroundColor: stage.cor }}
-                                      />
-                                    )}
-
-                                    {/* Nome */}
-                                    {isEditing ? (
-                                      <Input
-                                        value={editForm.nome !== undefined ? editForm.nome : stage.nome}
-                                        onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
-                                        className="max-w-[300px]"
-                                      // max-w limita o input, mas o pai (div flex-1) continua ocupando a linha toda
-                                      />
-                                    ) : (
-                                      <span className="font-medium text-foreground truncate cursor-default">{stage.nome}</span>
-                                    )}
-                                  </div>
-
-                                  {/* GRUPO 2: LADO DIREITO (SLA + Botões) */}
-                                  {/* ml-auto garante que este bloco fique sempre colado na direita */}
-                                  <div className="flex items-center gap-6 ml-auto pl-4">
-
-                                    {/* SLA */}
-                                    <div className="flex items-center gap-2 whitespace-nowrap">
-                                      <Label className="text-sm text-muted-foreground font-normal">SLA (h):</Label>
+                                      {/* Cor */}
                                       {isEditing ? (
-                                        <Input
-                                          type="number"
-                                          value={editForm.sla !== undefined ? editForm.sla : (stage.sla || 0)}
-                                          onChange={(e) => {
-                                            if (e.target.value.length <= 10) {
-                                              setEditForm({ ...editForm, sla: Number(e.target.value) })
-                                            }
-                                          }}
-                                          className="w-20 text-center h-8"
+                                        <input
+                                          type="color"
+                                          className="h-6 w-6 sm:h-8 sm:w-8 rounded cursor-pointer border-none p-0 bg-transparent shrink-0"
+                                          value={editForm.cor || stage.cor}
+                                          onChange={(e) => setEditForm({ ...editForm, cor: e.target.value })}
                                         />
                                       ) : (
-                                        <span className="text-sm font-mono bg-muted px-2 py-1 rounded w-20 text-center block cursor-default">
-                                          {stage.sla || 0}
+                                        <div
+                                          className="w-6 h-6 sm:w-6 sm:h-6 rounded-full border border-gray-100 shadow-sm shrink-0"
+                                          style={{ backgroundColor: stage.cor }}
+                                        />
+                                      )}
+
+                                      {/* Nome */}
+                                      {isEditing ? (
+                                        <Input
+                                          value={editForm.nome !== undefined ? editForm.nome : stage.nome}
+                                          onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
+                                          className="h-8 text-sm w-full min-w-0"
+                                          placeholder="Nome"
+                                        />
+                                      ) : (
+                                        <span
+                                          className="font-medium text-sm sm:text-base text-foreground truncate block w-full"
+                                          title={stage.nome}
+                                        >
+                                          {stage.nome}
                                         </span>
                                       )}
                                     </div>
 
-                                    {/* Botões de Ação */}
-                                    <div className="flex items-center gap-2">
-                                      {isEditing ? (
-                                        <Button size="sm" onClick={() => handleSalvarEdicaoEtapa(stage)} className="bg-green-600 hover:bg-green-700 h-8">
-                                          <Save className="h-4 w-4 mr-1" /> Salvar
-                                        </Button>
-                                      ) : (
-                                        <>
-                                          <Button variant="ghost" size="sm" onClick={() => {
-                                            setEditingStageId(stage.id);
-                                            setEditForm({ nome: stage.nome, sla: stage.sla, cor: stage.cor });
-                                          }}>
-                                            <Edit className="h-4 w-4 text-gray-500" />
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => {
-                                              setStageParaExcluir(stage);
-                                              setAlertExclusaoEtapaOpen(true);
+                                    {/* LADO DIREITO: SLA + Botões */}
+                                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+
+                                      {/* SLA */}
+                                      <div className="flex items-center gap-1.5 bg-muted/50 px-2 py-1 rounded-md border border-border/50 cursor-default">
+                                        <span className="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold">SLA:</span>
+
+                                        {isEditing ? (
+                                          <input
+                                            type="number"
+                                            value={editForm.sla !== undefined ? editForm.sla : (stage.sla || 0)}
+                                            onChange={(e) => {
+                                              if (e.target.value.length <= 5) {
+                                                setEditForm({ ...editForm, sla: Number(e.target.value) })
+                                              }
                                             }}
-                                          >
-                                            <Trash2 className="h-4 w-4" />
+                                            className="w-8 sm:w-12 text-center h-6 text-xs bg-transparent border-b border-muted-foreground/30 focus:outline-none focus:border-primary"
+                                          />
+                                        ) : (
+                                          <span className="text-xs sm:text-sm font-mono font-medium min-w-[1.5rem] text-center">
+                                            {stage.sla || 0}h
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Botões (Edit/Delete) */}
+                                      <div className="flex items-center">
+                                        {isEditing ? (
+                                          <Button size="sm" onClick={() => handleSalvarEdicaoEtapa(stage)} className="bg-green-600 hover:bg-green-700 h-7 w-7 sm:h-8 sm:w-auto sm:px-3 p-0 rounded-full sm:rounded-md">
+                                            <Save className="h-3.5 w-3.5 sm:mr-1" />
+                                            <span className="hidden sm:inline">Salvar</span>
                                           </Button>
-                                        </>
-                                      )}
+                                        ) : (
+                                          <>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => {
+                                              setEditingStageId(stage.id);
+                                              setEditForm({ nome: stage.nome, sla: stage.sla, cor: stage.cor });
+                                            }}>
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                              onClick={() => {
+                                                setStageParaExcluir(stage);
+                                                setAlertExclusaoEtapaOpen(true);
+                                              }}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+
                                     </div>
-
                                   </div>
-
                                 </SortableStageRow>
                               );
                             })}
@@ -1424,11 +1430,16 @@ const Configuracoes = () => {
 
       {/* --- MODAL DE CONFIRMAÇÃO: EXCLUIR ETAPA --- */}
       <AlertDialog open={alertExclusaoEtapaOpen} onOpenChange={setAlertExclusaoEtapaOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Etapa do Pipeline</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a etapa <strong>{stageParaExcluir?.nome}</strong>?
+              Tem certeza que deseja excluir a etapa:
+              <br />
+              <strong className="text-foreground break-all">
+                {stageParaExcluir?.nome}
+              </strong>
+              ?
               <br />
               <span className="text-red-500 font-bold">Atenção:</span> Se houver leads nesta etapa, a exclusão será bloqueada pelo sistema.
             </AlertDialogDescription>
