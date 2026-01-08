@@ -50,7 +50,7 @@ export function BottomNav() {
           {({ isActive }) => (
             <>
               <item.icon 
-                className={cn("h-5 w-5", isActive && "fill-current/20")} 
+                className={cn("h-6 w-6", isActive && "fill-current/20")} 
                 strokeWidth={isActive ? 2.5 : 2}
               />
               <span className="text-[9px] font-medium">{item.title}</span>
@@ -63,10 +63,13 @@ export function BottomNav() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex flex-col items-center justify-center gap-1 min-w-[3.5rem] h-full focus:outline-none">
-            <div className={cn("rounded-full border-2 p-0.5 transition-colors", isAdmin ? "border-blue-200" : "border-transparent")}>
+            <div className={cn(
+              "rounded-full border flex items-center justify-center transition-colors", 
+              isAdmin ? "border-blue-400" : "border-transparent"
+            )}>
               <Avatar className="h-6 w-6">
                 <AvatarImage src={user?.photoUrl} />
-                <AvatarFallback className="bg-primary text-[9px] text-primary-foreground">
+                <AvatarFallback className="bg-primary text-[8px] text-primary-foreground leading-none">
                   {(user?.name || "U").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
