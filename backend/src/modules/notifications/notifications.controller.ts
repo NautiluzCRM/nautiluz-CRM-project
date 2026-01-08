@@ -9,6 +9,8 @@ interface AuthRequest extends Request {
     sub: string;
     role: string;
   };
+  query: Request['query'];
+  params: Request['params'];
 }
 
 const notificationsService = new NotificationsService();
