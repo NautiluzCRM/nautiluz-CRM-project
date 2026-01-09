@@ -27,7 +27,7 @@ import {
 import { Coluna } from "@/types/crm";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, formatPhone } from "@/lib/utils";
 
 import {
   AlertDialog,
@@ -208,16 +208,6 @@ const Configuracoes = () => {
 
     setUsuarioEmEdicao(usuario);
     setIsModalOpen(true);
-  };
-
-  // Máscara de telefone específica para o Modal
-  const handleNovoTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    value = value.replace(/\D/g, "");
-    if (value.length > 11) value = value.slice(0, 11);
-    value = value.replace(/^(\d{2})(\d)/g, "($1) $2");
-    value = value.replace(/(\d)(\d{4})$/, "$1-$2");
-    setNovoTelefone(value);
   };
 
   const handleClickExcluir = () => {
@@ -721,26 +711,6 @@ const Configuracoes = () => {
     }
   };
 
-  // Função auxiliar para mascarar o telefone: (99) 99999-9999
-  const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-
-    // Remove tudo que não for número
-    value = value.replace(/\D/g, "");
-
-    // Limita a 11 números (DDD + 9 dígitos)
-    if (value.length > 11) {
-      value = value.slice(0, 11);
-    }
-
-    // Adiciona parênteses no DDD
-    value = value.replace(/^(\d{2})(\d)/g, "($1) $2");
-    // Adiciona o hífen (funciona para 8 ou 9 dígitos)
-    value = value.replace(/(\d)(\d{4})$/, "$1-$2");
-
-    setPerfilTelefone(value);
-  };
-
 
 
   return (
@@ -854,7 +824,7 @@ const Configuracoes = () => {
                     <Input
                       id="telefone"
                       value={perfilTelefone}
-                      onChange={handleTelefoneChange}
+                      onChange={(e) => setPerfilTelefone(formatPhone(e.target.value))}
                       placeholder="(99) 99999-9999"
                       maxLength={15}
                     />
@@ -1025,7 +995,7 @@ const Configuracoes = () => {
                               id="telefoneUsuario"
                               placeholder="(99) 99999-9999"
                               value={novoTelefone}
-                              onChange={handleNovoTelefoneChange}
+                              onChange={(e) => setNovoTelefone(formatPhone(e.target.value))}
                               maxLength={15}
                             />
                           </div>
@@ -1095,8 +1065,8 @@ const Configuracoes = () => {
                                   {usuario.perfil}
                                 </span>
                                 <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full border whitespace-nowrap ${usuario.ativo
-                                    ? 'bg-green-50 text-green-700 border-green-200'
-                                    : 'bg-gray-100 text-gray-500 border-gray-200'
+                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                  : 'bg-gray-100 text-gray-500 border-gray-200'
                                   }`}>
                                   {usuario.ativo ? 'Ativo' : 'Inativo'}
                                 </span>

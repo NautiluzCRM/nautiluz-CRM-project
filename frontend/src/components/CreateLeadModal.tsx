@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { createLeadApi, fetchPipelines, fetchStages, fetchUsers } from "@/lib/api";
 import { Lead } from "@/types/crm"; 
 import { Loader2, CheckCircle2, X, Plus, User, Users, ArrowRight, ArrowLeft, Check } from "lucide-react";
-import { Progress } from "@/components/ui/progress"; 
+import { Progress } from "@/components/ui/progress";
+import { formatPhone } from "@/lib/utils";
 
 const FAIXAS_ETARIAS = [
   "0 a 18", "19 a 23", "24 a 28", "29 a 33", "34 a 38",
@@ -310,7 +311,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
               </div>
               <div className="col-span-6 md:col-span-4 space-y-2">
                 <Label htmlFor="celular">Celular *</Label>
-                <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", e.target.value)} placeholder="(11) 99999-9999" />
+                <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", formatPhone(e.target.value))} placeholder="(11) 99999-9999" />
               </div>
               <div className="col-span-6 md:col-span-4 space-y-2">
                 <Label htmlFor="email">Email</Label>
