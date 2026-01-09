@@ -5,7 +5,7 @@ import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
 import mongoose from 'mongoose';
-import { ActivityService } from '../../services/activity.service.js'; // Import resolvido
+import { ActivityService } from '../../services/activity.service.js';
 import { UserModel } from '../users/user.model.js';
 
 // Interfaces
@@ -158,19 +158,10 @@ export async function createLead(input: any, user?: UserAuth) {
       { new: true }
     );
 
-    // LOG: Atividade no Modelo Antigo (Compatibilidade)
-    await ActivityModel.create({
-      leadId: existingLead._id,
-      type: 'Atualização',
-      descricao: 'Lead atualizado via nova submissão (Dados antigos movidos para obs)',
-      usuario: user?.sub || 'Sistema',
-      data: new Date()
-    });
-
     // LOG: Atividade no Novo Service (Padronização)
     await ActivityService.createActivity({
       leadId: existingLead._id.toString(),
-      tipo: 'lead_atualizado', // ou 're-conversao' se tiver esse tipo
+      tipo: 'lead_atualizado',
       descricao: `Lead re-convertido (Duplicidade detectada). Histórico salvo.`,
       userId: user?.sub || 'sistema',
       userName: user?.sub ? 'Usuário' : 'Sistema'
@@ -239,17 +230,6 @@ export async function createLead(input: any, user?: UserAuth) {
     userId: userId,
     userName: userName
   });
-
-  /*
-  // LOG: Modelo Antigo (Compatibilidade)
-  await ActivityModel.create({ 
-    leadId: lead._id, 
-    type: 'Sistema',        
-    descricao: 'Lead criado no sistema', 
-    usuario: userId,
-    data: input.createdAt || new Date()
-  });
-  */
 
   return lead;
 }
@@ -336,18 +316,6 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     userName: userName
   });
   
-  /*
-  // 5. Modelo Antigo (Compatibilidade)
-  await ActivityModel.create({ 
-    leadId: lead!._id, 
-    type: 'Alteração', 
-    descricao: 'Dados do lead atualizados', 
-    payload: input, 
-    usuario: userId,
-    data: new Date()
-  });
-  */
-  
   return lead;
 }
 
@@ -360,7 +328,7 @@ export async function deleteLead(id: string, user?: UserAuth) {
      const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
      
      if (!isOwner) {
-        throw new AppError('Você não tem permissão para excluir este lead.', StatusCodes.FORBIDDEN);
+       throw new AppError('Você não tem permissão para excluir este lead.', StatusCodes.FORBIDDEN);
      }
   }
 
