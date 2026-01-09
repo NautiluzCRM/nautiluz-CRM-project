@@ -5,10 +5,10 @@ import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
 import mongoose from 'mongoose';
-import { ActivityService } from '../../services/activity.service.js';
+import { ActivityService } from '../../services/activity.service.js'; // Import resolvido
 import { UserModel } from '../users/user.model.js';
 
-// Interfaces novas vindas da develop (mantenha isso)
+// Interfaces
 interface UserAuth {
   sub: string;
   role: string;
@@ -29,12 +29,10 @@ interface LeadFilter {
 export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
   const query: any = {};
 
-  // --- 1. REGRA DE SEGURANÇA (Sua Lógica + Estrutura Nova) ---
-  // Se tem usuário e ele NÃO é admin, forçamos o filtro para ver apenas os dele.
+  // --- 1. REGRA DE SEGURANÇA ---
   if (user && user.role !== 'admin') {
     query.owners = user.sub;
   } 
-  // Se for admin e escolheu filtrar por alguém específico, usamos o filtro.
   else if (filter.owners) {
     query.owners = filter.owners;
   }
@@ -43,7 +41,6 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
   if (filter.search || filter.name) {
     const searchTerm = filter.search || filter.name;
     const regex = { $regex: searchTerm, $options: 'i' };
-    // Procura em Nome, Email ou Telefone ao mesmo tempo
     query.$or = [
       { name: regex },
       { email: regex },
@@ -51,7 +48,7 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
     ];
   }
 
-  // --- 3. FILTROS NOVOS (Vindos da Develop) ---
+  // --- 3. FILTROS ---
   if (filter.qualificationStatus && filter.qualificationStatus !== 'all') {
     query.qualificationStatus = filter.qualificationStatus;
   }
@@ -68,7 +65,7 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
     }
     if (filter.endDate) {
       const endDate = new Date(filter.endDate);
-      endDate.setDate(endDate.getDate() + 1); // Ajuste para incluir o dia final
+      endDate.setDate(endDate.getDate() + 1); 
       query.createdAt.$lte = endDate;
     }
   }
@@ -87,14 +84,110 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
     .populate('owner', 'name email');
 }
 
-// ... resto das funções ...
 export function getLead(id: string) {
   return LeadModel.findById(id)
     .populate('owners', 'name email')
     .populate('owner', 'name email');
 }
 
+// Lógica de Distribuição (Fila)
+async function findNextResponsible(lives: number, hasCnpj: boolean) {
+  const cnpjFilter = hasCnpj 
+    ? { $in: ['required', 'both'] } 
+    : { $in: ['forbidden', 'both'] };
+
+  const bestSeller = await UserModel.findOne({
+    active: true,                       
+    'distribution.active': true,        
+    'distribution.minLives': { $lte: lives }, 
+    'distribution.maxLives': { $gte: lives }, 
+    'distribution.cnpjRule': cnpjFilter       
+  })
+  .sort({ 'distribution.lastLeadReceivedAt': 1 }) 
+  .select('_id name distribution');
+
+  if (bestSeller) {
+    await UserModel.updateOne(
+      { _id: bestSeller._id },
+      { $set: { 'distribution.lastLeadReceivedAt': new Date() } }
+    );
+    return bestSeller._id.toString();
+  }
+
+  return null; 
+}
+
 export async function createLead(input: any, user?: UserAuth) {
+
+  // ===========================================================================
+  // 1. VERIFICAÇÃO DE DUPLICIDADE (Lógica de Upsert/Histórico)
+  // ===========================================================================
+  const existingLead = await LeadModel.findOne({
+    $or: [
+      { email: input.email }, 
+      { phone: input.phone }
+    ]
+  });
+
+  if (existingLead) {
+    // --- ATUALIZAÇÃO DE LEAD EXISTENTE ---
+    
+    const historico = `
+    \n[NOVA ENTRADA VIA WEBHOOK/SISTEMA - ${new Date().toLocaleString('pt-BR')}]
+    \nDados anteriores antes da substituição:
+    \n- Nome: ${existingLead.name}
+    \n- Telefone: ${existingLead.phone}
+    \n- Email: ${existingLead.email || 'Não informado'}
+    \n- Investimento: ${existingLead.avgPrice || '0'}
+    \n- Vidas: ${existingLead.livesCount || '0'}
+    \n ---------------------------------------------------
+    `;
+
+    const novasObservacoes = existingLead.notes 
+      ? existingLead.notes + "\n" + historico 
+      : historico;
+
+    const updatedLead = await LeadModel.findByIdAndUpdate(
+      existingLead._id,
+      {
+        ...input,
+        notes: novasObservacoes,
+        lastActivity: new Date(),
+        updatedBy: user?.sub || 'Sistema'
+      },
+      { new: true }
+    );
+
+    // LOG: Atividade no Modelo Antigo (Compatibilidade)
+    await ActivityModel.create({
+      leadId: existingLead._id,
+      type: 'Atualização',
+      descricao: 'Lead atualizado via nova submissão (Dados antigos movidos para obs)',
+      usuario: user?.sub || 'Sistema',
+      data: new Date()
+    });
+
+    // LOG: Atividade no Novo Service (Padronização)
+    await ActivityService.createActivity({
+      leadId: existingLead._id.toString(),
+      tipo: 'lead_atualizado', // ou 're-conversao' se tiver esse tipo
+      descricao: `Lead re-convertido (Duplicidade detectada). Histórico salvo.`,
+      userId: user?.sub || 'sistema',
+      userName: user?.sub ? 'Usuário' : 'Sistema'
+    });
+
+    console.log(`Lead atualizado (Duplicado): ${updatedLead?.name}`);
+    return updatedLead;
+  }
+
+  // ===========================================================================
+  // 2. CRIAÇÃO DE NOVO LEAD
+  // ===========================================================================
+
+  if (input.cnpjType === '') {
+    delete input.cnpjType;
+  }
+  
   const pipeline = await PipelineModel.findById(input.pipelineId);
   if (!pipeline) throw new AppError('Pipeline inválido', StatusCodes.BAD_REQUEST);
   
@@ -102,41 +195,57 @@ export async function createLead(input: any, user?: UserAuth) {
   if (!stage) throw new AppError('Stage inválido', StatusCodes.BAD_REQUEST);
 
   const rank = input.rank || '0|hzzzzz:';
-  const userId = user?.sub;
+  
+  // --- DISTRIBUIÇÃO ---
+  let ownerId = user?.sub; 
+
+  if (!ownerId && input.livesCount) {
+    const distributedOwner = await findNextResponsible(
+      input.livesCount, 
+      input.hasCnpj || false 
+    );
+    
+    if (distributedOwner) {
+      ownerId = distributedOwner;
+    } else {
+      console.warn(`[DISTRIBUIÇÃO] Nenhum vendedor encontrado para ${input.livesCount} vidas.`);
+    }
+  }
 
   let ownersList = input.owners;
   if (!ownersList || ownersList.length === 0) {
-    ownersList = userId ? [userId] : [];
+    ownersList = ownerId ? [ownerId] : [];
   }
 
   const lead = await LeadModel.create({ 
     ...input, 
     owners: ownersList,
     rank, 
-    createdBy: userId,
+    createdBy: user?.sub, 
     active: true,
     createdAt: input.createdAt || new Date(),
     lastActivity: input.createdAt || new Date()
   });
 
-  // Usar o novo ActivityService
-  const userDoc = userId ? await UserModel.findById(userId) : null;
+  // LOG: Novo ActivityService
+  const userId = user?.sub || 'sistema';
+  const userDoc = user?.sub ? await UserModel.findById(user.sub) : null;
   const userName = userDoc?.name || 'Sistema';
   
   await ActivityService.createActivity({
     leadId: lead._id.toString(),
     tipo: 'lead_criado',
     descricao: `Lead criado por ${userName}`,
-    userId: userId || 'sistema',
+    userId: userId,
     userName: userName
   });
 
-  // Mantém a atividade antiga para compatibilidade
+  // LOG: Modelo Antigo (Compatibilidade)
   await ActivityModel.create({ 
     leadId: lead._id, 
     type: 'Sistema',        
     descricao: 'Lead criado no sistema', 
-    usuario: userId || 'Sistema',
+    usuario: userId,
     data: input.createdAt || new Date()
   });
 
@@ -164,12 +273,12 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     .populate('owners', 'name email')
     .populate('owner', 'name email');
   
-  // Detectar mudanças importantes e logar atividades específicas
+  // --- LOG DE ATIVIDADES INTELIGENTE ---
+  const userId = user?.sub || 'sistema';
   const userDoc = user?.sub ? await UserModel.findById(user.sub) : null;
   const userName = userDoc?.name || 'Sistema';
-  const userId = user?.sub || 'sistema';
 
-  // Mudança de stage (mover lead no pipeline)
+  // 1. Mudança de stage
   if (input.stageId && input.stageId !== existingLead.stageId?.toString()) {
     const oldStage = await StageModel.findById(existingLead.stageId);
     const newStage = await StageModel.findById(input.stageId);
@@ -187,7 +296,7 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     });
   }
 
-  // Mudança de responsáveis
+  // 2. Mudança de responsáveis
   const oldOwners = existingLead.owners?.map((o: any) => o.toString()).sort() || [];
   const newOwners = input.owners?.map((o: any) => o.toString()).sort() || [];
   
@@ -201,7 +310,7 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     });
   }
 
-  // Mudança de status de qualificação
+  // 3. Mudança de status de qualificação
   if (input.qualificationStatus && input.qualificationStatus !== existingLead.qualificationStatus) {
     await ActivityService.createActivity({
       leadId: id,
@@ -216,7 +325,7 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     });
   }
 
-  // Atividade genérica de atualização
+  // 4. Atividade genérica
   await ActivityService.createActivity({
     leadId: id,
     tipo: 'lead_atualizado',
@@ -225,13 +334,13 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     userName: userName
   });
   
-  // Mantém a atividade antiga para compatibilidade
+  // 5. Modelo Antigo (Compatibilidade)
   await ActivityModel.create({ 
     leadId: lead!._id, 
     type: 'Alteração', 
     descricao: 'Dados do lead atualizados', 
     payload: input, 
-    usuario: user?.sub || 'Sistema',
+    usuario: userId,
     data: new Date()
   });
   
