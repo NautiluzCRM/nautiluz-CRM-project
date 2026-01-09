@@ -167,7 +167,13 @@ const Configuracoes = () => {
   const carregarUsuarios = async () => {
     try {
       const dados = await fetchUsers();
-      setUsuarios(dados);
+      
+      // Ordena alfabeticamente pelo nome
+      const usuariosOrdenados = [...dados].sort((a, b) => 
+        (a.nome || "").localeCompare(b.nome || "")
+      );
+      
+      setUsuarios(usuariosOrdenados);
     } catch (error) {
       console.error("Erro ao carregar usuários:", error);
     }
