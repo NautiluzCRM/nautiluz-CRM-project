@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { updateLeadApi, fetchUsers } from "@/lib/api";
 import { Lead } from "@/types/crm"; 
-import { Loader2, CheckCircle2, X, Plus, User, Users, Phone, Mail, MapPin, Building, FileText, Shield } from "lucide-react";
+import { Loader2, CheckCircle2, X, Plus, User, Users, Phone, Mail, MapPin, Building, FileText, Shield, Map } from "lucide-react";
 
 const FAIXAS_ETARIAS = [
   "0 a 18", "19 a 23", "24 a 28", "29 a 33", "34 a 38",
@@ -252,16 +252,16 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
                 <Input id="dataCriacao" type="date" value={formData.dataCriacao} onChange={(e) => handleChange("dataCriacao", e.target.value)} />
               </div>
               
-              <div className="col-span-6 md:col-span-4 space-y-2">
+              <div className="col-span-12 md:col-span-4 space-y-2">
                 <Label htmlFor="celular" className="flex items-center gap-1"><Phone className="h-3 w-3" /> Celular *</Label>
                 <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", e.target.value)} placeholder="(11) 99999-9999" />
               </div>
-              <div className="col-span-6 md:col-span-4 space-y-2">
+              <div className="col-span-12 md:col-span-4 space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label>
                 <Input id="email" type="email" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="email@exemplo.com" />
               </div>
               <div className="col-span-12 md:col-span-4 space-y-2">
-                <Label htmlFor="origem">Origem</Label>
+                <Label htmlFor="origem" className="flex gap-1">Origem</Label>
                 <Select value={formData.origem} onValueChange={(val) => handleChange("origem", val)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -282,7 +282,7 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
                 <Input id="cidade" value={formData.cidade} onChange={(e) => handleChange("cidade", e.target.value)} placeholder="Ex: São Paulo" />
               </div>
               <div className="col-span-4 md:col-span-2 space-y-2">
-                <Label htmlFor="uf">UF *</Label>
+                <Label htmlFor="uf" className="flex gap-1">UF *</Label>
                 <Select value={formData.uf} onValueChange={(val) => handleChange("uf", val)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{UFS.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}</SelectContent>
