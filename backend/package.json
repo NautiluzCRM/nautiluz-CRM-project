@@ -28,6 +28,7 @@
     "@types/pdfkit": "^0.17.4",
     "@types/uuid": "^9.0.7",
     "argon2": "^0.40.1",
+    "bcrypt": "^6.0.0",
     "bullmq": "^5.7.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -51,6 +52,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "eslint": "^8.57.1",
     "eslint-config-standard-with-typescript": "^40.0.0",
     "eslint-plugin-import": "^2.29.1",

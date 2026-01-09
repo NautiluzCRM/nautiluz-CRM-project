@@ -255,7 +255,7 @@ export function AppSidebar() {
               onClick={logout}
               variant="outline"
               size="icon"
-              className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-300"
+              className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 border-none"
               title="Sair"
             >
               <LogOut className="h-4 w-4" />

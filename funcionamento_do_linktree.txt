@@ -1,0 +1,97 @@
+# GUIA DE INTEGRAÇÃO E TESTES - NAUTILUZ CRM (LEAD ADS)
+=========================================================
+
+Este documento descreve o fluxo completo para testar a captura de leads via Facebook/Instagram,
+passando pelo Make.com e chegando no Backend Local através do Ngrok.
+
+
+1. PRÉ-REQUISITOS (ANTES DE COMEÇAR)
+---------------------------------------------------------
+Para o teste funcionar, você precisa ter 3 terminais ou janelas abertas.
+IMPORTANTE: Rode o comando "nvm use 20" para garantir a versão correta do Node.
+
+[TERMINAL 1] Backend Rodando:
+   $ cd backend
+   $ nvm use 20
+   $ npm run dev
+   (Deve aparecer: "Server running on port 3000")
+
+[TERMINAL 2] Frontend Rodando (Para verificar o Kanban):
+   $ cd frontend
+   $ nvm use 20
+   $ npm run dev
+
+[TERMINAL 3] Túnel Ngrok (Para expor seu PC):
+   $ ngrok http 3000
+
+---------------------------------------------------------
+2. CONFIGURAÇÃO DO AMBIENTE (PASSO A PASSO)
+---------------------------------------------------------
+
+PASSO A: Pegar o Link do Ngrok
+1. No Terminal 3, copie o link que aparece em "Forwarding".
+   Exemplo: https://a1b2-c3d4.ngrok-free.app (O link muda toda vez que reinicia).
+
+PASSO B: Configurar o Make.com (O Carteiro)
+1. Acesse seu cenário no Make.
+2. Abra o módulo "HTTP Request".
+3. No campo URL, cole o link do Ngrok e adicione o caminho do webhook:
+   -> URL Final: https://SEU-LINK-NGROK.ngrok-free.app/webhooks/leads
+
+---------------------------------------------------------
+3. EXECUTANDO O TESTE (SIMULAÇÃO VIA FERRAMENTA DE TESTE)
+---------------------------------------------------------
+Como ainda estamos ajustando a permissão da Página Real, usamos a ferramenta de Teste da Meta:
+
+1. Acesse: https://developers.facebook.com/tools/lead-ads-testing
+2. Selecione a Página vinculada e o Formulário de Teste.
+3. Clique em "Preview form".
+
+TESTE 1: LEADS PEQUENOS (Júnior)
+- Preencha "Vidas" com: 1 ou 2.
+- Envie. -> Deve cair na coluna "Novo" do Vendedor JÚNIOR.
+
+TESTE 2: LEADS GRANDES (Sênior)
+- Delete o cadastro anterior na ferramenta.
+- Preencha "Vidas" com: 5 ou 10.
+- Envie. -> Deve cair na coluna "Novo" do Vendedor SÊNIOR.
+
+---------------------------------------------------------
+4. VERIFICAÇÃO DE SUCESSO
+---------------------------------------------------------
+1. A bolinha do Make ficará VERDE.
+2. O Terminal do Backend mostrará o log: "Webhook recebido do Make...".
+3. O Card aparecerá no Kanban do vendedor correto.
+
+---------------------------------------------------------
+5. CONFIGURAÇÃO IDEAL (COM FORMULÁRIO REAL VINCULADO)
+---------------------------------------------------------
+Esta etapa descreve como o sistema deve ficar quando as permissões de página 
+do Facebook estiverem 100% resolvidas.
+
+1. No Make, Módulo "Facebook Lead Ads":
+   - Connection: Sua conta pessoal (Admin da Página).
+   - Page: Selecionar "Nautiluz Corretora" (aparecerá na lista).
+   - Form: Selecionar o formulário criado (ex: "Cotação - V1").
+
+2. No Make, Módulo "HTTP Request" (Mapeamento Visual):
+   Ao conectar o formulário real, o Make reconhece os nomes das perguntas.
+   Você não precisa adivinhar os códigos. O JSON ficará assim:
+
+   {
+     "nome": "{{1.full_name}}",   <-- Você seleciona a bolinha roxa 'Full Name'
+     "email": "{{1.email}}",       <-- Seleciona a bolinha 'Email'
+     "telefone": "{{1.phone_number}}", <-- Seleciona 'Phone Number'
+     "origem": "Instagram Ads",
+     "quantidadeVidas": "{{1.q1_para_quantas_pessoas}}" <-- O Make mostra o texto da pergunta!
+   }
+
+   VANTAGEM: Isso garante que se você mudar a pergunta no Facebook, o Make avisa,
+   evitando erros de digitação nos campos.
+
+---------------------------------------------------------
+IMPORTANTE: TROCA DE URL
+---------------------------------------------------------
+Sempre que reiniciar o Ngrok:
+1. Copie o NOVO link.
+2. Vá no Make -> HTTP Request e ATUALIZE a URL.

@@ -53,4 +53,8 @@ router.use('/exports', exportRoutes);
 router.use('/integrations/meta', metaRoutes);
 router.post('/webhooks/leads', webhookHandler);
 
+// Facebook Webhooks
+//router.get('/webhooks/facebook', verifyWebhook);
+router.post('/webhooks/facebook', webhookHandler);
+
 export default router;
