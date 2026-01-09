@@ -1,9 +1,10 @@
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { KanbanCard } from "./KanbanCard";
 import { Lead, Coluna } from "@/types/crm";
 import { Badge } from "@/components/ui/badge";
 import { Clock, AlertCircle } from "lucide-react";
+import { useMemo } from "react";
 
 interface KanbanColumnProps {
   coluna: Coluna;
@@ -13,6 +14,8 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: KanbanColumnProps) {
+  const { over } = useDndContext();
+
   const { setNodeRef, isOver } = useDroppable({
     id: coluna.id,
     data: {
@@ -21,9 +24,16 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
     },
   });
 
+  const isActive = useMemo(() => {
+    if (isOver) return true;
+    if (!over) return false;
+    return leads.some(lead => lead.id === over.id);
+  }, [isOver, over, leads]);
+
   const leadsVencidos = leads.filter(lead => {
     if (!coluna.sla) return false;
-    const horasPassadas = (Date.now() - lead.ultimaAtividade.getTime()) / (1000 * 60 * 60);
+    const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
+    const horasPassadas = (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60);
     return horasPassadas > coluna.sla;
   });
 
@@ -34,7 +44,8 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
       ref={setNodeRef}
       className={`
         flex flex-col w-72 sm:w-80 rounded-lg shrink-0
-        ${isOver ? 'bg-kanban-preview border-2 border-primary border-dashed' : 'bg-kanban-column'}
+        /* Aqui usamos 'isActive' em vez de apenas 'isOver' */
+        ${isActive ? 'bg-muted/50 border-2 border-primary/20 border-dashed' : 'bg-secondary/30 border-2 border-transparent'}
         transition-colors duration-200
       `}
       style={{ height: '100%', maxHeight: '100%' }}
@@ -54,7 +65,7 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
           </Badge>
         </div>
         
-        {/* Indicadores de SLA e WIP */}
+        {/* Indicadores */}
         <div className="flex gap-2">
           {coluna.sla && leadsVencidos.length > 0 && (
             <Badge variant="destructive" className="text-xs flex items-center gap-1">
@@ -71,7 +82,7 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
           )}
           
           {isWipExceeded && (
-            <Badge variant="warning" className="text-xs">
+            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200">
               WIP Excedido ({leads.length}/{coluna.wipLimit})
             </Badge>
           )}
@@ -82,9 +93,10 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
       <div className="flex-1 p-4 space-y-3 overflow-y-scroll min-h-0 scrollbar-thin">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => {
-            const isVencido = coluna.sla && 
-              (Date.now() - lead.ultimaAtividade.getTime()) / (1000 * 60 * 60) > coluna.sla;
-            
+             const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
+             const isVencido = coluna.sla && 
+               (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60) > coluna.sla;
+
             return (
               <KanbanCard
                 key={lead.id}
