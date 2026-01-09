@@ -240,6 +240,7 @@ export async function createLead(input: any, user?: UserAuth) {
     userName: userName
   });
 
+  /*
   // LOG: Modelo Antigo (Compatibilidade)
   await ActivityModel.create({ 
     leadId: lead._id, 
@@ -248,6 +249,7 @@ export async function createLead(input: any, user?: UserAuth) {
     usuario: userId,
     data: input.createdAt || new Date()
   });
+  */
 
   return lead;
 }
@@ -334,6 +336,7 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     userName: userName
   });
   
+  /*
   // 5. Modelo Antigo (Compatibilidade)
   await ActivityModel.create({ 
     leadId: lead!._id, 
@@ -343,6 +346,7 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     usuario: userId,
     data: new Date()
   });
+  */
   
   return lead;
 }
@@ -363,18 +367,17 @@ export async function deleteLead(id: string, user?: UserAuth) {
   return LeadModel.findByIdAndDelete(id);
 }
 
-export async function addActivity(leadId: string, type: string, payload: any, userId?: string) {
+export async function addActivity(leadId: string, tipo: string, payload: any, userId?: string) {
   const lead = await LeadModel.findById(leadId);
   if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
   
   const descricao = payload.description || payload.descricao || 'Nova atividade registrada';
 
-  return ActivityModel.create({ 
-    leadId, 
-    type,       
-    descricao,  
-    payload, 
-    usuario: userId || 'Sistema',
-    data: new Date()
+  return ActivityService.createActivity({
+    leadId,
+    tipo: 'observacao_adicionada',
+    descricao: payload.description || payload.descricao || 'Nova atividade',
+    userId: userId || 'sistema',
+    userName: 'Sistema'
   });
 }
