@@ -235,6 +235,14 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     label: FAIXAS_LABELS[index],
     count: count
   })).filter(item => item.count > 0);
+  
+  const ownersList = (leadData.owners || []) as any[];
+  
+  const sortedOwners = [...ownersList].sort((a, b) => 
+    (a.nome || "").localeCompare(b.nome || "")
+  );
+
+  const tituloResponsavel = sortedOwners.length > 1 ? "Responsáveis" : "Responsável";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -556,11 +564,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
             <div className="space-y-3">
               <h3 className="text-base font-semibold flex items-center gap-2">
                 <Activity className="h-4 w-4" />
-                Responsável
+                {tituloResponsavel}
               </h3>
-              {leadData.owners && leadData.owners.length > 0 ? (
+              
+              {sortedOwners.length > 0 ? (
                 <div className="space-y-2">
-                  {leadData.owners.map((owner: any) => (
+                  {sortedOwners.map((owner: any) => (
                     <div key={owner.id} className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                       <Avatar className="h-9 w-9 border-2">
                         <AvatarImage src="" alt={owner.nome} />

@@ -75,7 +75,16 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       if (!isOpen) return;
       try {
         const users = await fetchUsers();
-        setAvailableUsers(users.filter((u: any) => u.ativo)); 
+        
+        // Filtra apenas os ativos
+        const activeUsers = users.filter((u: any) => u.ativo);
+
+        // Ordena alfabeticamente pelo nome
+        activeUsers.sort((a: any, b: any) => 
+          (a.nome || "").localeCompare(b.nome || "")
+        );
+
+        setAvailableUsers(activeUsers); 
       } catch (err) {
         console.error("Erro ao buscar usuários", err);
         toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar a lista de vendedores." });

@@ -70,7 +70,16 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
       if (!isOpen) return;
       try {
         const users = await fetchUsers();
-        setAvailableUsers(users.filter((u: any) => u.ativo)); 
+        
+        // Filtra apenas os ativos
+        const activeUsers = users.filter((u: any) => u.ativo);
+
+        // Ordena alfabeticamente pelo nome
+        activeUsers.sort((a: any, b: any) => 
+          (a.nome || "").localeCompare(b.nome || "")
+        );
+
+        setAvailableUsers(activeUsers); 
       } catch (err) {
         console.error("Erro ao buscar usuários", err);
       }
