@@ -11,7 +11,6 @@ import {
   Mail, 
   Building, 
   Users, 
-  Calendar,
   MessageCircle,
   AlertCircle,
   Clock,
@@ -29,11 +28,10 @@ interface KanbanCardProps {
 export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false, isOverdue = false }: KanbanCardProps) {
   const { user } = useAuth();
   
-  // Verifica se o usuário pode arrastar o card
   const currentUserId = user?.id || (user as any)?._id;
   const isVendedor = user?.role === 'vendedor';
   const isOwner = (lead.ownersIds || []).some(id => id === currentUserId);
-  const canDrag = !isVendedor || isOwner; // Admin e outros perfis podem arrastar tudo
+  const canDrag = !isVendedor || isOwner; 
 
   const {
     attributes,
@@ -41,19 +39,23 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
     setNodeRef,
     transform,
     transition,
+    isDragging: isSortableDragging
   } = useSortable({
     id: lead.id,
     data: {
       type: 'lead',
       lead,
     },
-    disabled: !canDrag, // Desabilita o drag se não pode arrastar
+    disabled: !canDrag,
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
+
+  // Combina se está sendo arrastado "agora" ou se é o "clone"
+  const isBeingDragged = isSortableDragging || isDragging;
 
   const getOrigemColor = (origem: string) => {
     const colors = {
@@ -75,8 +77,9 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
     return colors[status as keyof typeof colors] || colors['Incompleto'];
   };
 
+  const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
   const diasSemAtividade = Math.floor(
-    (Date.now() - lead.ultimaAtividade.getTime()) / (1000 * 60 * 60 * 24)
+    (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60 * 24)
   );
 
   return (
@@ -85,13 +88,17 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
       style={style}
       {...attributes}
       {...(canDrag ? listeners : {})}
-      onClick={() => onLeadClick?.(lead)}
+      onClick={() => {
+        if (!isBeingDragged) onLeadClick?.(lead);
+      }}
       className={`
-        ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} 
-        shadow-kanban-card hover:shadow-lg
-        transition-all duration-200 border-l-4 border-l-primary
-        ${isDragging ? 'opacity-50 rotate-2 scale-105' : ''}
-        ${isOverdue ? 'border-l-destructive bg-destructive/5' : ''}
+        transition-all duration-200 border-l-4
+        ${canDrag ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'cursor-pointer'}
+        ${isBeingDragged 
+            ? 'opacity-30 ring-2 ring-primary ring-offset-2 z-50 bg-background/80 pointer-events-none'
+            : 'shadow-sm opacity-100'
+        }
+        ${isOverdue ? 'border-l-destructive bg-destructive/5' : 'border-l-primary'}
         ${!canDrag && isVendedor ? 'opacity-75' : ''}
       `}
     >
@@ -104,7 +111,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
             </h4>
             <div className="flex items-center gap-1 ml-2 flex-shrink-0">
               {!canDrag && isVendedor && (
-                <Lock className="h-3 w-3 text-muted-foreground" title="Lead de outro vendedor" />
+                <Lock className="h-3 w-3 text-muted-foreground" />
               )}
               {isOverdue && (
                 <AlertCircle className="h-4 w-4 text-destructive" />
@@ -127,7 +134,8 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
           >
             {lead.origem}
           </Badge>
-          <Badge 
+          <Badge
+            variant="outline"
             className={`text-xs ${getStatusColor(lead.statusQualificacao)}`}
           >
             {lead.statusQualificacao}
@@ -199,7 +207,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
             <Avatar className="h-6 w-6">
               <AvatarImage src="" alt={lead.responsavel} />
               <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                {lead.responsavel.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                {(lead.responsavel || "U").split(' ').map(n => n[0]).join('').substring(0, 2)}
               </AvatarFallback>
             </Avatar>
           </div>
