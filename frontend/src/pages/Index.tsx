@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { Layout } from "@/components/Layout";
 import { KanbanBoard } from "@/components/kanban/KanbanBoard";
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
+import { EditLeadModal } from "@/components/EditLeadModal";
 import { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, Download, Search } from "lucide-react";
+import { Plus, Filter, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { fetchPipelineData, moveLeadApi, updateLeadApi } from "@/lib/api";
+import { fetchPipelineData, moveLeadApi, updateLeadApi, deleteLeadApi } from "@/lib/api";
 import { CreateLeadModal } from "@/components/CreateLeadModal";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,7 +23,8 @@ const Index = () => {
   
   // Estado para o Modal de Criação/Edição
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null); // NOVO: Controla quem está sendo editado
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -112,14 +113,13 @@ const Index = () => {
 
   // NOVO: Função chamada ao clicar no botão "Editar" dentro do Modal de Detalhes
   const handleEditStart = (lead: Lead) => {
-    setLeadToEdit(lead);      // Define qual lead será editado
-    setIsModalOpen(false);    // Fecha o modal de visualização
-    setIsCreateModalOpen(true); // Abre o formulário
+    setLeadToEdit(lead);      // Define o lead a editar
+    setIsModalOpen(false);    // Fecha o modal de detalhes
+    setIsEditModalOpen(true); // Abre o modal de edição
   };
 
   // NOVO: Função chamada ao clicar no botão "Novo Lead"
   const handleNewLead = () => {
-    setLeadToEdit(null);      // Garante que o formulário venha vazio
     setIsCreateModalOpen(true);
   };
 
@@ -136,7 +136,7 @@ const Index = () => {
   ) || 0;
 
   return (
-    <Layout>
+    <>
       <div className="flex flex-col h-full">
         {isLoading && (
           <div className="p-4 sm:p-6 text-xs sm:text-sm text-muted-foreground">Carregando pipeline...</div>
@@ -175,7 +175,7 @@ const Index = () => {
               </div>
               <Button variant="outline" size="sm" className="h-9 sm:h-10 px-3 shrink-0">
                 <Filter className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Filtros</span>
+                <span className="hidden sm:inline">Filtrar</span>
               </Button>
             </div>
 
@@ -191,10 +191,6 @@ const Index = () => {
                   })}
                 </Badge>
               </div>
-              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs shrink-0">
-                <Download className="h-3.5 w-3.5 sm:mr-2" />
-                <span className="hidden sm:inline">Exportar</span>
-              </Button>
             </div>
           </div>
         </div>
@@ -221,20 +217,48 @@ const Index = () => {
         lead={selectedLead}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onEdit={handleEditStart} 
-      />
-
-      {/* Modal de Criação/Edição - Agora recebe leadToEdit */}
-      <CreateLeadModal 
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        leadToEdit={leadToEdit} 
-        onSuccess={() => {
-          loadPipeline(); // Recarrega os dados após criar ou editar
+        onEdit={handleEditStart}
+        onDelete={async (leadId: string) => {
+          await deleteLeadApi(leadId);
+          toast({ title: "Excluído!", description: "Lead removido com sucesso." });
+          loadPipeline();
         }}
       />
 
-    </Layout>
+      {/* Modal de Criação de Novo Lead */}
+      <CreateLeadModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => {
+          loadPipeline(); // Recarrega os dados após criar
+        }}
+      />
+
+      {/* Modal de Edição de Lead */}
+      <EditLeadModal 
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setLeadToEdit(null);
+        }}
+        onCancel={() => {
+          // Volta para o modal de detalhes
+          if (leadToEdit) {
+            setSelectedLead(leadToEdit);
+          }
+          setIsEditModalOpen(false);
+          setLeadToEdit(null);
+          setIsModalOpen(true);
+        }}
+        onSuccess={() => {
+          loadPipeline(); // Recarrega os dados após editar
+          setIsEditModalOpen(false);
+          setLeadToEdit(null);
+        }}
+        leadToEdit={leadToEdit}
+      />
+
+    </>
   );
 };
 

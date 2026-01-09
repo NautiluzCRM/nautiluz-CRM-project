@@ -4,7 +4,8 @@ import {
   deleteUserHandler,
   getUserHandler,
   listUsersHandler,
-  updateUserHandler
+  updateUserHandler,
+  getSellersStatsHandler
 } from './user.controller.js';
 import { authenticate } from '../../rbac/rbac.middleware.js';
 import { requireRole } from '../../rbac/rbac.guard.js';
@@ -12,6 +13,9 @@ import { requireRole } from '../../rbac/rbac.guard.js';
 const router = Router();
 
 router.use(authenticate);
+
+// Estatísticas de vendedores - APENAS ADMIN
+router.get('/sellers/stats', requireRole(['admin']), getSellersStatsHandler);
 
 // Listagem liberada para popular selects/dropdowns
 router.get('/', listUsersHandler);

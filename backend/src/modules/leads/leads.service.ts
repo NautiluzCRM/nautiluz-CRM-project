@@ -5,6 +5,7 @@ import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
 import mongoose from 'mongoose';
+import { ActivityService } from '../../services/activity.service.js'; // Import resolvido
 import { UserModel } from '../users/user.model.js';
 
 // Interfaces
@@ -116,11 +117,11 @@ async function findNextResponsible(lives: number, hasCnpj: boolean) {
   return null; 
 }
 
-// --- AQUI ESTÁ A ALTERAÇÃO PRINCIPAL ---
 export async function createLead(input: any, user?: UserAuth) {
 
+  // ===========================================================================
   // 1. VERIFICAÇÃO DE DUPLICIDADE (Lógica de Upsert/Histórico)
-  // Verifica se já existe lead com este email OU telefone
+  // ===========================================================================
   const existingLead = await LeadModel.findOne({
     $or: [
       { email: input.email }, 
@@ -129,9 +130,8 @@ export async function createLead(input: any, user?: UserAuth) {
   });
 
   if (existingLead) {
-    // --- LÓGICA DE ATUALIZAÇÃO (SE JÁ EXISTIR) ---
+    // --- ATUALIZAÇÃO DE LEAD EXISTENTE ---
     
-    // Cria o texto do histórico
     const historico = `
     \n[NOVA ENTRADA VIA WEBHOOK/SISTEMA - ${new Date().toLocaleString('pt-BR')}]
     \nDados anteriores antes da substituição:
@@ -143,24 +143,22 @@ export async function createLead(input: any, user?: UserAuth) {
     \n ---------------------------------------------------
     `;
 
-    // Concatena nas observações existentes
     const novasObservacoes = existingLead.notes 
       ? existingLead.notes + "\n" + historico 
       : historico;
 
-    // Atualiza o lead com os dados novos e salva o histórico
     const updatedLead = await LeadModel.findByIdAndUpdate(
       existingLead._id,
       {
-        ...input, // Substitui os dados pelos novos
-        notes: novasObservacoes, // Mantém histórico
+        ...input,
+        notes: novasObservacoes,
         lastActivity: new Date(),
         updatedBy: user?.sub || 'Sistema'
       },
-      { new: true } // Retorna o lead atualizado
+      { new: true }
     );
 
-    // Registra na timeline que houve uma atualização automática
+    // LOG: Atividade no Modelo Antigo (Compatibilidade)
     await ActivityModel.create({
       leadId: existingLead._id,
       type: 'Atualização',
@@ -169,11 +167,22 @@ export async function createLead(input: any, user?: UserAuth) {
       data: new Date()
     });
 
+    // LOG: Atividade no Novo Service (Padronização)
+    await ActivityService.createActivity({
+      leadId: existingLead._id.toString(),
+      tipo: 'lead_atualizado', // ou 're-conversao' se tiver esse tipo
+      descricao: `Lead re-convertido (Duplicidade detectada). Histórico salvo.`,
+      userId: user?.sub || 'sistema',
+      userName: user?.sub ? 'Usuário' : 'Sistema'
+    });
+
     console.log(`Lead atualizado (Duplicado): ${updatedLead?.name}`);
     return updatedLead;
   }
 
-  // --- LÓGICA DE CRIAÇÃO (SE NÃO EXISTIR) - Código original abaixo ---
+  // ===========================================================================
+  // 2. CRIAÇÃO DE NOVO LEAD
+  // ===========================================================================
 
   if (input.cnpjType === '') {
     delete input.cnpjType;
@@ -218,11 +227,25 @@ export async function createLead(input: any, user?: UserAuth) {
     lastActivity: input.createdAt || new Date()
   });
 
+  // LOG: Novo ActivityService
+  const userId = user?.sub || 'sistema';
+  const userDoc = user?.sub ? await UserModel.findById(user.sub) : null;
+  const userName = userDoc?.name || 'Sistema';
+  
+  await ActivityService.createActivity({
+    leadId: lead._id.toString(),
+    tipo: 'lead_criado',
+    descricao: `Lead criado por ${userName}`,
+    userId: userId,
+    userName: userName
+  });
+
+  // LOG: Modelo Antigo (Compatibilidade)
   await ActivityModel.create({ 
     leadId: lead._id, 
     type: 'Sistema',        
     descricao: 'Lead criado no sistema', 
-    usuario: user?.sub || 'Sistema',
+    usuario: userId,
     data: input.createdAt || new Date()
   });
 
@@ -250,12 +273,74 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     .populate('owners', 'name email')
     .populate('owner', 'name email');
   
+  // --- LOG DE ATIVIDADES INTELIGENTE ---
+  const userId = user?.sub || 'sistema';
+  const userDoc = user?.sub ? await UserModel.findById(user.sub) : null;
+  const userName = userDoc?.name || 'Sistema';
+
+  // 1. Mudança de stage
+  if (input.stageId && input.stageId !== existingLead.stageId?.toString()) {
+    const oldStage = await StageModel.findById(existingLead.stageId);
+    const newStage = await StageModel.findById(input.stageId);
+    
+    await ActivityService.createActivity({
+      leadId: id,
+      tipo: 'lead_movido',
+      descricao: `${userName} moveu o lead de "${oldStage?.name || 'N/A'}" para "${newStage?.name || 'N/A'}"`,
+      userId: userId,
+      userName: userName,
+      metadata: {
+        from: oldStage?.name || 'N/A',
+        to: newStage?.name || 'N/A'
+      }
+    });
+  }
+
+  // 2. Mudança de responsáveis
+  const oldOwners = existingLead.owners?.map((o: any) => o.toString()).sort() || [];
+  const newOwners = input.owners?.map((o: any) => o.toString()).sort() || [];
+  
+  if (input.owners && JSON.stringify(oldOwners) !== JSON.stringify(newOwners)) {
+    await ActivityService.createActivity({
+      leadId: id,
+      tipo: 'responsavel_alterado',
+      descricao: `${userName} alterou os responsáveis pelo lead`,
+      userId: userId,
+      userName: userName
+    });
+  }
+
+  // 3. Mudança de status de qualificação
+  if (input.qualificationStatus && input.qualificationStatus !== existingLead.qualificationStatus) {
+    await ActivityService.createActivity({
+      leadId: id,
+      tipo: 'status_alterado',
+      descricao: `${userName} alterou o status de qualificação para "${input.qualificationStatus}"`,
+      userId: userId,
+      userName: userName,
+      metadata: {
+        from: existingLead.qualificationStatus || 'N/A',
+        to: input.qualificationStatus
+      }
+    });
+  }
+
+  // 4. Atividade genérica
+  await ActivityService.createActivity({
+    leadId: id,
+    tipo: 'lead_atualizado',
+    descricao: `${userName} atualizou os dados do lead`,
+    userId: userId,
+    userName: userName
+  });
+  
+  // 5. Modelo Antigo (Compatibilidade)
   await ActivityModel.create({ 
     leadId: lead!._id, 
     type: 'Alteração', 
     descricao: 'Dados do lead atualizados', 
     payload: input, 
-    usuario: user?.sub || 'Sistema',
+    usuario: userId,
     data: new Date()
   });
   
