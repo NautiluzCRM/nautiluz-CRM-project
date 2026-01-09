@@ -627,7 +627,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                     <div key={atividade._id} className="p-3 bg-muted/30 border rounded-lg text-sm">
                       <div className="flex items-center justify-between mb-1">
                         <Badge variant="outline" className="text-xs">
-                          {atividade.tipo.replace(/_/g, ' ')}
+                          {(atividade.tipo || '').replace(/_/g, ' ')}                        
                         </Badge>
                         <span className="text-xs text-muted-foreground">
                           {new Date(atividade.createdAt).toLocaleDateString('pt-BR', { 
