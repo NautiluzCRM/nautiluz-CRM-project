@@ -27,6 +27,7 @@
     "@types/node": "^22.5.3",
     "@types/uuid": "^9.0.7",
     "argon2": "^0.40.1",
+    "bcrypt": "^6.0.0",
     "bullmq": "^5.7.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -49,6 +50,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.3",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
