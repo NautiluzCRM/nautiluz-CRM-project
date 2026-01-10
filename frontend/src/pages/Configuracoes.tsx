@@ -22,11 +22,13 @@ import {
   updateStageApi,
   deleteStageApi,
   reorderStagesApi,
-  mapApiStageToColuna
+  mapApiStageToColuna,
+  updateUserPreferencesApi
 } from "@/lib/api";
 import { Coluna } from "@/types/crm";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/hooks/use-theme";
 import { cn, formatPhone } from "@/lib/utils";
 
 import {
@@ -88,10 +90,12 @@ const convertFileToBase64 = (file: File): Promise<string> => {
 const Configuracoes = () => {
   const { toast } = useToast();
   const { user, updateUserLocal } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const isAdmin = user?.role === 'admin';
 
   const [notificacaoEmail, setNotificacaoEmail] = useState(true);
   const [notificacaoSMS, setNotificacaoSMS] = useState(false);
+  const [notificacaoSLA, setNotificacaoSLA] = useState(true);
   const [modoEscuro, setModoEscuro] = useState(false);
   const [autoSave, setAutoSave] = useState(true);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -137,6 +141,27 @@ const Configuracoes = () => {
       setPerfilTelefone((user as any).phone || "");
       setPerfilCargo((user as any).jobTitle || "");
       setPerfilAssinatura((user as any).emailSignature || "");
+      
+      // Carregar preferências de notificação
+      if ((user as any).notificationPreferences) {
+        setNotificacaoEmail((user as any).notificationPreferences.email ?? true);
+        setNotificacaoSMS((user as any).notificationPreferences.sms ?? false);
+        setNotificacaoSLA((user as any).notificationPreferences.sla ?? true);
+      }
+      
+      // Carregar preferências do sistema
+      if ((user as any).preferences) {
+        const darkMode = (user as any).preferences.darkMode ?? false;
+        setModoEscuro(darkMode);
+        setAutoSave((user as any).preferences.autoSave ?? true);
+        
+        // Sincronizar o tema com a preferência do usuário
+        if (darkMode && theme === 'light') {
+          toggleTheme();
+        } else if (!darkMode && theme === 'dark') {
+          toggleTheme();
+        }
+      }
     }
   }, [user]);
 
@@ -717,6 +742,94 @@ const Configuracoes = () => {
     }
   };
 
+  // Função para salvar preferências de notificação
+  const handleSalvarNotificacoes = async () => {
+    const userId = user?.id || (user as any)?._id;
+    if (!userId) return;
+
+    try {
+      const updatedUser = await updateUserPreferencesApi(userId, {
+        notificationPreferences: {
+          email: notificacaoEmail,
+          sms: notificacaoSMS,
+          sla: notificacaoSLA
+        }
+      });
+
+      updateUserLocal(updatedUser);
+
+      toast({
+        title: "Preferências Salvas",
+        description: "Suas preferências de notificação foram atualizadas."
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível salvar as preferências."
+      });
+    }
+  };
+
+  // Função para alterar modo escuro
+  const handleToggleModoEscuro = async (checked: boolean) => {
+    const userId = user?.id || (user as any)?._id;
+    if (!userId) return;
+
+    setModoEscuro(checked);
+    toggleTheme(); // Altera o tema imediatamente
+
+    try {
+      const updatedUser = await updateUserPreferencesApi(userId, {
+        preferences: {
+          darkMode: checked,
+          autoSave
+        }
+      });
+
+      updateUserLocal(updatedUser);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível salvar a preferência de tema."
+      });
+    }
+  };
+
+  // Função para alterar auto-save
+  const handleToggleAutoSave = async (checked: boolean) => {
+    const userId = user?.id || (user as any)?._id;
+    if (!userId) return;
+
+    setAutoSave(checked);
+
+    try {
+      const updatedUser = await updateUserPreferencesApi(userId, {
+        preferences: {
+          darkMode: modoEscuro,
+          autoSave: checked
+        }
+      });
+
+      updateUserLocal(updatedUser);
+
+      toast({
+        title: "Preferência Salva",
+        description: `Auto-salvar ${checked ? 'ativado' : 'desativado'}.`
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível salvar a preferência."
+      });
+    }
+  };
+
 
 
   return (
@@ -1071,7 +1184,7 @@ const Configuracoes = () => {
                                   {usuario.perfil}
                                 </span>
                                 <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full border whitespace-nowrap ${usuario.ativo
-                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                  ? 'bg-success/10 text-success border-success/20 dark:bg-success/5'
                                   : 'bg-gray-100 text-gray-500 border-gray-200'
                                   }`}>
                                   {usuario.ativo ? 'Ativo' : 'Inativo'}
@@ -1094,7 +1207,7 @@ const Configuracoes = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={cn("h-8 w-8", usuario.ativo ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-green-600 hover:text-green-700 hover:bg-green-50")}
+                              className={cn("h-8 w-8", usuario.ativo ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-green-600 hover:text-green-700 hover:bg-success/10 dark:hover:bg-success/5")}
                               onClick={() => handleClickStatus(usuario)}
                               title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
                             >
@@ -1296,8 +1409,34 @@ const Configuracoes = () => {
                           </p>
                         </div>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={notificacaoSLA}
+                        onCheckedChange={setNotificacaoSLA}
+                      />
                     </div>
+
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Smartphone className="h-5 w-5 text-primary" />
+                        <div>
+                          <h4 className="font-medium">Notificações por SMS</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Receber alertas importantes via mensagem de texto
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={notificacaoSMS}
+                        onCheckedChange={setNotificacaoSMS}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <Button onClick={handleSalvarNotificacoes}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar Preferências
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1326,7 +1465,7 @@ const Configuracoes = () => {
                       </div>
                       <Switch
                         checked={modoEscuro}
-                        onCheckedChange={setModoEscuro}
+                        onCheckedChange={handleToggleModoEscuro}
                       />
                     </div>
 
@@ -1342,7 +1481,7 @@ const Configuracoes = () => {
                       </div>
                       <Switch
                         checked={autoSave}
-                        onCheckedChange={setAutoSave}
+                        onCheckedChange={handleToggleAutoSave}
                       />
                     </div>
                   </div>

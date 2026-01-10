@@ -337,7 +337,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                 <Button 
                   size="sm" 
                   variant="outline"
-                  className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-green-50" 
+                  className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-success/10 dark:hover:bg-success/5" 
                   onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} 
                   disabled={!lead.celular}
                 >
@@ -410,7 +410,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
               {/* Card Grande: Logo + Plano + Valor */}
               <div className="border rounded-lg p-4 bg-muted/30 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-20 w-28 rounded border bg-white flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="h-20 w-28 rounded border bg-card flex items-center justify-center overflow-hidden shrink-0">
                     {operadoraInfo ? (
                       <img 
                         src={operadoraInfo.src} 

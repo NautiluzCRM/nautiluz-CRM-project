@@ -51,13 +51,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="border-r border-gray-200 bg-white"
+      className="border-r border-sidebar-border bg-sidebar"
       collapsible="icon"
     >
       {/* Header */}
       <div 
         className={cn(
-          "flex items-center border-b border-gray-200",
+          "flex items-center border-b border-sidebar-border",
           isCollapsed ? "justify-center p-3" : "justify-between px-4 py-3"
         )}
       >
@@ -75,10 +75,10 @@ export function AppSidebar() {
           
           {!isCollapsed && (
             <div>
-              <h2 className="text-sm font-bold text-gray-900 tracking-tight">
+              <h2 className="text-sm font-bold text-sidebar-foreground tracking-tight">
                 NAUTILUZ
               </h2>
-              <p className="text-[10px] text-gray-500">
+              <p className="text-[10px] text-sidebar-foreground/70">
                 CRM de Leads
               </p>
             </div>
@@ -89,7 +89,7 @@ export function AppSidebar() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-8 w-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            className="h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
             onClick={() => isMobile ? setOpenMobile(false) : toggleSidebar()}
           >
             {isMobile ? <X className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -99,11 +99,11 @@ export function AppSidebar() {
       
       {/* Expand button when collapsed */}
       {isCollapsed && !isMobile && (
-        <div className="flex justify-center py-2 border-b border-gray-200">
+        <div className="flex justify-center py-2 border-b border-sidebar-border">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-8 w-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            className="h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
             onClick={toggleSidebar}
           >
             <ChevronRight className="h-4 w-4" />
@@ -111,11 +111,11 @@ export function AppSidebar() {
         </div>
       )}
 
-      <SidebarContent className="py-4 bg-white">
+      <SidebarContent className="py-4 bg-sidebar">
         {/* Navegação */}
         <div className={cn("mb-6", isCollapsed ? "px-0" : "px-3")}>
           {!isCollapsed && (
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
+            <p className="text-[10px] font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2 px-3">
               Navegação
             </p>
           )}
@@ -132,8 +132,8 @@ export function AppSidebar() {
                       ? "w-10 h-10 justify-center mx-auto" 
                       : "gap-3 px-3 py-2.5",
                     isActive
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-blue-600"
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-primary"
                   )
                 }
                 title={isCollapsed ? item.title : undefined}
@@ -148,14 +148,14 @@ export function AppSidebar() {
         </div>
 
         {/* Separador */}
-        <div className={cn("h-px bg-gray-200", isCollapsed ? "mx-1" : "mx-4")} />
+        <div className={cn("h-px bg-sidebar-border", isCollapsed ? "mx-1" : "mx-4")} />
 
         {/* Admin Only */}
         {isAdmin && (
           <>
             <div className={cn("mt-6", isCollapsed ? "px-0" : "px-3")}>
               {!isCollapsed && (
-                <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2 px-3">
+                <p className="text-[10px] font-semibold text-sidebar-primary uppercase tracking-wider mb-2 px-3">
                   Administração
                 </p>
               )}
@@ -172,8 +172,8 @@ export function AppSidebar() {
                           ? "w-10 h-10 justify-center mx-auto" 
                           : "gap-3 px-3 py-2.5",
                         isActive
-                          ? "bg-blue-600 text-white shadow-md"
-                          : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-primary"
                       )
                     }
                     title={isCollapsed ? item.title : undefined}
@@ -188,14 +188,14 @@ export function AppSidebar() {
             </div>
 
             {/* Separador */}
-            <div className={cn("h-px bg-gray-200 mt-6", isCollapsed ? "mx-1" : "mx-4")} />
+            <div className={cn("h-px bg-sidebar-border mt-6", isCollapsed ? "mx-1" : "mx-4")} />
           </>
         )}
 
         {/* Gestão */}
         <div className={cn("mt-6", isCollapsed ? "px-0" : "px-3")}>
           {!isCollapsed && (
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
+            <p className="text-[10px] font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2 px-3">
               Gestão
             </p>
           )}
@@ -212,8 +212,8 @@ export function AppSidebar() {
                       ? "w-10 h-10 justify-center mx-auto" 
                       : "gap-3 px-3 py-2.5",
                     isActive
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-blue-600"
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-primary"
                   )
                 }
                 title={isCollapsed ? item.title : undefined}
@@ -229,21 +229,21 @@ export function AppSidebar() {
       </SidebarContent>
       
       {/* Footer com botão de logout */}
-      <div className="mt-auto py-4 px-4 border-t border-gray-200 bg-white">
+      <div className="mt-auto py-4 px-4 border-t border-sidebar-border bg-sidebar">
         {!isCollapsed && (
           <>
             <div className="flex justify-center mb-3">
               <Button
                 onClick={logout}
                 variant="outline"
-                className="w-full justify-center text-red-500 hover:text-red-600 hover:bg-red-50 border-red-300"
+                className="w-full justify-center text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
                 size="default"
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Sair
               </Button>
             </div>
-            <p className="text-[10px] text-center text-gray-400">
+            <p className="text-[10px] text-center text-sidebar-foreground/60">
               © 2026 Nautiluz CRM
             </p>
           </>
@@ -255,7 +255,7 @@ export function AppSidebar() {
               onClick={logout}
               variant="outline"
               size="icon"
-              className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 border-none"
+              className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10 border-none"
               title="Sair"
             >
               <LogOut className="h-4 w-4" />

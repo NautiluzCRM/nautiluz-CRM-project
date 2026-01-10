@@ -318,7 +318,11 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
 }
 
 export async function fetchPipelineData(): Promise<Pipeline> {
-  const [pipelines, leads] = await Promise.all([fetchPipelines(), fetchLeads()]);
+  const [pipelines, leads, users] = await Promise.all([
+    fetchPipelines(), 
+    fetchLeads(),
+    fetchUsers()
+  ]);
   const pipeline = pipelines[0];
 
   if (!pipeline) {
@@ -327,6 +331,7 @@ export async function fetchPipelineData(): Promise<Pipeline> {
       nome: 'Pipeline não configurado',
       colunas: [],
       leads: [],
+      owners: [],
     };
   }
 
@@ -337,6 +342,7 @@ export async function fetchPipelineData(): Promise<Pipeline> {
     nome: pipeline.name,
     colunas: stages.map(mapApiStageToColuna),
     leads: leads.map(mapApiLeadToLead),
+    owners: users.filter(u => u.ativo).map(u => ({ _id: u.id, nome: u.nome })),
   };
 }
 
@@ -456,6 +462,23 @@ export async function updateUserApi(id: string, dados: {
   return request(`/users/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function updateUserPreferencesApi(id: string, preferences: {
+  notificationPreferences?: {
+    email?: boolean;
+    sla?: boolean;
+    sms?: boolean;
+  };
+  preferences?: {
+    darkMode?: boolean;
+    autoSave?: boolean;
+  };
+}) {
+  return request(`/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(preferences),
   });
 }
 

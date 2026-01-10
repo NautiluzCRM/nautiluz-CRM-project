@@ -93,4 +93,5 @@ export interface Pipeline {
   nome: string;
   colunas: Coluna[];
   leads: Lead[];
+  owners?: Array<{ _id: string; nome: string }>;
 }

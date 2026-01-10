@@ -97,8 +97,8 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
         email: leadToEdit.email || "",
         celular: leadToEdit.celular || "",
         origem: leadToEdit.origem || "Indicação",
-        quantidadeVidas: leadToEdit.quantidadeVidas || 1,
-        valorMedio: leadToEdit.valorMedio || 0,
+        quantidadeVidas: leadToEdit.quantidadeVidas ?? 1,
+        valorMedio: leadToEdit.valorMedio ?? 0,
         possuiCnpj: leadToEdit.possuiCnpj || false,
         tipoCnpj: leadToEdit.tipoCnpj || "",
         possuiPlano: leadToEdit.possuiPlano || false,
@@ -175,7 +175,16 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
   };
 
   const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Converte para número se for campo de quantidade de vidas ou valor
+    if (field === "quantidadeVidas") {
+      const numValue = value === "" ? 0 : parseInt(value, 10) || 0;
+      setFormData(prev => ({ ...prev, [field]: numValue }));
+    } else if (field === "valorMedio") {
+      const numValue = value === "" ? 0 : parseFloat(value) || 0;
+      setFormData(prev => ({ ...prev, [field]: numValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const toggleOwner = (userId: string) => {

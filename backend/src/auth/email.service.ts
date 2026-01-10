@@ -8,21 +8,40 @@ interface SendPasswordResetEmailParams {
   to: string;
   userName: string;
   resetLink: string;
+  isNewUser?: boolean;
 }
 
-export async function sendPasswordResetEmail({ to, userName, resetLink }: SendPasswordResetEmailParams) {
+export async function sendPasswordResetEmail({ to, userName, resetLink, isNewUser = false }: SendPasswordResetEmailParams) {
+  const subject = isNewUser 
+    ? 'Bem-vindo ao Nautiluz CRM - Defina sua senha' 
+    : 'Recuperação de Senha - Nautiluz CRM';
+  
+  const greeting = isNewUser
+    ? 'Bem-vindo(a) ao Nautiluz CRM!'
+    : `Olá, ${userName}!`;
+  
+  const message = isNewUser
+    ? 'Sua conta foi criada com sucesso! Para começar a usar o sistema, você precisa definir uma senha.'
+    : 'Recebemos uma solicitação para redefinir a senha da sua conta no Nautiluz CRM.';
+  
+  const buttonText = isNewUser
+    ? 'Definir Minha Senha'
+    : 'Redefinir Senha';
+  
+  const expirationTime = isNewUser ? '24 horas' : '1 hora';
+  
   try {
     const { data, error } = await resend.emails.send({
       from: env.RESEND_FROM_EMAIL,
       to: [to],
-      subject: 'Recuperação de Senha - Nautiluz CRM',
+      subject,
       html: `
         <!DOCTYPE html>
         <html lang="pt-BR">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Recuperação de Senha</title>
+          <title>${subject}</title>
         </head>
         <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f5;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
@@ -39,13 +58,13 @@ export async function sendPasswordResetEmail({ to, userName, resetLink }: SendPa
             <tr>
               <td style="padding: 40px 30px;">
                 <h2 style="color: #1e293b; margin: 0 0 20px; font-size: 24px;">
-                  Olá, ${userName}!
+                  ${greeting}
                 </h2>
                 <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-                  Recebemos uma solicitação para redefinir a senha da sua conta no Nautiluz CRM.
+                  ${message}
                 </p>
                 <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 30px;">
-                  Clique no botão abaixo para criar uma nova senha:
+                  Clique no botão abaixo para ${isNewUser ? 'definir' : 'criar'} uma nova senha:
                 </p>
                 
                 <!-- Button -->
@@ -53,20 +72,22 @@ export async function sendPasswordResetEmail({ to, userName, resetLink }: SendPa
                   <tr>
                     <td style="border-radius: 8px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
                       <a href="${resetLink}" target="_blank" style="display: inline-block; padding: 16px 40px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600;">
-                        Redefinir Senha
+                        ${buttonText}
                       </a>
                     </td>
                   </tr>
                 </table>
                 
                 <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 30px 0 0; text-align: center;">
-                  Este link expira em <strong>1 hora</strong>.
+                  Este link expira em <strong>${expirationTime}</strong>.
                 </p>
                 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
                 
                 <p style="color: #94a3b8; font-size: 13px; line-height: 1.6; margin: 0;">
-                  Se você não solicitou a redefinição de senha, ignore este email. Sua conta permanecerá segura.
+                  ${isNewUser 
+                    ? 'Se você não esperava receber este email, entre em contato com o administrador do sistema.' 
+                    : 'Se você não solicitou a redefinição de senha, ignore este email. Sua conta permanecerá segura.'}
                 </p>
                 
                 <p style="color: #94a3b8; font-size: 12px; line-height: 1.6; margin: 20px 0 0;">

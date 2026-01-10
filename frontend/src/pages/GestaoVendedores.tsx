@@ -4,9 +4,21 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Users, 
   TrendingUp, 
@@ -29,9 +41,13 @@ import {
   Zap,
   Star,
   Clock,
-  Award
+  Award,
+  Plus,
+  Edit,
+  Trash2,
+  UserPlus
 } from "lucide-react";
-import { fetchSellersStats } from "@/lib/api";
+import { fetchSellersStats, createUserApi, updateUserApi, deleteUserApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Navigate } from "react-router-dom";
@@ -83,6 +99,19 @@ const GestaoVendedores = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
 
+  // Estado do modal de CRUD
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVendedor, setEditingVendedor] = useState<VendedorStats | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [vendedorToDelete, setVendedorToDelete] = useState<VendedorStats | null>(null);
+  
+  // Campos do formulário
+  const [formNome, setFormNome] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formTelefone, setFormTelefone] = useState("");
+  const [formCargo, setFormCargo] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
   const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
@@ -106,6 +135,108 @@ const GestaoVendedores = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Abre modal para criar vendedor
+  const handleNovoVendedor = () => {
+    setEditingVendedor(null);
+    setFormNome("");
+    setFormEmail("");
+    setFormTelefone("");
+    setFormCargo("");
+    setIsModalOpen(true);
+  };
+
+  // Abre modal para editar vendedor
+  const handleEditarVendedor = (vendedor: VendedorStats) => {
+    setEditingVendedor(vendedor);
+    setFormNome(vendedor.nome);
+    setFormEmail(vendedor.email);
+    setFormTelefone(""); // Não temos telefone nas stats, precisaria buscar dados completos
+    setFormCargo("");
+    setIsModalOpen(true);
+  };
+
+  // Salva vendedor (criar ou editar)
+  const handleSalvarVendedor = async () => {
+    if (!formNome.trim() || !formEmail.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Dados Incompletos",
+        description: "Nome e E-mail são obrigatórios."
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (editingVendedor) {
+        // Editar vendedor existente
+        await updateUserApi(editingVendedor.id, {
+          nome: formNome,
+          email: formEmail,
+          telefone: formTelefone,
+          cargo: formCargo
+        });
+
+        toast({
+          title: "Vendedor Atualizado",
+          description: "As alterações foram salvas com sucesso."
+        });
+      } else {
+        // Criar novo vendedor
+        await createUserApi({
+          nome: formNome,
+          email: formEmail,
+          senha: "senha123", // Senha temporária que será alterada pelo usuário
+          perfil: "vendedor",
+          telefone: formTelefone,
+          cargo: formCargo
+        });
+
+        toast({
+          title: "Vendedor Criado",
+          description: "Um email de definição de senha foi enviado para o vendedor."
+        });
+      }
+
+      setIsModalOpen(false);
+      loadData(); // Recarrega os dados
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Não foi possível salvar o vendedor."
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Confirma exclusão
+  const handleConfirmarExclusao = async () => {
+    if (!vendedorToDelete) return;
+
+    try {
+      await deleteUserApi(vendedorToDelete.id);
+
+      toast({
+        title: "Vendedor Excluído",
+        description: `O vendedor ${vendedorToDelete.nome} foi removido.`
+      });
+
+      setIsDeleting(false);
+      setVendedorToDelete(null);
+      loadData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível excluir o vendedor."
+      });
     }
   };
 
@@ -150,14 +281,20 @@ const GestaoVendedores = () => {
             </p>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar vendedor..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar vendedor..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button onClick={handleNovoVendedor} className="shrink-0">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Novo Vendedor
+            </Button>
           </div>
         </div>
       </div>
@@ -166,63 +303,63 @@ const GestaoVendedores = () => {
       <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-6">
         {/* Cards de Métricas */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200">
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 dark:from-primary/10 dark:to-primary/5 dark:border-primary/30">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-blue-600 font-medium">Vendedores</p>
-                  <p className="text-2xl font-bold text-blue-700">{totalVendedores}</p>
-                  <p className="text-xs text-blue-500">{vendedoresAtivos} ativos</p>
+                  <p className="text-xs text-primary font-medium">Vendedores</p>
+                  <p className="text-2xl font-bold text-primary dark:text-foreground">{totalVendedores}</p>
+                  <p className="text-xs text-primary/80 dark:text-foreground/80">{vendedoresAtivos} ativos</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-blue-600" />
+                <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-primary" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200">
+          <Card className="bg-gradient-to-br from-success/5 to-success/10 border-success/20 dark:from-success/10 dark:to-success/5 dark:border-success/30">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-green-600 font-medium">Total Leads</p>
-                  <p className="text-2xl font-bold text-green-700">{totalLeadsEquipe}</p>
-                  <p className="text-xs text-green-500">na equipe</p>
+                  <p className="text-xs text-success font-medium">Total Leads</p>
+                  <p className="text-2xl font-bold text-success dark:text-foreground">{totalLeadsEquipe}</p>
+                  <p className="text-xs text-success/80 dark:text-foreground/80">na equipe</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <Target className="h-5 w-5 text-green-600" />
+                <div className="h-10 w-10 rounded-full bg-success/20 flex items-center justify-center">
+                  <Target className="h-5 w-5 text-success" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200">
+          <Card className="bg-gradient-to-br from-accent/5 to-accent/10 border-accent/20 dark:from-accent/10 dark:to-accent/5 dark:border-accent/30">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-purple-600 font-medium">Valor Pipeline</p>
-                  <p className="text-xl font-bold text-purple-700">
+                  <p className="text-xs text-accent-foreground font-medium">Valor Pipeline</p>
+                  <p className="text-xl font-bold text-accent-foreground dark:text-foreground">
                     {valorTotalEquipe.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                   </p>
-                  <p className="text-xs text-purple-500">total</p>
+                  <p className="text-xs text-accent-foreground/80 dark:text-foreground/80">total</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-purple-600" />
+                <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-accent-foreground" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100/50 border-orange-200">
+          <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20 dark:from-warning/10 dark:to-warning/5 dark:border-warning/30">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-orange-600 font-medium">Taxa Conversão</p>
-                  <p className="text-2xl font-bold text-orange-700">{mediaConversao.toFixed(1)}%</p>
-                  <p className="text-xs text-orange-500">média geral</p>
+                  <p className="text-xs text-warning font-medium">Taxa Conversão</p>
+                  <p className="text-2xl font-bold text-warning dark:text-foreground">{mediaConversao.toFixed(1)}%</p>
+                  <p className="text-xs text-warning/80 dark:text-foreground/80">média geral</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-orange-500/20 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-orange-600" />
+                <div className="h-10 w-10 rounded-full bg-warning/20 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-warning" />
                 </div>
               </div>
             </CardContent>
@@ -253,7 +390,7 @@ const GestaoVendedores = () => {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-green-500" />
+                    <DollarSign className="h-4 w-4 text-success/80" />
                     Top por Valor em Pipeline
                   </CardTitle>
                 </CardHeader>
@@ -263,7 +400,7 @@ const GestaoVendedores = () => {
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
                         ${index === 0 ? 'bg-yellow-100 text-yellow-700' : 
                           index === 1 ? 'bg-gray-100 text-gray-700' : 
-                          index === 2 ? 'bg-orange-100 text-orange-700' : 
+                          index === 2 ? 'bg-orange-100 text-warning dark:text-warning-foreground' : 
                           'bg-muted text-muted-foreground'}`}>
                         {index + 1}
                       </span>
@@ -279,7 +416,7 @@ const GestaoVendedores = () => {
                           {v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </div>
-                      {v.tendencia === 'up' && <ArrowUpRight className="h-4 w-4 text-green-500" />}
+                      {v.tendencia === 'up' && <ArrowUpRight className="h-4 w-4 text-success/80" />}
                       {v.tendencia === 'down' && <ArrowDownRight className="h-4 w-4 text-red-500" />}
                     </div>
                   ))}
@@ -290,7 +427,7 @@ const GestaoVendedores = () => {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-purple-500" />
+                    <Zap className="h-4 w-4 text-accent-foreground/80" />
                     Top por Taxa de Conversão
                   </CardTitle>
                 </CardHeader>
@@ -298,9 +435,9 @@ const GestaoVendedores = () => {
                   {topPorConversao.map((v, index) => (
                     <div key={v.id} className="flex items-center gap-3">
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                        ${index === 0 ? 'bg-yellow-100 text-yellow-700' : 
-                          index === 1 ? 'bg-gray-100 text-gray-700' : 
-                          index === 2 ? 'bg-orange-100 text-orange-700' : 
+                        ${index === 0 ? 'bg-yellow-500 text-white dark:bg-yellow-600' : 
+                          index === 1 ? 'bg-muted-foreground text-white dark:bg-muted' : 
+                          index === 2 ? 'bg-warning text-white dark:bg-warning/90' : 
                           'bg-muted text-muted-foreground'}`}>
                         {index + 1}
                       </span>
@@ -314,7 +451,7 @@ const GestaoVendedores = () => {
                         <p className="text-sm font-medium truncate">{v.nome}</p>
                         <div className="flex items-center gap-2">
                           <Progress value={v.taxaConversao} className="h-1.5 flex-1" />
-                          <span className="text-xs font-medium">{v.taxaConversao.toFixed(1)}%</span>
+                          <span className="text-xs font-medium dark:text-foreground">{v.taxaConversao.toFixed(1)}%</span>
                         </div>
                       </div>
                     </div>
@@ -326,7 +463,7 @@ const GestaoVendedores = () => {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="h-4 w-4 text-blue-500" />
+                    <Target className="h-4 w-4 text-primary/80" />
                     Top por Quantidade de Leads
                   </CardTitle>
                 </CardHeader>
@@ -334,9 +471,9 @@ const GestaoVendedores = () => {
                   {topPorLeads.map((v, index) => (
                     <div key={v.id} className="flex items-center gap-3">
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                        ${index === 0 ? 'bg-yellow-100 text-yellow-700' : 
-                          index === 1 ? 'bg-gray-100 text-gray-700' : 
-                          index === 2 ? 'bg-orange-100 text-orange-700' : 
+                        ${index === 0 ? 'bg-yellow-500 text-white dark:bg-yellow-600' : 
+                          index === 1 ? 'bg-muted-foreground text-white dark:bg-muted' : 
+                          index === 2 ? 'bg-warning text-white dark:bg-warning/90' : 
                           'bg-muted text-muted-foreground'}`}>
                         {index + 1}
                       </span>
@@ -348,7 +485,7 @@ const GestaoVendedores = () => {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{v.nome}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground dark:text-foreground/70">
                           {v.totalLeads} leads • {v.leadsQualificados} qualificados
                         </p>
                       </div>
@@ -371,49 +508,49 @@ const GestaoVendedores = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 dark:bg-primary/5">
                     <div className="flex items-center gap-2 mb-1">
-                      <Award className="h-4 w-4 text-blue-600" />
-                      <span className="text-xs font-medium text-blue-600">Melhor Vendedor</span>
+                      <Award className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-medium text-primary">Melhor Vendedor</span>
                     </div>
-                    <p className="font-semibold text-blue-900">{topPorValor[0]?.nome || '-'}</p>
-                    <p className="text-xs text-blue-600">
+                    <p className="font-semibold text-primary dark:text-foreground">{topPorValor[0]?.nome || '-'}</p>
+                    <p className="text-xs text-primary dark:text-foreground">
                       {topPorValor[0]?.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 dark:bg-success/5">
                     <div className="flex items-center gap-2 mb-1">
-                      <Zap className="h-4 w-4 text-green-600" />
-                      <span className="text-xs font-medium text-green-600">Maior Conversão</span>
+                      <Zap className="h-4 w-4 text-success" />
+                      <span className="text-xs font-medium text-success">Maior Conversão</span>
                     </div>
-                    <p className="font-semibold text-green-900">{topPorConversao[0]?.nome || '-'}</p>
-                    <p className="text-xs text-green-600">
+                    <p className="font-semibold text-success dark:text-foreground">{topPorConversao[0]?.nome || '-'}</p>
+                    <p className="text-xs text-success dark:text-foreground">
                       {topPorConversao[0]?.taxaConversao.toFixed(1)}% de conversão
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
+                  <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 dark:bg-accent/5">
                     <div className="flex items-center gap-2 mb-1">
-                      <TrendingUp className="h-4 w-4 text-purple-600" />
-                      <span className="text-xs font-medium text-purple-600">Em Alta</span>
+                      <TrendingUp className="h-4 w-4 text-accent" />
+                      <span className="text-xs font-medium text-accent">Em Alta</span>
                     </div>
-                    <p className="font-semibold text-purple-900">
+                    <p className="font-semibold text-accent dark:text-foreground">
                       {vendedores.filter(v => v.tendencia === 'up').length} vendedor(es)
                     </p>
-                    <p className="text-xs text-purple-600">com tendência de crescimento</p>
+                    <p className="text-xs text-accent dark:text-foreground">com tendência de crescimento</p>
                   </div>
 
-                  <div className="p-3 rounded-lg bg-orange-50 border border-orange-100">
+                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 dark:bg-warning/5">
                     <div className="flex items-center gap-2 mb-1">
-                      <Clock className="h-4 w-4 text-orange-600" />
-                      <span className="text-xs font-medium text-orange-600">Ticket Médio</span>
+                      <Clock className="h-4 w-4 text-warning" />
+                      <span className="text-xs font-medium text-warning">Ticket Médio</span>
                     </div>
-                    <p className="font-semibold text-orange-900">
+                    <p className="font-semibold text-warning dark:text-foreground">
                       {(vendedores.reduce((acc, v) => acc + v.ticketMedio, 0) / vendedores.length || 0)
                         .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
-                    <p className="text-xs text-orange-600">média da equipe</p>
+                    <p className="text-xs text-warning dark:text-foreground">média da equipe</p>
                   </div>
                 </div>
               </CardContent>
@@ -438,15 +575,15 @@ const GestaoVendedores = () => {
                     <div 
                       key={v.id} 
                       className={`flex items-center gap-4 p-3 rounded-lg border transition-colors
-                        ${index === 0 ? 'bg-yellow-50 border-yellow-200' : 
-                          index === 1 ? 'bg-gray-50 border-gray-200' : 
-                          index === 2 ? 'bg-orange-50 border-orange-200' : 
+                        ${index === 0 ? 'bg-yellow-500/10 border-yellow-500/30 dark:bg-yellow-500/5' : 
+                          index === 1 ? 'bg-muted border-border' : 
+                          index === 2 ? 'bg-warning/10 border-warning/30 dark:bg-warning/5' : 
                           'bg-card'}`}
                     >
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold
-                        ${index === 0 ? 'bg-yellow-500 text-white' : 
-                          index === 1 ? 'bg-gray-400 text-white' : 
-                          index === 2 ? 'bg-orange-400 text-white' : 
+                        ${index === 0 ? 'bg-yellow-500 text-white dark:bg-yellow-600' : 
+                          index === 1 ? 'bg-muted-foreground text-white dark:bg-muted' : 
+                          index === 2 ? 'bg-warning text-white dark:bg-warning/90' : 
                           'bg-muted text-muted-foreground'}`}>
                         {index === 0 && <Trophy className="h-5 w-5" />}
                         {index > 0 && (index + 1)}
@@ -474,7 +611,7 @@ const GestaoVendedores = () => {
                       </div>
 
                       <div className="text-right hidden sm:block">
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-medium dark:text-foreground">
                           {v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -483,7 +620,7 @@ const GestaoVendedores = () => {
                       </div>
 
                       <div className="text-right hidden md:block">
-                        <p className="text-sm font-medium text-green-600">
+                        <p className="text-sm font-medium text-success dark:text-foreground">
                           {v.taxaConversao.toFixed(1)}%
                         </p>
                         <p className="text-xs text-muted-foreground">conversão</p>
@@ -517,6 +654,7 @@ const GestaoVendedores = () => {
                         <TableHead className="text-right">Valor Pipeline</TableHead>
                         <TableHead className="text-right">Ticket Médio</TableHead>
                         <TableHead className="text-center">Últimos 30d</TableHead>
+                        <TableHead className="text-center">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -568,6 +706,29 @@ const GestaoVendedores = () => {
                               +{v.leadsUltimos30Dias}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleEditarVendedor(v)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  setVendedorToDelete(v);
+                                  setIsDeleting(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -578,6 +739,109 @@ const GestaoVendedores = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal de Criar/Editar Vendedor */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingVendedor ? "Editar Vendedor" : "Novo Vendedor"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingVendedor 
+                ? "Atualize as informações do vendedor."
+                : "Preencha os dados do novo vendedor. Um email de definição de senha será enviado automaticamente."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="nome">Nome *</Label>
+              <Input
+                id="nome"
+                value={formNome}
+                onChange={(e) => setFormNome(e.target.value)}
+                placeholder="Nome completo"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email">E-mail *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+                placeholder="email@exemplo.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="telefone">Telefone</Label>
+              <Input
+                id="telefone"
+                value={formTelefone}
+                onChange={(e) => setFormTelefone(e.target.value)}
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="cargo">Cargo</Label>
+              <Input
+                id="cargo"
+                value={formCargo}
+                onChange={(e) => setFormCargo(e.target.value)}
+                placeholder="Ex: Vendedor Sênior"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsModalOpen(false)}
+              disabled={isSaving}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSalvarVendedor} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                editingVendedor ? "Salvar Alterações" : "Criar Vendedor"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o vendedor <strong>{vendedorToDelete?.nome}</strong>?
+              Esta ação não pode ser desfeita. Todos os leads associados a este vendedor permanecerão no sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setVendedorToDelete(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmarExclusao}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir Vendedor
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

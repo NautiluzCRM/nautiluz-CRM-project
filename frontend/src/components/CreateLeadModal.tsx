@@ -131,7 +131,16 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
   };
 
   const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Converte para número se for campo de quantidade de vidas ou valor
+    if (field === "quantidadeVidas") {
+      const numValue = value === "" ? 0 : parseInt(value, 10) || 0;
+      setFormData(prev => ({ ...prev, [field]: numValue }));
+    } else if (field === "valorMedio") {
+      const numValue = value === "" ? 0 : parseFloat(value) || 0;
+      setFormData(prev => ({ ...prev, [field]: numValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const toggleOwner = (userId: string) => {
@@ -306,7 +315,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                     ${currentStep === step.id 
                       ? 'bg-primary text-white ring-4 ring-primary/20' 
                       : currentStep > step.id 
-                        ? 'bg-green-500 text-white'
+                        ? 'bg-success text-white dark:bg-success/90'
                         : 'bg-gray-200 text-gray-500'
                     }
                   `}>
