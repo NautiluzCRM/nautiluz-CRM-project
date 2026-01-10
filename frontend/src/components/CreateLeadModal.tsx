@@ -82,14 +82,16 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         const activeUsers = users.filter((u: any) => u.ativo);
 
         // SE O USUÁRIO FOR VENDEDOR, mostra apenas ele mesmo
+        // SE FOR ADMIN, mostra todos os vendedores
         let usersToShow = activeUsers;
         if (user?.role === 'vendedor') {
           usersToShow = activeUsers.filter((u: any) => u._id === user.id);
-          // Auto-seleciona o próprio usuário
+          // Auto-seleciona o próprio usuário para vendedores
           if (usersToShow.length > 0) {
             setSelectedOwners([usersToShow[0]._id]);
           }
         }
+        // Admin não tem restrição e não é auto-selecionado
 
         // Ordena alfabeticamente pelo nome
         usersToShow.sort((a: any, b: any) => 
@@ -277,6 +279,9 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       };
       // --------------------------------------------------------------------
 
+      // Filtra owners para remover valores null/undefined
+      const validOwners = selectedOwners.filter(id => id && id !== null && id !== undefined);
+
       const leadData: any = {
         ...formData,
         quantidadeVidas: Number(formData.quantidadeVidas),
@@ -287,7 +292,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         
         hospitaisPreferencia: hospitais,
         preferredConvenios: convenios,
-        owners: selectedOwners
+        owners: validOwners.length > 0 ? validOwners : undefined
       };
 
       const pipelines = await fetchPipelines();

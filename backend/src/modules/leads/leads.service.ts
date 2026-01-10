@@ -210,6 +210,7 @@ export async function createLead(input: any, user?: UserAuth) {
   }
 
   // RESTRIÇÃO: Vendedores só podem criar leads para si mesmos
+  // Admins podem criar para qualquer vendedor
   if (user && user.role === 'vendedor') {
     ownersList = [user.sub];
   }
