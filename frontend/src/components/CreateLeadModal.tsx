@@ -12,6 +12,8 @@ import { createLeadApi, fetchPipelines, fetchStages, fetchUsers } from "@/lib/ap
 import { Loader2, CheckCircle2, X, Plus, User, Users, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatPhone } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { CONVENIOS } from "@/data/convenios";
 
 const FAIXAS_ETARIAS = [
   "0 a 18", "19 a 23", "24 a 28", "29 a 33", "34 a 38",
@@ -41,6 +43,7 @@ const STEPS = [
 
 export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -63,6 +66,8 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
 
   const [hospitais, setHospitais] = useState<string[]>([]);
   const [hospitalInput, setHospitalInput] = useState("");
+  const [convenios, setConvenios] = useState<string[]>([]);
+  const [convenioSearch, setConvenioSearch] = useState("");
   const [faixas, setFaixas] = useState<number[]>(Array(10).fill(0));
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
@@ -76,19 +81,29 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         // Filtra apenas os ativos
         const activeUsers = users.filter((u: any) => u.ativo);
 
+        // SE O USUÁRIO FOR VENDEDOR, mostra apenas ele mesmo
+        let usersToShow = activeUsers;
+        if (user?.role === 'vendedor') {
+          usersToShow = activeUsers.filter((u: any) => u._id === user.id);
+          // Auto-seleciona o próprio usuário
+          if (usersToShow.length > 0) {
+            setSelectedOwners([usersToShow[0]._id]);
+          }
+        }
+
         // Ordena alfabeticamente pelo nome
-        activeUsers.sort((a: any, b: any) => 
+        usersToShow.sort((a: any, b: any) => 
           (a.nome || "").localeCompare(b.nome || "")
         );
 
-        setAvailableUsers(activeUsers); 
+        setAvailableUsers(usersToShow); 
       } catch (err) {
         console.error("Erro ao buscar usuários", err);
         toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar a lista de vendedores." });
       }
     }
     loadUsers();
-  }, [isOpen, toast]);
+  }, [isOpen, toast, user]);
 
   useEffect(() => {
     if (isOpen) {
@@ -100,6 +115,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         observacoes: ""
       });
       setHospitais([]);
+      setConvenios([]);
       setFaixas(Array(10).fill(0));
       setSelectedOwners([]); 
     }
@@ -119,6 +135,20 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
   const removeHospital = (index: number) => {
     setHospitais(hospitais.filter((_, i) => i !== index));
   };
+
+  const toggleConvenio = (nome: string) => {
+    setConvenios(prev => {
+      if (prev.includes(nome)) {
+        return prev.filter(c => c !== nome);
+      } else {
+        return [...prev, nome];
+      }
+    });
+  };
+
+  const filteredConvenios = CONVENIOS.filter(conv => 
+    conv.nome.toLowerCase().includes(convenioSearch.toLowerCase())
+  );
 
   const handleFaixaChange = (index: number, value: string) => {
     const numValue = parseInt(value) || 0;
@@ -256,6 +286,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         faixasEtarias: faixasEtariasObj, 
         
         hospitaisPreferencia: hospitais,
+        preferredConvenios: convenios,
         owners: selectedOwners
       };
 
@@ -279,7 +310,9 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       });
       setFaixas(Array(10).fill(0));
       setHospitais([]);
+      setConvenios([]);
       setHospitalInput("");
+      setConvenioSearch("");
       setSelectedOwners([]);
       setCurrentStep(1);
       
@@ -515,6 +548,60 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Convênios/Operadoras de Interesse</Label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {convenios.map((c) => {
+                  const convenioData = CONVENIOS.find(conv => conv.nome === c);
+                  return (
+                    <Badge key={c} variant="secondary" className="gap-2 pr-1">
+                      {convenioData && (
+                        <img 
+                          src={convenioData.logo} 
+                          alt={c} 
+                          className="h-4 w-4 object-contain"
+                        />
+                      )}
+                      {c}
+                      <X className="h-3 w-3 cursor-pointer ml-1" onClick={() => toggleConvenio(c)} />
+                    </Badge>
+                  );
+                })}
+              </div>
+              <Input
+                value={convenioSearch}
+                onChange={(e) => setConvenioSearch(e.target.value)}
+                placeholder="Pesquisar convênio..."
+                className="mb-2"
+              />
+              {convenioSearch && (
+                <div className="max-h-48 overflow-y-auto border rounded-md p-2 space-y-1">
+                  {filteredConvenios.map((conv) => (
+                    <div
+                      key={conv.nome}
+                      className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-muted ${
+                        convenios.includes(conv.nome) ? 'bg-muted' : ''
+                      }`}
+                      onClick={() => toggleConvenio(conv.nome)}
+                    >
+                      <img 
+                        src={conv.logo} 
+                        alt={conv.nome} 
+                        className="h-6 w-6 object-contain"
+                      />
+                      <span className="text-sm">{conv.nome}</span>
+                      {convenios.includes(conv.nome) && (
+                        <Check className="h-4 w-4 ml-auto text-primary" />
+                      )}
+                    </div>
+                  ))}
+                  {filteredConvenios.length === 0 && (
+                    <p className="text-sm text-muted-foreground p-2">Nenhum convênio encontrado</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

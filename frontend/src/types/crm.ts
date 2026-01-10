@@ -40,6 +40,7 @@ export interface Lead {
   planoAtual?: string;
   valorMedio?: number;
   hospitaisPreferencia: string[];
+  preferredConvenios?: string[]; // Convênios/Operadoras preferidos
   
   // Atualizei para aceitar string genérica também
   origem: 'Instagram' | 'Indicação' | 'Site' | 'Outros' | string;

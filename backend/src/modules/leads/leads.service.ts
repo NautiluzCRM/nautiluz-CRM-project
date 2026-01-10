@@ -209,6 +209,11 @@ export async function createLead(input: any, user?: UserAuth) {
     ownersList = ownerId ? [ownerId] : [];
   }
 
+  // RESTRIÇÃO: Vendedores só podem criar leads para si mesmos
+  if (user && user.role === 'vendedor') {
+    ownersList = [user.sub];
+  }
+
   const lead = await LeadModel.create({ 
     ...input, 
     owners: ownersList,
