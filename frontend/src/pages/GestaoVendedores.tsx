@@ -47,7 +47,7 @@ import {
   Trash2,
   UserPlus
 } from "lucide-react";
-import { fetchSellersStats, createUserApi, updateUserApi, deleteUserApi } from "@/lib/api";
+import { fetchSellersStats, createUserApi, updateUserApi, deleteUserApi, getUserApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Navigate } from "react-router-dom";
@@ -149,12 +149,22 @@ const GestaoVendedores = () => {
   };
 
   // Abre modal para editar vendedor
-  const handleEditarVendedor = (vendedor: VendedorStats) => {
+  const handleEditarVendedor = async (vendedor: VendedorStats) => {
     setEditingVendedor(vendedor);
     setFormNome(vendedor.nome);
     setFormEmail(vendedor.email);
-    setFormTelefone(""); // Não temos telefone nas stats, precisaria buscar dados completos
-    setFormCargo("");
+    
+    // Buscar dados completos do usuário
+    try {
+      const userData = await getUserApi(vendedor.id);
+      setFormTelefone(userData.phone || "");
+      setFormCargo(userData.jobTitle || "");
+    } catch (error) {
+      console.error("Erro ao buscar dados do usuário:", error);
+      setFormTelefone("");
+      setFormCargo("");
+    }
+    
     setIsModalOpen(true);
   };
 

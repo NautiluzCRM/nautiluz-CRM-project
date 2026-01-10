@@ -56,17 +56,17 @@ export const updateUserHandler = asyncHandler(async (req: Request, res: Response
     ? preferencesSchema.parse(req.body)
     : userSchema.partial().parse(req.body);
 
-  if (body.password && !body.currentPassword) {
+  if ('password' in body && body.password && !('currentPassword' in body && body.currentPassword)) {
     return res.status(400).json({ message: "Para alterar a senha, informe a senha atual." });
   }
 
   if (currentUser?.role !== 'admin') {
-    if (body.jobTitle) delete body.jobTitle;
-    if (body.email) delete body.email;
+    if ('jobTitle' in body) delete (body as any).jobTitle;
+    if ('email' in body) delete (body as any).email;
   }
 
   try {
-    const user = await updateUser(id, body);
+    const user = await updateUser(id, body as any);
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (error: any) {

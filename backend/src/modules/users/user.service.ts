@@ -31,6 +31,8 @@ export async function createUser(input: { name: string; email: string; password:
   // Se sendResetEmail for true (padrão ao criar vendedor), envia email de redefinição
   if (input.sendResetEmail !== false) {
     try {
+      console.log('🔵 Iniciando envio de email para:', user.email);
+      
       // Gera token de redefinição
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
@@ -41,18 +43,23 @@ export async function createUser(input: { name: string; email: string; password:
         expiresAt
       });
 
+      console.log('✅ Token criado:', token);
+
       // Monta link de definição de senha
       const resetLink = `${env.FRONTEND_URL}/redefinir-senha?token=${token}`;
+      console.log('🔗 Link gerado:', resetLink);
 
       // Envia email
-      await sendPasswordResetEmail({
+      const result = await sendPasswordResetEmail({
         to: user.email,
         userName: user.name,
         resetLink,
         isNewUser: true
       });
+      
+      console.log('✅ Email enviado com sucesso para:', user.email, 'Resultado:', result);
     } catch (emailError) {
-      console.error('Erro ao enviar email de boas-vindas:', emailError);
+      console.error('❌ Erro ao enviar email de boas-vindas:', emailError);
       // Não falha a criação do usuário se o email falhar
     }
   }
