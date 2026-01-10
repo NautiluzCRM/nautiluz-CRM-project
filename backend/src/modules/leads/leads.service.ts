@@ -1,12 +1,17 @@
 import { LeadModel } from './lead.model.js';
-import { ActivityModel } from './activity.model.js';
+import { ActivityModel } from './activity.model.js'; // Mantido para compatibilidade se necessário
 import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { AppError } from '../../common/http.js';
 import { StatusCodes } from 'http-status-codes';
 import mongoose from 'mongoose';
-import { ActivityService } from '../../services/activity.service.js'; // Import resolvido
+import { ActivityService } from '../../services/activity.service.js';
 import { UserModel } from '../users/user.model.js';
+
+// --- CONSTANTE PARA EVITAR ERRO DE BSON/OBJECTID ---
+// O MongoDB exige que IDs sejam hexadecimais de 24 caracteres. 
+// "Sistema" não é válido, então usamos este ID zerado para representar o sistema.
+const SYSTEM_ID = '000000000000000000000000';
 
 // Interfaces
 interface UserAuth {
@@ -29,7 +34,7 @@ interface LeadFilter {
 export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
   const query: any = {};
 
-  // --- 1. REGRA DE SEGURANÇA ---
+  // 1. REGRA DE SEGURANÇA
   if (user && user.role !== 'admin') {
     query.owners = user.sub;
   } 
@@ -37,7 +42,7 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
     query.owners = filter.owners;
   }
 
- // --- 2. BUSCA TEXTUAL ---
+ // 2. BUSCA TEXTUAL
   if (filter.search || filter.name) {
     const searchTerm = filter.search || filter.name;
     const regex = { $regex: searchTerm, $options: 'i' };
@@ -48,7 +53,7 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
     ];
   }
 
-  // --- 3. FILTROS ---
+  // 3. FILTROS
   if (filter.qualificationStatus && filter.qualificationStatus !== 'all') {
     query.qualificationStatus = filter.qualificationStatus;
   }
@@ -91,32 +96,49 @@ export function getLead(id: string) {
 }
 
 // Lógica de Distribuição (Fila)
-async function findNextResponsible(lives: number, hasCnpj: boolean) {
+// VERSÃO DE DIAGNÓSTICO (DEBUG)
+// Lógica de Distribuição (Fila / Round Robin)
+export async function findNextResponsible(lives: any, hasCnpj: boolean) {
+  const livesNumber = Number(lives);
+
+  // Filtro de CNPJ
   const cnpjFilter = hasCnpj 
     ? { $in: ['required', 'both'] } 
     : { $in: ['forbidden', 'both'] };
 
+  // BUSCA INTELIGENTE
   const bestSeller = await UserModel.findOne({
     active: true,                       
     'distribution.active': true,        
-    'distribution.minLives': { $lte: lives }, 
-    'distribution.maxLives': { $gte: lives }, 
+    
+    // Regra do Range (Matemática)
+    'distribution.minLives': { $lte: livesNumber }, 
+    'distribution.maxLives': { $gte: livesNumber }, 
+    
     'distribution.cnpjRule': cnpjFilter       
   })
-  .sort({ 'distribution.lastLeadReceivedAt': 1 }) 
+  // ORDENAÇÃO (O SEGRED DA FILA):
+  // 1. Quem recebeu há mais tempo (data menor/mais antiga)
+  // 2. Se empatar (ou for nulo), usa o ID para garantir ordem fixa e não aleatória
+  .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
   .select('_id name distribution');
 
   if (bestSeller) {
+    console.log(`[DISTRIBUIÇÃO] 🎯 Lead (${livesNumber} vidas) entregue para: ${bestSeller.name}`);
+    console.log(`   📅 Última vez que ele recebeu antes de agora: ${bestSeller.distribution?.lastLeadReceivedAt || 'NUNCA'}`);
+
+    // ATUALIZA A VEZ DELE (Joga ele pro final da fila)
     await UserModel.updateOne(
       { _id: bestSeller._id },
       { $set: { 'distribution.lastLeadReceivedAt': new Date() } }
     );
+    
     return bestSeller._id.toString();
   }
 
+  console.warn(`[DISTRIBUIÇÃO] ⚠️ Ninguém atende o perfil: ${livesNumber} vidas | CNPJ: ${hasCnpj}`);
   return null; 
 }
-
 export async function createLead(input: any, user?: UserAuth) {
 
   // ===========================================================================
@@ -130,19 +152,17 @@ export async function createLead(input: any, user?: UserAuth) {
   });
 
   if (existingLead) {
-    // --- ATUALIZAÇÃO DE LEAD EXISTENTE ---
-    
+    // --- LÓGICA DE ATUALIZAÇÃO SE JÁ EXISTIR ---
     const historico = `
     \n[NOVA ENTRADA VIA WEBHOOK/SISTEMA - ${new Date().toLocaleString('pt-BR')}]
     \nDados anteriores antes da substituição:
     \n- Nome: ${existingLead.name}
     \n- Telefone: ${existingLead.phone}
     \n- Email: ${existingLead.email || 'Não informado'}
-    \n- Investimento: ${existingLead.avgPrice || '0'}
-    \n- Vidas: ${existingLead.livesCount || '0'}
     \n ---------------------------------------------------
     `;
 
+    // Adiciona o histórico novo nas observações existentes
     const novasObservacoes = existingLead.notes 
       ? existingLead.notes + "\n" + historico 
       : historico;
@@ -158,21 +178,12 @@ export async function createLead(input: any, user?: UserAuth) {
       { new: true }
     );
 
-    // LOG: Atividade no Modelo Antigo (Compatibilidade)
-    await ActivityModel.create({
-      leadId: existingLead._id,
-      type: 'Atualização',
-      descricao: 'Lead atualizado via nova submissão (Dados antigos movidos para obs)',
-      usuario: user?.sub || 'Sistema',
-      data: new Date()
-    });
-
-    // LOG: Atividade no Novo Service (Padronização)
+    // Registra atividade usando o SYSTEM_ID se necessário
     await ActivityService.createActivity({
       leadId: existingLead._id.toString(),
-      tipo: 'lead_atualizado', // ou 're-conversao' se tiver esse tipo
-      descricao: `Lead re-convertido (Duplicidade detectada). Histórico salvo.`,
-      userId: user?.sub || 'sistema',
+      tipo: 'lead_atualizado' as any, 
+      descricao: 'Lead atualizado via nova submissão (Duplicidade)',
+      userId: user?.sub || SYSTEM_ID,
       userName: user?.sub ? 'Usuário' : 'Sistema'
     });
 
@@ -181,7 +192,7 @@ export async function createLead(input: any, user?: UserAuth) {
   }
 
   // ===========================================================================
-  // 2. CRIAÇÃO DE NOVO LEAD
+  // 2. LÓGICA DE CRIAÇÃO (SE NÃO EXISTIR)
   // ===========================================================================
 
   if (input.cnpjType === '') {
@@ -196,7 +207,7 @@ export async function createLead(input: any, user?: UserAuth) {
 
   const rank = input.rank || '0|hzzzzz:';
   
-  // --- DISTRIBUIÇÃO ---
+  // Distribuição
   let ownerId = user?.sub; 
 
   if (!ownerId && input.livesCount) {
@@ -227,26 +238,18 @@ export async function createLead(input: any, user?: UserAuth) {
     lastActivity: input.createdAt || new Date()
   });
 
-  // LOG: Novo ActivityService
-  const userId = user?.sub || 'sistema';
-  const userDoc = user?.sub ? await UserModel.findById(user.sub) : null;
+  // Log de Atividade de Criação
+  const creatorId = user?.sub;
+  const userDoc = creatorId ? await UserModel.findById(creatorId) : null;
   const userName = userDoc?.name || 'Sistema';
-  
+  const finalUserId = creatorId || SYSTEM_ID;
+
   await ActivityService.createActivity({
     leadId: lead._id.toString(),
-    tipo: 'lead_criado',
+    tipo: 'lead_criado' as any,
     descricao: `Lead criado por ${userName}`,
-    userId: userId,
+    userId: finalUserId,
     userName: userName
-  });
-
-  // LOG: Modelo Antigo (Compatibilidade)
-  await ActivityModel.create({ 
-    leadId: lead._id, 
-    type: 'Sistema',        
-    descricao: 'Lead criado no sistema', 
-    usuario: userId,
-    data: input.createdAt || new Date()
   });
 
   return lead;
@@ -273,10 +276,11 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     .populate('owners', 'name email')
     .populate('owner', 'name email');
   
-  // --- LOG DE ATIVIDADES INTELIGENTE ---
-  const userId = user?.sub || 'sistema';
-  const userDoc = user?.sub ? await UserModel.findById(user.sub) : null;
+  // Preparação para logs
+  const updatorId = user?.sub;
+  const userDoc = updatorId ? await UserModel.findById(updatorId) : null;
   const userName = userDoc?.name || 'Sistema';
+  const finalUserId = updatorId || SYSTEM_ID;
 
   // 1. Mudança de stage
   if (input.stageId && input.stageId !== existingLead.stageId?.toString()) {
@@ -285,9 +289,9 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
     
     await ActivityService.createActivity({
       leadId: id,
-      tipo: 'lead_movido',
+      tipo: 'lead_movido' as any,
       descricao: `${userName} moveu o lead de "${oldStage?.name || 'N/A'}" para "${newStage?.name || 'N/A'}"`,
-      userId: userId,
+      userId: finalUserId,
       userName: userName,
       metadata: {
         from: oldStage?.name || 'N/A',
@@ -303,20 +307,20 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
   if (input.owners && JSON.stringify(oldOwners) !== JSON.stringify(newOwners)) {
     await ActivityService.createActivity({
       leadId: id,
-      tipo: 'responsavel_alterado',
+      tipo: 'responsavel_alterado' as any,
       descricao: `${userName} alterou os responsáveis pelo lead`,
-      userId: userId,
+      userId: finalUserId,
       userName: userName
     });
   }
 
-  // 3. Mudança de status de qualificação
+  // 3. Mudança de status
   if (input.qualificationStatus && input.qualificationStatus !== existingLead.qualificationStatus) {
     await ActivityService.createActivity({
       leadId: id,
-      tipo: 'status_alterado',
+      tipo: 'status_alterado' as any,
       descricao: `${userName} alterou o status de qualificação para "${input.qualificationStatus}"`,
-      userId: userId,
+      userId: finalUserId,
       userName: userName,
       metadata: {
         from: existingLead.qualificationStatus || 'N/A',
@@ -328,20 +332,10 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
   // 4. Atividade genérica
   await ActivityService.createActivity({
     leadId: id,
-    tipo: 'lead_atualizado',
+    tipo: 'lead_atualizado' as any,
     descricao: `${userName} atualizou os dados do lead`,
-    userId: userId,
+    userId: finalUserId,
     userName: userName
-  });
-  
-  // 5. Modelo Antigo (Compatibilidade)
-  await ActivityModel.create({ 
-    leadId: lead!._id, 
-    type: 'Alteração', 
-    descricao: 'Dados do lead atualizados', 
-    payload: input, 
-    usuario: userId,
-    data: new Date()
   });
   
   return lead;
@@ -363,18 +357,43 @@ export async function deleteLead(id: string, user?: UserAuth) {
   return LeadModel.findByIdAndDelete(id);
 }
 
+// --- FUNÇÃO CORRIGIDA PARA ACEITAR TIPOS ANTIGOS E NOVOS ---
 export async function addActivity(leadId: string, type: string, payload: any, userId?: string) {
   const lead = await LeadModel.findById(leadId);
   if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
   
   const descricao = payload.description || payload.descricao || 'Nova atividade registrada';
 
-  return ActivityModel.create({ 
-    leadId, 
-    type,       
-    descricao,  
-    payload, 
-    usuario: userId || 'Sistema',
-    data: new Date()
+  // 1. Garante que temos um ID válido para o Mongo (Hex 24 chars)
+  // Se não vier userId (ex: Webhook), usa o ID zerado do sistema.
+  const finalUserId = (userId && mongoose.Types.ObjectId.isValid(userId)) ? userId : SYSTEM_ID;
+  
+  let finalUserName = 'Sistema';
+
+  // Se for um usuário real, tenta pegar o nome. Se não, fica como Sistema.
+  if (userId && userId !== SYSTEM_ID && mongoose.Types.ObjectId.isValid(userId)) {
+    try {
+      const user = await UserModel.findById(userId);
+      if (user) finalUserName = user.name;
+    } catch (err) {
+      // Falha silenciosa, mantém 'Sistema'
+    }
+  }
+
+  // 2. Mapeamento de Compatibilidade (Strings antigas -> Tipos novos)
+  let novoTipo = type;
+  
+  if (type === 'Sistema' || type === 'Alteração') {
+    novoTipo = 'lead_atualizado'; 
+  }
+
+  // 3. 'as any' resolve o erro do TypeScript que reclamava dos tipos
+  return ActivityService.createActivity({
+    leadId,
+    tipo: novoTipo as any, 
+    descricao,
+    userId: finalUserId,
+    userName: finalUserName,
+    metadata: payload
   });
 }

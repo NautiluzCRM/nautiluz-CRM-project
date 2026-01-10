@@ -504,8 +504,9 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                       ) : (
                         <>
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm flex-1">{note.conteudo}</p>
-                            {canEdit && (
+                            <p className="text-sm flex-1 whitespace-pre-wrap" style={{ wordBreak: 'break-word' }}>
+                              {note.conteudo ? note.conteudo.replace(/\\n/g, '\n') : ''}
+                            </p>                            {canEdit && (
                               <div className="flex gap-1">
                                 <Button
                                   size="sm"
@@ -542,8 +543,8 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30">
-                    {lead.informacoes || "Nenhuma observação"}
+                  <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30 whitespace-pre-wrap">
+                    {lead.informacoes ? lead.informacoes.replace(/\\n/g, '\n') : "Nenhuma observação"}
                   </div>
                 )}
               </div>

@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { asyncHandler } from '../../common/http.js';
-import { createLead, updateLead, addActivity } from '../leads/leads.service.js'; 
+import { asyncHandler, AppError } from '../../common/http.js';
+import { createLead } from '../leads/leads.service.js'; // Só precisamos do createLead, ele se vira!
 import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
-import { LeadModel } from '../leads/lead.model.js';
 
 const textoParaBooleano = (texto: any): boolean => {
   if (!texto) return false;
@@ -18,7 +17,7 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     cidade, estado, investimento, possuiCNPJ, jaTemPlano, hospitalPreferencia
   } = req.body;
 
-  console.log(' [WEBHOOK] Payload recebido:', req.body);
+  console.log('[WEBHOOK] Payload recebido:', req.body);
 
   if (!nome || !telefone) {
     return res.status(StatusCodes.BAD_REQUEST).json({ 
@@ -26,68 +25,17 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     });
   }
 
-  // Tratamento de dados novos
+  // --- 1. TRATAMENTO DE DADOS ---
   const lives = Number(quantidadeVidas) || 1;
   const temCnpj = textoParaBooleano(possuiCNPJ);
   const temPlano = textoParaBooleano(jaTemPlano);
   const valorEstimado = Number(investimento) || 0;
 
-  // 1. VERIFICAR SE O LEAD JÁ EXISTE
-  const existingLead = await LeadModel.findOne({
-    $or: [{ email: email }, { phone: telefone }]
-  });
+  // IMPORTANTE: Transforma a string do formulário em Array para o banco
+  // Isso faz aparecer a etiqueta no Modal do CRM
+  const listaHospitais = hospitalPreferencia ? [hospitalPreferencia] : [];
 
-  // ===============================================================
-  // LÓGICA DE ATUALIZAÇÃO (INVERTIDA: NOVO NO CARD, VELHO NA OBS)
-  // ===============================================================
-  if (existingLead) {
-    console.log(`Atualizando Lead Existente: ${existingLead.name}`);
-
-    // Limpeza: Se a nota antiga já for muito grande, pegamos só o essencial ou mantemos tudo
-    // Aqui formatamos o bloco de histórico para ficar bem separado
-    const historicoAntigo = `
-\n========================================
- \nARQUIVADO EM ${new Date().toLocaleDateString('pt-BR')} (RE-CONVERSÃO)
-\n========================================
- \nNome Anterior: ${existingLead.name}
- \nVidas: ${existingLead.livesCount} |  Valor: ${existingLead.avgPrice}
- \nLocal: ${existingLead.city}/${existingLead.state}
- \nObs Antiga: ${existingLead.notes ? existingLead.notes.split('========================================')[0].trim() : '-'}
-`.trim(); 
-// O split acima ajuda a não duplicar infinitamente o cabeçalho se o lead converter 10 vezes
-
-    // Adiciona 2 quebras de linha (\n\n) para garantir separação visual
-    const notasAtualizadas = historicoAntigo + '\n\n' + (existingLead.notes || '');
-
-    await updateLead(existingLead._id.toString(), {
-      name: nome,
-      livesCount: lives,
-      avgPrice: valorEstimado,
-      city: cidade || existingLead.city,
-      state: estado || existingLead.state,
-      hasCnpj: temCnpj,
-      hasCurrentPlan: temPlano,
-      notes: notasAtualizadas, // Salva o histórico formatado
-      lastActivity: new Date(), 
-      phone: telefone,
-      email: email || existingLead.email
-    });
-
-    await addActivity(existingLead._id.toString(), 'Sistema', {
-      description: 'Lead RE-CONVERTIDO: Dados atualizados.',
-      payload: req.body
-    });
-
-    return res.status(StatusCodes.OK).json({ 
-      message: 'Lead atualizado.', 
-      leadId: existingLead._id,
-      updated: true
-    });
-  }
-
-  // ===============================================================
-  // LÓGICA DE CRIAÇÃO (Se é novo)
-  // ===============================================================
+  // --- 2. PREPARAÇÃO DO FUNIL ---
   const pipeline = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
   const stage = await StageModel.findOne({ pipelineId: pipeline?._id, key: 'novo' }) || await StageModel.findOne({ pipelineId: pipeline?._id });
 
@@ -95,19 +43,23 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Configuração de Funil ausente.' });
   }
 
-  // Formatação Limpa para Lead Novo
-  const notasIniciais = `
+  // --- 3. FORMATAÇÃO DAS NOTAS ---
+  // (Nota: O Service vai adicionar o histórico antigo se for duplicado, 
+  // aqui mandamos apenas o que veio AGORA neste formulário)
+  const notasEnvio = `
 ${observacoes || ''}
 
- \nDETALHES DO FORMULÁRIO:
-\n---------------------------
- \nInvestimento: ${investimento || '-'}
- \nHospital: ${hospitalPreferencia || '-'}
- \nCNPJ: ${temCnpj ? 'SIM' : 'NÃO'}
- \nPlano Atual: ${temPlano ? 'SIM' : 'NÃO'}
+DETALHES DO FORMULÁRIO:
+---------------------------
+Investimento: ${investimento || '-'}
+Hospital: ${hospitalPreferencia || '-'}
+CNPJ: ${temCnpj ? 'SIM' : 'NÃO'}
+Plano Atual: ${temPlano ? 'SIM' : 'NÃO'}
   `.trim();
 
-  const newLead = await createLead({
+  // --- 4. CHAMADA AO SERVICE INTELIGENTE ---
+  // O createLead agora decide se cria um novo ou atualiza o existente (Upsert)
+  const resultLead = await createLead({
     name: nome,
     phone: telefone,
     email: email || '',
@@ -117,15 +69,26 @@ ${observacoes || ''}
     livesCount: lives,
     hasCnpj: temCnpj,
     avgPrice: valorEstimado,
-    notes: notasIniciais,
+    notes: notasEnvio, // Vai para observações (concatenado se for update)
     city: cidade || 'A verificar',
     state: estado || 'SP',
     owners: [], 
-    rank: 'c' + Date.now() 
+    rank: 'c' + Date.now(),
+    
+    // --- CAMPOS QUE FALTAVAM ---
+    preferredHospitals: listaHospitais, // Array corrigido
+    ageBuckets: [] // Array vazio para evitar erro no modal
   });
+
+  // Verificação de Segurança
+  if (!resultLead) {
+    throw new AppError('Erro ao processar o Lead no sistema.', StatusCodes.INTERNAL_SERVER_ERROR);
+  }
 
   return res.status(StatusCodes.CREATED).json({
     success: true,
-    leadId: newLead?._id // Adicionei o ?._id antes, mas aqui sabemos que newLead existe
+    action: 'processed',
+    leadId: resultLead._id,
+    message: 'Lead processado (Criado ou Atualizado)'
   });
 });
