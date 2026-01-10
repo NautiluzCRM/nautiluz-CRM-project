@@ -9,9 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"; 
 import { useToast } from "@/hooks/use-toast";
 import { createLeadApi, fetchPipelines, fetchStages, fetchUsers } from "@/lib/api";
-import { Lead } from "@/types/crm"; 
 import { Loader2, CheckCircle2, X, Plus, User, Users, ArrowRight, ArrowLeft, Check } from "lucide-react";
-import { Progress } from "@/components/ui/progress"; 
+import { Progress } from "@/components/ui/progress";
+import { formatPhone } from "@/lib/utils";
 
 const FAIXAS_ETARIAS = [
   "0 a 18", "19 a 23", "24 a 28", "29 a 33", "34 a 38",
@@ -75,7 +75,16 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       if (!isOpen) return;
       try {
         const users = await fetchUsers();
-        setAvailableUsers(users.filter((u: any) => u.ativo)); 
+        
+        // Filtra apenas os ativos
+        const activeUsers = users.filter((u: any) => u.ativo);
+
+        // Ordena alfabeticamente pelo nome
+        activeUsers.sort((a: any, b: any) => 
+          (a.nome || "").localeCompare(b.nome || "")
+        );
+
+        setAvailableUsers(activeUsers); 
       } catch (err) {
         console.error("Erro ao buscar usuários", err);
         toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar a lista de vendedores." });
@@ -217,11 +226,29 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
     setIsLoading(true);
 
     try {
+      // --- CORREÇÃO AQUI: Montar o objeto 'faixasEtarias' para o Backend ---
+      const faixasEtariasObj = {
+        ate18: faixas[0],
+        de19a23: faixas[1],
+        de24a28: faixas[2],
+        de29a33: faixas[3],
+        de34a38: faixas[4],
+        de39a43: faixas[5],
+        de44a48: faixas[6],
+        de49a53: faixas[7],
+        de54a58: faixas[8],
+        acima59: faixas[9]
+      };
+      // --------------------------------------------------------------------
+
       const leadData: any = {
         ...formData,
         quantidadeVidas: Number(formData.quantidadeVidas),
         valorMedio: Number(formData.valorMedio),
-        idades: faixas,
+        
+        // Envia o objeto formatado e não o array cru
+        faixasEtarias: faixasEtariasObj, 
+        
         hospitaisPreferencia: hospitais,
         owners: selectedOwners
       };
@@ -229,12 +256,15 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       const pipelines = await fetchPipelines();
       if (!pipelines.length) throw new Error("Sem pipeline.");
       leadData.pipelineId = pipelines[0]._id;
+      
       const stages = await fetchStages(leadData.pipelineId);
       if (!stages.length) throw new Error("Sem stages.");
       leadData.stageId = stages[0]._id;
+      
       await createLeadApi(leadData);
       toast({ title: "Criado!", description: "Lead criado." });
       
+      // Resetar Form
       setFormData({
         nome: "", empresa: "", email: "", celular: "", origem: "Indicação",
         quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, tipoCnpj: "",
@@ -310,7 +340,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
               </div>
               <div className="col-span-6 md:col-span-4 space-y-2">
                 <Label htmlFor="celular">Celular *</Label>
-                <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", e.target.value)} placeholder="(11) 99999-9999" />
+                <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", formatPhone(e.target.value))} placeholder="(11) 99999-9999" />
               </div>
               <div className="col-span-6 md:col-span-4 space-y-2">
                 <Label htmlFor="email">Email</Label>

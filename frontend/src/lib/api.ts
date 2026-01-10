@@ -126,11 +126,19 @@ export async function createLeadApi(data: any) {
     hasCnpj: Boolean(data.possuiCnpj),
     
     cnpjType: data.possuiCnpj ? data.tipoCnpj : undefined,
-    owners: data.owners, // Envia array de IDs
+    owners: data.owners, 
 
     hasCurrentPlan: Boolean(data.possuiPlano),
     currentPlan: data.planoAtual,
-    ageBuckets: data.idades,
+    
+    // --- CORREÇÃO AQUI ---
+    // Removemos o antigo 'ageBuckets' que usava array
+    // ageBuckets: data.idades, 
+    
+    // Adicionamos o novo objeto que o Backend espera
+    faixasEtarias: data.faixasEtarias,
+    // ---------------------
+
     city: data.cidade,
     state: data.uf,
     createdAt: data.dataCriacao ? new Date(data.dataCriacao).toISOString() : undefined,
@@ -241,7 +249,13 @@ export function mapApiLeadToLead(api: any): Lead {
     possuiCnpj: api.hasCnpj ?? false,
     tipoCnpj: api.cnpjType || "Outros",
     quantidadeVidas: api.livesCount || api.quantidadeVidas || 0,
+    
+    // --- CORREÇÃO IMPORTANTE AQUI ---
+    // Mantém compatibilidade com array antigo (idades), mas lê o objeto novo (faixasEtarias)
     idades: api.ageBuckets || api.idades || [],
+    faixasEtarias: api.faixasEtarias || {}, 
+    // --------------------------------
+
     possuiPlano: api.hasCurrentPlan ?? false,
     planoAtual: api.currentPlan,
     valorMedio: api.avgPrice,
@@ -279,7 +293,13 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
     hasCnpj: lead.possuiCnpj,
     cnpjType: lead.tipoCnpj,
     livesCount: lead.quantidadeVidas,
-    ageBuckets: lead.idades,
+    
+    // --- CORREÇÃO AQUI ---
+    // Removemos: ageBuckets: lead.idades,
+    // Adicionamos:
+    faixasEtarias: (lead as any).faixasEtarias,
+    // ---------------------
+
     hasCurrentPlan: lead.possuiPlano,
     currentPlan: lead.planoAtual,
     avgPrice: lead.valorMedio,
@@ -289,7 +309,6 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
     state: lead.uf,
     city: lead.cidade,
     
-    // IMPORTANTE: Aqui pegamos o array de IDs que o CreateLeadModal enviou
     owners: (lead as any).owners, 
     
     qualificationStatus: lead.statusQualificacao,

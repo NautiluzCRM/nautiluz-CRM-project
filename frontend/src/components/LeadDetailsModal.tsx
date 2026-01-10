@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ import {
   type Activity as ApiActivity,
   type Note as ApiNote
 } from "@/lib/api";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const FAIXAS_LABELS = [
   "0-18", "19-23", "24-28", "29-33", "34-38",
@@ -235,6 +237,14 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     label: FAIXAS_LABELS[index],
     count: count
   })).filter(item => item.count > 0);
+  
+  const ownersList = (leadData.owners || []) as any[];
+  
+  const sortedOwners = [...ownersList].sort((a, b) => 
+    (a.nome || "").localeCompare(b.nome || "")
+  );
+
+  const tituloResponsavel = sortedOwners.length > 1 ? "Responsáveis" : "Responsável";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -557,11 +567,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
             <div className="space-y-3">
               <h3 className="text-base font-semibold flex items-center gap-2">
                 <Activity className="h-4 w-4" />
-                Responsável
+                {tituloResponsavel}
               </h3>
-              {leadData.owners && leadData.owners.length > 0 ? (
+              
+              {sortedOwners.length > 0 ? (
                 <div className="space-y-2">
-                  {leadData.owners.map((owner: any) => (
+                  {sortedOwners.map((owner: any) => (
                     <div key={owner.id} className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                       <Avatar className="h-9 w-9 border-2">
                         <AvatarImage src="" alt={owner.nome} />
@@ -618,27 +629,68 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
             {/* Atividades Recentes */}
             <div className="space-y-3">
               <h3 className="text-base font-semibold">Atividades Recentes</h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                 {loadingActivities ? (
                   <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground">Carregando...</p>
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
                   </div>
                 ) : activities.length > 0 ? (
-                  activities.slice(0, 5).map((atividade) => (
-                    <div key={atividade._id} className="p-3 bg-muted/30 border rounded-lg text-sm">
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className="text-xs">
-                          {(atividade.tipo || '').replace(/_/g, ' ')}                        
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(atividade.createdAt).toLocaleDateString('pt-BR', { 
-                            day: '2-digit', 
-                            month: 'short'
-                          })}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{atividade.descricao}</p>
-                    </div>
+                  activities.slice(0, 10).map((atividade) => (
+                    <Dialog key={atividade._id}>
+                      <DialogTrigger asChild>
+                        {/* O Card agora é um botão clicável */}
+                        <div 
+                          className="p-3 bg-white border rounded-lg text-sm cursor-pointer hover:bg-gray-50 hover:shadow-sm transition-all group"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">
+                              {(atividade.tipo || '').replace(/_/g, ' ')}                        
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(atividade.createdAt).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          
+                          {/* O parágrafo de descrição foi removido daqui */}
+
+                          {/* Esse texto agora será o principal indicador para clicar */}
+                          <div className="text-[10px] text-blue-500 mt-1 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            Ver detalhes →
+                          </div>
+                        </div>
+                      </DialogTrigger>
+                      
+                      {/* A Janela que abre ao clicar */}
+                      <DialogContent className="max-w-md sm:max-w-lg z-[9999]">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2 text-base">
+                            <Activity className="h-4 w-4 text-primary" />
+                            Detalhes da Atividade
+                          </DialogTitle>
+                          <DialogDescription>
+                            Registrado por <span className="font-semibold text-foreground">{atividade.userName || 'Sistema'}</span> em {new Date(atividade.createdAt).toLocaleString('pt-BR')}
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="mt-2">
+                          <Badge variant="secondary" className="mb-4">
+                            {(atividade.tipo || '').replace(/_/g, ' ')}
+                          </Badge>
+                          
+                          <ScrollArea className="max-h-[50vh] rounded-md border p-4 bg-muted/20">
+                            {/* whitespace-pre-wrap garante que os parágrafos não fiquem grudados */}
+                            <p className="text-sm text-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                              {atividade.descricao}
+                            </p>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   ))
                 ) : (
                   <div className="text-center py-6 border rounded-lg bg-muted/30">
