@@ -4,6 +4,7 @@ import { connectMongo } from './database/mongoose.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 
+
 async function bootstrap() {
   await connectMongo();
   httpServer.listen(env.PORT, () => {
