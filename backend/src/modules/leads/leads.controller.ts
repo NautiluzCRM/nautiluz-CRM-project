@@ -58,6 +58,7 @@ const leadSchema = z.object({
 
   createdAt: z.string().datetime().optional(),
   preferredHospitals: z.array(z.string()).optional(),
+  preferredConvenios: z.array(z.string()).optional(), // Convênios/Operadoras preferidos
   notes: z.string().optional(),
   qualificationStatus: z.string().optional(),
   rank: z.string().optional()

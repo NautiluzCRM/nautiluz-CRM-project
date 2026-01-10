@@ -100,6 +100,7 @@ export interface Lead extends Document {
   
   // Preferências
   preferredHospitals?: string[];
+  preferredConvenios?: string[]; // Convênios/Operadoras preferidos
   preferenciaCoparticipacao?: boolean;
   preferenciaEnfermaria?: boolean;
   
@@ -217,6 +218,7 @@ const leadSchema = new Schema<Lead>(
     
     // Preferências
     preferredHospitals: [String],
+    preferredConvenios: [String], // Convênios/Operadoras preferidos
     preferenciaCoparticipacao: Boolean,
     preferenciaEnfermaria: Boolean,
     
