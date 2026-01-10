@@ -17,7 +17,7 @@ import { linktreeRouter } from './modules/linktree/linktree.routes.js';
 
 export const app = express();
 app.set('trust proxy', 1);
-app.use(cors()); 
+app.use(cors(corsOptions)); 
 
 // core middlewares
 app.use(helmet());
@@ -55,7 +55,7 @@ app.use(errorHandler);
 
 export const httpServer = createServer(app);
 export const io = new SocketIOServer(httpServer, {
-  cors: { origin: "*", credentials: true } // Liberado temporariamente também
+  cors: corsOptions
 });
 
 attachRealtimeHelpers(io);
