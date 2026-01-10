@@ -30,6 +30,10 @@ export async function sendPasswordResetEmail({ to, userName, resetLink, isNewUse
   
   const expirationTime = isNewUser ? '24 horas' : '1 hora';
   
+  console.log('📧 Enviando email para:', to);
+  console.log('📧 Assunto:', subject);
+  console.log('📧 Link:', resetLink);
+  
   try {
     const { data, error } = await resend.emails.send({
       from: env.RESEND_FROM_EMAIL,
@@ -112,13 +116,16 @@ export async function sendPasswordResetEmail({ to, userName, resetLink, isNewUse
     });
 
     if (error) {
+      console.error('❌ Erro Resend:', error);
       logger.error({ error }, 'Failed to send password reset email');
       throw new Error('Falha ao enviar email de recuperação');
     }
 
+    console.log('✅ Email enviado! ID:', data?.id);
     logger.info({ emailId: data?.id, to }, 'Password reset email sent');
     return data;
   } catch (err) {
+    console.error('❌ Exceção ao enviar email:', err);
     logger.error({ err, to }, 'Error sending password reset email');
     throw err;
   }

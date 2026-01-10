@@ -412,6 +412,7 @@ export async function createUserApi(dados: {
   telefone?: string;
   cargo?: string;
   assinatura?: string;
+  enviarEmailSenha?: boolean;
 }) {
   const payload = {
     name: dados.nome,
@@ -422,7 +423,8 @@ export async function createUserApi(dados: {
     active: true,
     phone: dados.telefone,
     jobTitle: dados.cargo,
-    emailSignature: dados.assinatura
+    emailSignature: dados.assinatura,
+    sendResetEmail: dados.enviarEmailSenha !== false // Por padrão, envia email
   };
 
   return request("/users", {
@@ -479,6 +481,12 @@ export async function updateUserPreferencesApi(id: string, preferences: {
   return request(`/users/${id}`, {
     method: "PATCH",
     body: JSON.stringify(preferences),
+  });
+}
+
+export async function getUserApi(id: string) {
+  return request(`/users/${id}`, {
+    method: "GET",
   });
 }
 
