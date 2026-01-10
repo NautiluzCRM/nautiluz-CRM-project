@@ -60,7 +60,7 @@ interface VendedorStats {
   ativo: boolean;
   perfil: string;
   ultimoAcesso: string;
-  // Estatísticas calculadas
+  // Estatísticas
   totalLeads: number;
   leadsQualificados: number;
   leadsConvertidos: number;
