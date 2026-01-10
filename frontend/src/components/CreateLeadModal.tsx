@@ -43,8 +43,6 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  
-  const hoje = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -60,7 +58,6 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
     planoAtual: "",
     cidade: "",
     uf: "",
-    dataCriacao: hoje,
     observacoes: ""
   });
 
@@ -100,13 +97,13 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         nome: "", empresa: "", email: "", celular: "", origem: "Indicação",
         quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, tipoCnpj: "",
         possuiPlano: false, planoAtual: "", cidade: "", uf: "", 
-        dataCriacao: hoje, observacoes: ""
+        observacoes: ""
       });
       setHospitais([]);
       setFaixas(Array(10).fill(0));
       setSelectedOwners([]); 
     }
-  }, [isOpen, hoje]);
+  }, [isOpen]);
 
   const handleAddHospital = (e?: React.KeyboardEvent | React.MouseEvent) => {
     if (e && 'key' in e && e.key !== 'Enter') return;
@@ -278,7 +275,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         nome: "", empresa: "", email: "", celular: "", origem: "Indicação",
         quantidadeVidas: 1, valorMedio: 0, possuiCnpj: false, tipoCnpj: "",
         possuiPlano: false, planoAtual: "", cidade: "", uf: "", 
-        dataCriacao: hoje, observacoes: ""
+        observacoes: ""
       });
       setFaixas(Array(10).fill(0));
       setHospitais([]);
@@ -339,13 +336,9 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
             </h4>
             
             <div className="grid grid-cols-12 gap-4">
-              <div className="col-span-12 md:col-span-8 space-y-2">
+              <div className="col-span-12 space-y-2">
                 <Label htmlFor="nome">Nome Completo *</Label>
                 <Input id="nome" value={formData.nome} onChange={(e) => handleChange("nome", e.target.value)} placeholder="Ex: Maria Silva" />
-              </div>
-              <div className="col-span-12 md:col-span-4 space-y-2">
-                <Label htmlFor="dataCriacao">Data de Entrada</Label>
-                <Input id="dataCriacao" type="date" value={formData.dataCriacao} onChange={(e) => handleChange("dataCriacao", e.target.value)} />
               </div>
               <div className="col-span-6 md:col-span-4 space-y-2">
                 <Label htmlFor="celular">Celular *</Label>

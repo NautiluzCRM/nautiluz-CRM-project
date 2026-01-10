@@ -5,7 +5,9 @@ import {
   getUserHandler,
   listUsersHandler,
   updateUserHandler,
-  getSellersStatsHandler
+  getSellersStatsHandler,
+  uploadPhotoHandler,
+  removePhotoHandler
 } from './user.controller.js';
 import { authenticate } from '../../rbac/rbac.middleware.js';
 import { requireRole } from '../../rbac/rbac.guard.js';
@@ -23,6 +25,10 @@ router.get('/', listUsersHandler);
 // Gestão de usuários continua restrita a Admin
 router.post('/', requireRole(['admin']), createUserHandler);
 router.delete('/:id', requireRole(['admin']), deleteUserHandler);
+
+// Upload e remoção de foto (próprio usuário ou admin)
+router.post('/:id/photo', uploadPhotoHandler);
+router.delete('/:id/photo', removePhotoHandler);
 
 // Ver/Editar perfil específico (pode refinar depois se usuário pode editar a si mesmo)
 router.get('/:id', getUserHandler);

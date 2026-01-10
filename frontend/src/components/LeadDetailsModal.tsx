@@ -610,7 +610,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Criado em:</p>
                   <p className="font-medium">
-                    {lead.dataCriacao ? new Date(lead.dataCriacao).toLocaleDateString('pt-BR') : '-'}
+                    {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : '-'}
                   </p>
                 </div>
                 <Separator />

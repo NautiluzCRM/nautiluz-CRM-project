@@ -44,7 +44,8 @@ const userSchema = new mongoose.Schema(
     phone: { type: String },
     jobTitle: { type: String },
     emailSignature: { type: String },
-    photoUrl: { type: String },
+    photoUrl: { type: String }, // URL externa ou path local (legado)
+    photoBase64: { type: String }, // Foto em base64 armazenada no banco
     lastLoginAt: { type: Date },
     
     // Preferências de notificação

@@ -496,6 +496,21 @@ export async function deleteUserApi(id: string) {
   });
 }
 
+// Upload de foto de perfil (base64)
+export async function uploadUserPhotoApi(id: string, photoBase64: string) {
+  return request(`/users/${id}/photo`, {
+    method: "POST",
+    body: JSON.stringify({ photoBase64 }),
+  });
+}
+
+// Remover foto de perfil
+export async function removeUserPhotoApi(id: string) {
+  return request(`/users/${id}/photo`, {
+    method: "DELETE",
+  });
+}
+
 // --- Funções de Pipeline / Etapas ---
 
 export async function createStageApi(pipelineId: string, dados: { 
