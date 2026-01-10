@@ -382,54 +382,54 @@ const Integracoes = () => {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6">
         {/* Instruções */}
-        <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+        <Card className="mb-6 bg-gradient-to-r from-primary/5 to-accent/5 dark:from-primary/10 dark:to-accent/10 border-primary/20 dark:border-primary/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-blue-600" />
+              <Sparkles className="h-5 w-5 text-primary" />
               Duas formas de integrar
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-6">
               {/* Opção 1: Make/Zapier */}
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="p-4 bg-accent/10 rounded-lg border border-accent/20 dark:bg-accent/5 dark:border-accent/30">
                 <div className="flex items-center gap-2 mb-3">
-                  <Zap className="h-5 w-5 text-purple-600" />
-                  <h3 className="font-semibold text-purple-800">Via Make / Zapier</h3>
+                  <Zap className="h-5 w-5 text-accent" />
+                  <h3 className="font-semibold text-accent dark:text-accent">Via Make / Zapier</h3>
                 </div>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex items-start gap-2">
-                    <Badge className="shrink-0 bg-purple-500 text-xs">1</Badge>
+                    <Badge className="shrink-0 bg-accent text-accent-foreground text-xs dark:bg-accent/90">1</Badge>
                     <span>Crie integração e copie a URL do Webhook</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <Badge className="shrink-0 bg-purple-500 text-xs">2</Badge>
+                    <Badge className="shrink-0 bg-accent text-accent-foreground text-xs dark:bg-accent/90">2</Badge>
                     <span>No Make, conecte "Facebook Lead Ads"</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <Badge className="shrink-0 bg-purple-500 text-xs">3</Badge>
+                    <Badge className="shrink-0 bg-accent text-accent-foreground text-xs dark:bg-accent/90">3</Badge>
                     <span>Adicione "HTTP Request" com a URL</span>
                   </div>
                 </div>
               </div>
 
               {/* Opção 2: Conexão Direta */}
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="p-4 bg-primary/10 rounded-lg border border-primary/20 dark:bg-primary/5 dark:border-primary/30">
                 <div className="flex items-center gap-2 mb-3">
-                  <Instagram className="h-5 w-5 text-blue-600" />
-                  <h3 className="font-semibold text-blue-800">Conexão Direta</h3>
+                  <Instagram className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold text-primary dark:text-primary">Conexão Direta</h3>
                 </div>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex items-start gap-2">
-                    <Badge className="shrink-0 bg-blue-500 text-xs">1</Badge>
+                    <Badge className="shrink-0 bg-primary text-primary-foreground text-xs dark:bg-primary/90">1</Badge>
                     <span>Crie app no Meta for Developers</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <Badge className="shrink-0 bg-blue-500 text-xs">2</Badge>
+                    <Badge className="shrink-0 bg-primary text-primary-foreground text-xs dark:bg-primary/90">2</Badge>
                     <span>Configure App ID, Secret e Token</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <Badge className="shrink-0 bg-blue-500 text-xs">3</Badge>
+                    <Badge className="shrink-0 bg-primary text-primary-foreground text-xs dark:bg-primary/90">3</Badge>
                     <span>Leads chegam automaticamente!</span>
                   </div>
                 </div>
@@ -461,7 +461,7 @@ const Integracoes = () => {
                     onClick={() => setFormData({ ...formData, connectionType: 'webhook' })}
                     className={`p-4 rounded-lg border-2 text-left transition-all ${
                       formData.connectionType === 'webhook' 
-                        ? 'border-purple-500 bg-purple-50' 
+                        ? 'border-accent bg-accent/10 dark:bg-accent/5' 
                         : 'border-muted hover:border-muted-foreground/50'
                     }`}
                   >
@@ -476,7 +476,7 @@ const Integracoes = () => {
                     onClick={() => setFormData({ ...formData, connectionType: 'direct' })}
                     className={`p-4 rounded-lg border-2 text-left transition-all ${
                       formData.connectionType === 'direct' 
-                        ? 'border-blue-500 bg-blue-50' 
+                        ? 'border-primary bg-primary/10 dark:bg-primary/5' 
                         : 'border-muted hover:border-muted-foreground/50'
                     }`}
                   >
@@ -516,7 +516,7 @@ const Integracoes = () => {
               {formData.connectionType === 'direct' && (
                 <>
                   <Separator />
-                  <Alert className="bg-blue-50 border-blue-200">
+                  <Alert className="bg-primary/10 border-primary/20 dark:bg-primary/5">
                     <AlertCircle className="h-4 w-4 text-blue-600" />
                     <AlertTitle className="text-blue-800">Credenciais do Facebook</AlertTitle>
                     <AlertDescription className="text-blue-700 text-sm">
@@ -663,7 +663,7 @@ const Integracoes = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={integration.active ? "default" : "secondary"} className={integration.active ? 'bg-green-500' : ''}>
+                      <Badge variant={integration.active ? "default" : "secondary"} className={integration.active ? 'bg-success dark:bg-success/90' : ''}>
                         {integration.active ? <><CheckCircle2 className="h-3 w-3 mr-1" /> Ativa</> : 'Pausada'}
                       </Badge>
                       <Switch checked={integration.active} onCheckedChange={() => handleToggle(integration)} />
@@ -672,12 +672,12 @@ const Integracoes = () => {
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  <Alert className="bg-blue-50 border-blue-200">
+                  <Alert className="bg-primary/10 border-primary/20 dark:bg-primary/5">
                     <Link2 className="h-4 w-4 text-blue-600" />
                     <AlertTitle className="text-blue-800">URL do Webhook (copie para o Make)</AlertTitle>
                     <AlertDescription className="mt-2">
                       <div className="flex gap-2">
-                        <Input value={getWebhookUrl(integration)} readOnly className="font-mono text-xs bg-white" />
+                        <Input value={getWebhookUrl(integration)} readOnly className="font-mono text-xs bg-background" />
                         <Button variant="outline" size="icon" onClick={() => copyToClipboard(getWebhookUrl(integration), integration._id)}>
                           {copiedUrl === integration._id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         </Button>
@@ -700,22 +700,22 @@ const Integracoes = () => {
                   )}
 
                   <div className="grid grid-cols-4 gap-3 pt-2">
-                    <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="text-center p-3 bg-primary/10 rounded-lg border border-primary/20 dark:bg-primary/5">
                       <TrendingUp className="h-4 w-4 text-blue-600 mx-auto mb-1" />
                       <p className="text-xl font-bold text-blue-600">{integration.stats.leadsReceived}</p>
                       <p className="text-[10px] text-muted-foreground">Recebidos</p>
                     </div>
-                    <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                    <div className="text-center p-3 bg-success/10 rounded-lg border border-success/20 dark:bg-success/5">
                       <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto mb-1" />
                       <p className="text-xl font-bold text-green-600">{integration.stats.leadsCreated}</p>
                       <p className="text-[10px] text-muted-foreground">Criados</p>
                     </div>
-                    <div className="text-center p-3 bg-red-50 rounded-lg border border-red-100">
+                    <div className="text-center p-3 bg-destructive/10 rounded-lg border border-destructive/20 dark:bg-destructive/5">
                       <AlertCircle className="h-4 w-4 text-red-500 mx-auto mb-1" />
                       <p className="text-xl font-bold text-red-500">{integration.stats.errors}</p>
                       <p className="text-[10px] text-muted-foreground">Erros</p>
                     </div>
-                    <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-100">
+                    <div className="text-center p-3 bg-accent/10 rounded-lg border border-accent/20 dark:bg-accent/5">
                       <Clock className="h-4 w-4 text-purple-600 mx-auto mb-1" />
                       <p className="text-sm font-medium text-purple-600">
                         {integration.stats.lastLeadAt ? new Date(integration.stats.lastLeadAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '--'}

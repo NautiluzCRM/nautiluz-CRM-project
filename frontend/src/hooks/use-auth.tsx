@@ -90,6 +90,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [{ token, refresh, user }, setAuth] = useState(readStoredAuth);
   const [loading, setLoading] = useState(true);
 
+  // Função para renovar o token automaticamente
+  const renewToken = useCallback(async () => {
+    const storage = getAuthStorage();
+    const refreshToken = storage.getItem("refreshToken") ?? getStoredValue("refreshToken");
+    if (!refreshToken) return false;
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:10000/api"}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: refreshToken }),
+      });
+
+      if (!res.ok) {
+        clearAllAuthStorage();
+        setAuth({ token: null, refresh: null, user: null });
+        return false;
+      }
+
+      const data = await res.json();
+      if (data?.accessToken) {
+        storage.setItem("authToken", data.accessToken);
+        setAuth(prev => ({ ...prev, token: data.accessToken }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Erro ao renovar token:", error);
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     // Verifica se o token está expirado ao montar
     if (token && isTokenExpired(token) && !refresh) {
@@ -98,6 +130,74 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setLoading(false);
   }, []);
+
+  // Sistema de renovação automática do token
+  useEffect(() => {
+    if (!token || !refresh) return;
+
+    // Verifica e renova o token periodicamente (a cada 5 minutos)
+    const checkAndRenew = async () => {
+      // Se o token vai expirar em menos de 5 minutos, renova
+      try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload.exp) {
+            const expirationTime = payload.exp * 1000;
+            const timeUntilExpiry = expirationTime - Date.now();
+            
+            // Se faltar menos de 5 minutos para expirar, renova
+            if (timeUntilExpiry < 5 * 60 * 1000) {
+              console.log('Token próximo de expirar, renovando...');
+              const renewed = await renewToken();
+              if (!renewed) {
+                console.error('Falha ao renovar token, fazendo logout...');
+                clearAllAuthStorage();
+                setAuth({ token: null, refresh: null, user: null });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao verificar expiração do token:', error);
+      }
+    };
+
+    // Verifica imediatamente
+    checkAndRenew();
+
+    // Verifica a cada 2 minutos
+    const interval = setInterval(checkAndRenew, 2 * 60 * 1000);
+
+    // Listener para atividade do usuário - renova token em caso de interação
+    const handleUserActivity = () => {
+      checkAndRenew();
+    };
+
+    // Eventos que indicam atividade do usuário
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    
+    // Throttle para não verificar a cada interação (só a cada 1 minuto de atividade)
+    let lastActivityCheck = Date.now();
+    const throttledActivity = () => {
+      const now = Date.now();
+      if (now - lastActivityCheck > 60 * 1000) { // 1 minuto
+        lastActivityCheck = now;
+        handleUserActivity();
+      }
+    };
+
+    activityEvents.forEach(event => {
+      window.addEventListener(event, throttledActivity, { passive: true });
+    });
+
+    return () => {
+      clearInterval(interval);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, throttledActivity);
+      });
+    };
+  }, [token, refresh, renewToken]);
 
   const login = useCallback(async (email: string, password: string, remember = false) => {
     const { accessToken, refreshToken, user } = await loginApi(email, password, remember);

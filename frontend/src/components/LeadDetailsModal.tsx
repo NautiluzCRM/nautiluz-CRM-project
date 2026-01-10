@@ -235,6 +235,14 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     label: FAIXAS_LABELS[index],
     count: count
   })).filter(item => item.count > 0);
+  
+  const ownersList = (leadData.owners || []) as any[];
+  
+  const sortedOwners = [...ownersList].sort((a, b) => 
+    (a.nome || "").localeCompare(b.nome || "")
+  );
+
+  const tituloResponsavel = sortedOwners.length > 1 ? "Responsáveis" : "Responsável";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -329,7 +337,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                 <Button 
                   size="sm" 
                   variant="outline"
-                  className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-green-50" 
+                  className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-success/10 dark:hover:bg-success/5" 
                   onClick={() => lead.celular && window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank')} 
                   disabled={!lead.celular}
                 >
@@ -402,7 +410,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
               {/* Card Grande: Logo + Plano + Valor */}
               <div className="border rounded-lg p-4 bg-muted/30 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-20 w-28 rounded border bg-white flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="h-20 w-28 rounded border bg-card flex items-center justify-center overflow-hidden shrink-0">
                     {operadoraInfo ? (
                       <img 
                         src={operadoraInfo.src} 
@@ -556,11 +564,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
             <div className="space-y-3">
               <h3 className="text-base font-semibold flex items-center gap-2">
                 <Activity className="h-4 w-4" />
-                Responsável
+                {tituloResponsavel}
               </h3>
-              {leadData.owners && leadData.owners.length > 0 ? (
+              
+              {sortedOwners.length > 0 ? (
                 <div className="space-y-2">
-                  {leadData.owners.map((owner: any) => (
+                  {sortedOwners.map((owner: any) => (
                     <div key={owner.id} className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                       <Avatar className="h-9 w-9 border-2">
                         <AvatarImage src="" alt={owner.nome} />
@@ -627,7 +636,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                     <div key={atividade._id} className="p-3 bg-muted/30 border rounded-lg text-sm">
                       <div className="flex items-center justify-between mb-1">
                         <Badge variant="outline" className="text-xs">
-                          {atividade.tipo.replace(/_/g, ' ')}
+                          {(atividade.tipo || '').replace(/_/g, ' ')}                        
                         </Badge>
                         <span className="text-xs text-muted-foreground">
                           {new Date(atividade.createdAt).toLocaleDateString('pt-BR', { 

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { updateLeadApi, fetchUsers } from "@/lib/api";
 import { Lead } from "@/types/crm"; 
 import { Loader2, CheckCircle2, X, Plus, User, Users, Phone, Mail, MapPin, Building, FileText, Shield } from "lucide-react";
+import { formatPhone } from "@/lib/utils";
 
 const FAIXAS_ETARIAS = [
   "0 a 18", "19 a 23", "24 a 28", "29 a 33", "34 a 38",
@@ -63,12 +64,22 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
 
+  // Carregar lista de usuários
   useEffect(() => {
     async function loadUsers() {
       if (!isOpen) return;
       try {
         const users = await fetchUsers();
-        setAvailableUsers(users.filter((u: any) => u.ativo)); 
+        
+        // Filtra apenas os ativos
+        const activeUsers = users.filter((u: any) => u.ativo);
+
+        // Ordena alfabeticamente pelo nome
+        activeUsers.sort((a: any, b: any) => 
+          (a.nome || "").localeCompare(b.nome || "")
+        );
+
+        setAvailableUsers(activeUsers); 
       } catch (err) {
         console.error("Erro ao buscar usuários", err);
       }
@@ -76,16 +87,18 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
     loadUsers();
   }, [isOpen]);
 
+ // Carregar dados do Lead ao abrir
   useEffect(() => {
     if (isOpen && leadToEdit) {
+      // Preenche o formulário básico
       setFormData({
         nome: leadToEdit.nome || "",
         empresa: leadToEdit.empresa || "",
         email: leadToEdit.email || "",
         celular: leadToEdit.celular || "",
         origem: leadToEdit.origem || "Indicação",
-        quantidadeVidas: leadToEdit.quantidadeVidas || 1,
-        valorMedio: leadToEdit.valorMedio || 0,
+        quantidadeVidas: leadToEdit.quantidadeVidas ?? 1,
+        valorMedio: leadToEdit.valorMedio ?? 0,
         possuiCnpj: leadToEdit.possuiCnpj || false,
         tipoCnpj: leadToEdit.tipoCnpj || "",
         possuiPlano: leadToEdit.possuiPlano || false,
@@ -98,14 +111,37 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
       
       setHospitais(leadToEdit.hospitaisPreferencia || []);
       
-      if (leadToEdit.idades && leadToEdit.idades.length === 10) {
+      // --- LÓGICA ROBUSTA PARA FAIXAS ETÁRIAS ---
+      const f = (leadToEdit as any).faixasEtarias;
+      
+      // Verifica se existe o objeto E se ele tem alguma chave preenchida (não é vazio)
+      const temFaixasNovas = f && Object.keys(f).length > 0;
+      
+      if (temFaixasNovas) {
+        setFaixas([
+          f.ate18 || 0,
+          f.de19a23 || 0,
+          f.de24a28 || 0,
+          f.de29a33 || 0,
+          f.de34a38 || 0,
+          f.de39a43 || 0,
+          f.de44a48 || 0,
+          f.de49a53 || 0,
+          f.de54a58 || 0,
+          f.acima59 || 0
+        ]);
+      } 
+      // Se não tiver faixas novas, tenta usar o array antigo 'idades'
+      else if (leadToEdit.idades && Array.isArray(leadToEdit.idades) && leadToEdit.idades.length >= 10) {
         setFaixas([...leadToEdit.idades]);
       } else {
+        // Se não tiver nada, zera tudo
         setFaixas(Array(10).fill(0));
       }
+      // ---------------------------------------------
 
+      // Carregar owners
       const rawIds = (leadToEdit as any).ownersIds;
-      
       if (rawIds && Array.isArray(rawIds)) {
          setSelectedOwners(rawIds);
       } else if ((leadToEdit as any).owners && Array.isArray((leadToEdit as any).owners)) {
@@ -139,7 +175,16 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
   };
 
   const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Converte para número se for campo de quantidade de vidas ou valor
+    if (field === "quantidadeVidas") {
+      const numValue = value === "" ? 0 : parseInt(value, 10) || 0;
+      setFormData(prev => ({ ...prev, [field]: numValue }));
+    } else if (field === "valorMedio") {
+      const numValue = value === "" ? 0 : parseFloat(value) || 0;
+      setFormData(prev => ({ ...prev, [field]: numValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const toggleOwner = (userId: string) => {
@@ -201,15 +246,33 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
     setIsLoading(true);
 
     try {
+      // --- CORREÇÃO AQUI: Montar o objeto para o Backend ---
+      const faixasEtariasObj = {
+        ate18: faixas[0],
+        de19a23: faixas[1],
+        de24a28: faixas[2],
+        de29a33: faixas[3],
+        de34a38: faixas[4],
+        de39a43: faixas[5],
+        de44a48: faixas[6],
+        de49a53: faixas[7],
+        de54a58: faixas[8],
+        acima59: faixas[9]
+      };
+      // ----------------------------------------------------
+
       const leadData: any = {
         ...formData,
         quantidadeVidas: Number(formData.quantidadeVidas),
         valorMedio: Number(formData.valorMedio),
-        idades: faixas,
+        
+        // Enviar o objeto formatado ao invés do array 'idades'
+        faixasEtarias: faixasEtariasObj,
+        
         hospitaisPreferencia: hospitais,
         owners: selectedOwners,
         pipelineId: (leadToEdit as any).pipelineId,
-        stageId: leadToEdit.colunaAtual
+        stageId: (leadToEdit as any).stageId || (leadToEdit as any).colunaAtual
       };
 
       await updateLeadApi(leadToEdit.id, leadData);
@@ -252,16 +315,16 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
                 <Input id="dataCriacao" type="date" value={formData.dataCriacao} onChange={(e) => handleChange("dataCriacao", e.target.value)} />
               </div>
               
-              <div className="col-span-6 md:col-span-4 space-y-2">
+              <div className="col-span-12 md:col-span-4 space-y-2">
                 <Label htmlFor="celular" className="flex items-center gap-1"><Phone className="h-3 w-3" /> Celular *</Label>
-                <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", e.target.value)} placeholder="(11) 99999-9999" />
+                <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", formatPhone(e.target.value))} placeholder="(11) 99999-9999" />
               </div>
-              <div className="col-span-6 md:col-span-4 space-y-2">
+              <div className="col-span-12 md:col-span-4 space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label>
                 <Input id="email" type="email" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="email@exemplo.com" />
               </div>
               <div className="col-span-12 md:col-span-4 space-y-2">
-                <Label htmlFor="origem">Origem</Label>
+                <Label htmlFor="origem" className="flex gap-1">Origem</Label>
                 <Select value={formData.origem} onValueChange={(val) => handleChange("origem", val)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -282,7 +345,7 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
                 <Input id="cidade" value={formData.cidade} onChange={(e) => handleChange("cidade", e.target.value)} placeholder="Ex: São Paulo" />
               </div>
               <div className="col-span-4 md:col-span-2 space-y-2">
-                <Label htmlFor="uf">UF *</Label>
+                <Label htmlFor="uf" className="flex gap-1">UF *</Label>
                 <Select value={formData.uf} onValueChange={(val) => handleChange("uf", val)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{UFS.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}</SelectContent>

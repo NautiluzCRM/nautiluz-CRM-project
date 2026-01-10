@@ -15,7 +15,7 @@ const leadSchema = z.object({
   
   state: z.string({ required_error: "O estado (UF) é obrigatório." }).length(2, "Selecione um estado válido (UF)."),
   
-  livesCount: z.number({ required_error: "A quantidade de vidas é obrigatória." }).min(1, "A quantidade de vidas deve ser maior que zero."),
+  livesCount: z.number({ required_error: "A quantidade de vidas é obrigatória." }).min(0, "A quantidade de vidas deve ser maior que zero."), // Ajustei min para 0 caso venha vazio
   
   avgPrice: z.number({ required_error: "O valor estimado é obrigatório." }).min(0, "O valor estimado não pode ser negativo."),
 
@@ -29,14 +29,33 @@ const leadSchema = z.object({
   hasCnpj: z.boolean().optional(),
   
   // Lista fechada de tipos de empresa
-  cnpjType: z.enum(["MEI", "EI", "SLU", "LTDA", "SS", "SA", "Outros"]).optional(), 
+  cnpjType: z.enum(["MEI", "ME", "EI", "SLU", "LTDA", "SS", "SA", "Outros"]).optional(), 
   
   // NOVO: Array de IDs para múltiplos responsáveis
   owners: z.array(z.string()).optional(),
 
   hasCurrentPlan: z.boolean().optional(),
   currentPlan: z.string().optional(),
+  
+  // Mantido para legado
   ageBuckets: z.array(z.number()).optional(), 
+  
+  // --- AQUI ESTÁ A CORREÇÃO ---
+  // Adicionamos a validação para o novo objeto de faixas etárias
+  faixasEtarias: z.object({
+    ate18: z.number().optional(),
+    de19a23: z.number().optional(),
+    de24a28: z.number().optional(),
+    de29a33: z.number().optional(),
+    de34a38: z.number().optional(),
+    de39a43: z.number().optional(),
+    de44a48: z.number().optional(),
+    de49a53: z.number().optional(),
+    de54a58: z.number().optional(),
+    acima59: z.number().optional()
+  }).optional(),
+  // ---------------------------
+
   createdAt: z.string().datetime().optional(),
   preferredHospitals: z.array(z.string()).optional(),
   notes: z.string().optional(),

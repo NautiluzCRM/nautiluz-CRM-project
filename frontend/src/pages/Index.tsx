@@ -4,12 +4,15 @@ import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { EditLeadModal } from "@/components/EditLeadModal";
 import { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, Search } from "lucide-react";
+import { Plus, Filter, Search, X, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fetchPipelineData, moveLeadApi, updateLeadApi, deleteLeadApi } from "@/lib/api";
 import { CreateLeadModal } from "@/components/CreateLeadModal";
 import { useToast } from "@/hooks/use-toast";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const Index = () => {
   const { toast } = useToast();
@@ -27,6 +30,18 @@ const Index = () => {
   const [leadToEdit, setLeadToEdit] = useState<Lead | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+
+  // Estados de filtros avançados
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    origem: "all",
+    status: "all",
+    minVidas: "",
+    maxVidas: "",
+    minValor: "",
+    maxValor: "",
+    responsavel: "all"
+  });
 
   // Função para recarregar os dados do Kanban
   const loadPipeline = async () => {
@@ -123,11 +138,78 @@ const Index = () => {
     setIsCreateModalOpen(true);
   };
 
-  const filteredLeads = pipeline?.leads?.filter((lead: Lead) => 
-    lead.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (lead.empresa && lead.empresa.toLowerCase().includes(searchTerm.toLowerCase()))
-  ) || [];
+  // Função para limpar filtros
+  const handleClearFilters = () => {
+    setFilters({
+      origem: "all",
+      status: "all",
+      minVidas: "",
+      maxVidas: "",
+      minValor: "",
+      maxValor: "",
+      responsavel: "all"
+    });
+  };
+
+  // Verifica se há filtros ativos
+  const hasActiveFilters = 
+    filters.origem !== "all" || 
+    filters.status !== "all" || 
+    filters.minVidas !== "" || 
+    filters.maxVidas !== "" || 
+    filters.minValor !== "" || 
+    filters.maxValor !== "" ||
+    filters.responsavel !== "all";
+
+  const filteredLeads = pipeline?.leads?.filter((lead: Lead) => {
+    // Filtro de busca (texto)
+    const matchesSearch = 
+      lead.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.empresa && lead.empresa.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    if (!matchesSearch) return false;
+
+    // Filtro de origem
+    if (filters.origem !== "all" && lead.origem !== filters.origem) {
+      return false;
+    }
+
+    // Filtro de status
+    if (filters.status !== "all" && lead.statusQualificacao !== filters.status) {
+      return false;
+    }
+
+    // Filtro de quantidade de vidas (mínimo)
+    if (filters.minVidas !== "" && lead.quantidadeVidas < Number(filters.minVidas)) {
+      return false;
+    }
+
+    // Filtro de quantidade de vidas (máximo)
+    if (filters.maxVidas !== "" && lead.quantidadeVidas > Number(filters.maxVidas)) {
+      return false;
+    }
+
+    // Filtro de valor estimado (mínimo)
+    if (filters.minValor !== "" && (lead.valorMedio || 0) < Number(filters.minValor)) {
+      return false;
+    }
+
+    // Filtro de valor estimado (máximo)
+    if (filters.maxValor !== "" && (lead.valorMedio || 0) > Number(filters.maxValor)) {
+      return false;
+    }
+
+    // Filtro de responsável
+    if (filters.responsavel !== "all") {
+      const ownerIds = (lead as any).ownersIds || [];
+      if (!ownerIds.includes(filters.responsavel)) {
+        return false;
+      }
+    }
+
+    return true;
+  }) || [];
 
   const totalLeads = pipeline?.leads?.length || 0;
   const leadsQualificados = pipeline?.leads?.filter((l: Lead) => l.statusQualificacao === 'Qualificado').length || 0;
@@ -173,10 +255,146 @@ const Index = () => {
                   className="pl-10 h-9 sm:h-10 text-sm"
                 />
               </div>
-              <Button variant="outline" size="sm" className="h-9 sm:h-10 px-3 shrink-0">
-                <Filter className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Filtrar</span>
-              </Button>
+              
+              <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 sm:h-10 px-3 shrink-0 relative">
+                    <Filter className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Filtrar</span>
+                    {hasActiveFilters && (
+                      <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                        {Object.values(filters).filter(v => v !== "all" && v !== "").length}
+                      </Badge>
+                    )}
+                  </Button>
+                </SheetTrigger>
+                
+                <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Filtros Avançados</SheetTitle>
+                  </SheetHeader>
+                  
+                  <div className="py-6 space-y-6">
+                    {/* Filtro por Origem */}
+                    <div className="space-y-2">
+                      <Label htmlFor="filter-origem">Origem</Label>
+                      <Select value={filters.origem} onValueChange={(v) => setFilters(prev => ({ ...prev, origem: v }))}>
+                        <SelectTrigger id="filter-origem">
+                          <SelectValue placeholder="Todas as origens" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas as origens</SelectItem>
+                          <SelectItem value="Instagram">Instagram</SelectItem>
+                          <SelectItem value="Site">Site</SelectItem>
+                          <SelectItem value="Indicação">Indicação</SelectItem>
+                          <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                          <SelectItem value="Google Ads">Google Ads</SelectItem>
+                          <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                          <SelectItem value="Outros">Outros</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Filtro por Status */}
+                    <div className="space-y-2">
+                      <Label htmlFor="filter-status">Status de Qualificação</Label>
+                      <Select value={filters.status} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v }))}>
+                        <SelectTrigger id="filter-status">
+                          <SelectValue placeholder="Todos os status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os status</SelectItem>
+                          <SelectItem value="Qualificado">Qualificado</SelectItem>
+                          <SelectItem value="Incompleto">Incompleto</SelectItem>
+                          <SelectItem value="Duplicado">Duplicado</SelectItem>
+                          <SelectItem value="Sem interesse">Sem interesse</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Filtro por Quantidade de Vidas */}
+                    <div className="space-y-2">
+                      <Label>Quantidade de Vidas</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Input 
+                            type="number" 
+                            placeholder="Mínimo"
+                            value={filters.minVidas}
+                            onChange={(e) => setFilters(prev => ({ ...prev, minVidas: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Input 
+                            type="number" 
+                            placeholder="Máximo"
+                            value={filters.maxVidas}
+                            onChange={(e) => setFilters(prev => ({ ...prev, maxVidas: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Filtro por Valor Estimado */}
+                    <div className="space-y-2">
+                      <Label>Valor Estimado (R$)</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Input 
+                            type="number" 
+                            placeholder="Mínimo"
+                            value={filters.minValor}
+                            onChange={(e) => setFilters(prev => ({ ...prev, minValor: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Input 
+                            type="number" 
+                            placeholder="Máximo"
+                            value={filters.maxValor}
+                            onChange={(e) => setFilters(prev => ({ ...prev, maxValor: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Filtro por Responsável */}
+                    <div className="space-y-2">
+                      <Label htmlFor="filter-responsavel">Responsável</Label>
+                      <Select value={filters.responsavel} onValueChange={(v) => setFilters(prev => ({ ...prev, responsavel: v }))}>
+                        <SelectTrigger id="filter-responsavel">
+                          <SelectValue placeholder="Todos os responsáveis" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os responsáveis</SelectItem>
+                          {pipeline?.owners?.map((owner: any) => (
+                            <SelectItem key={owner._id} value={owner._id}>
+                              {owner.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <SheetFooter className="gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleClearFilters}
+                      className="flex-1"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Limpar
+                    </Button>
+                    <Button 
+                      onClick={() => setIsFilterOpen(false)}
+                      className="flex-1 bg-gradient-primary hover:bg-primary-hover"
+                    >
+                      Aplicar Filtros
+                    </Button>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
             </div>
 
             {/* Stats and Export - Scrollable on mobile */}

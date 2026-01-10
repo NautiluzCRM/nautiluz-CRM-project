@@ -106,7 +106,7 @@ const Login = () => {
           {/* Logo e Cabeçalho */}
           <div className="text-center space-y-3">
             <div className="flex justify-center">
-              <div className="bg-white rounded-2xl p-3 shadow-lg shadow-primary/10">
+              <div className="bg-card rounded-2xl p-3 shadow-lg shadow-primary/10">
                 <img 
                   src="/nautiluz.png" 
                   alt="Nautiluz CRM" 
@@ -125,7 +125,7 @@ const Login = () => {
           </div>
 
           {/* Formulário de Login */}
-          <Card className="shadow-xl shadow-primary/5 border-0 bg-white/80 backdrop-blur-sm">
+          <Card className="shadow-xl shadow-primary/5 border-0 bg-card/80 backdrop-blur-sm">
             <CardHeader className="space-y-1 pb-2 pt-6 px-4 sm:px-6">
               <h2 className="text-xl sm:text-2xl font-semibold text-center">
                 Entrar

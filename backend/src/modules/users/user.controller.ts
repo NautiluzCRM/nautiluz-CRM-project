@@ -17,6 +17,18 @@ const userSchema = z.object({
   photoUrl: z.string().optional().nullable()
 });
 
+const preferencesSchema = z.object({
+  notificationPreferences: z.object({
+    email: z.boolean().optional(),
+    sla: z.boolean().optional(),
+    sms: z.boolean().optional()
+  }).optional(),
+  preferences: z.object({
+    darkMode: z.boolean().optional(),
+    autoSave: z.boolean().optional()
+  }).optional()
+});
+
 export const listUsersHandler = asyncHandler(async (_req: Request, res: Response) => {
   const users = await listUsers();
   res.json(users);
@@ -38,7 +50,11 @@ export const getUserHandler = asyncHandler(async (req: Request, res: Response) =
 export const updateUserHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const currentUser = (req as any).user;
-  const body = userSchema.partial().parse(req.body);
+  
+  // Aceita tanto schema completo quanto preferências
+  const body = req.body.notificationPreferences || req.body.preferences 
+    ? preferencesSchema.parse(req.body)
+    : userSchema.partial().parse(req.body);
 
   if (body.password && !body.currentPassword) {
     return res.status(400).json({ message: "Para alterar a senha, informe a senha atual." });

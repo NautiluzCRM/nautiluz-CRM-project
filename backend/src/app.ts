@@ -16,6 +16,7 @@ import { attachRealtimeHelpers } from './common/realtime.js';
 import { linktreeRouter } from './modules/linktree/linktree.routes.js';
 
 export const app = express();
+app.set('trust proxy', 1);
 app.use(cors()); 
 
 // core middlewares

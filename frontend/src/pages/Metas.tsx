@@ -391,7 +391,7 @@ const Metas = () => {
                         <div className="flex items-center gap-3">
                           <div className={`
                             w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-                            ${vendedor.posicao === 1 ? 'bg-yellow-500 text-white' : 
+                            ${vendedor.posicao === 1 ? 'bg-yellow-500 text-white dark:bg-yellow-600' : 
                               vendedor.posicao === 2 ? 'bg-gray-400 text-white' :
                               vendedor.posicao === 3 ? 'bg-amber-600 text-white' : 
                               'bg-muted-foreground text-white'}
