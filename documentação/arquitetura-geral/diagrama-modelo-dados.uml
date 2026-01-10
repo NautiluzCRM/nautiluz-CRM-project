@@ -1,118 +1,473 @@
-@startuml
-title **Nautiluz CRM - Modelo de Dados (principal)**
+@startuml modelo-dados-nautiluz-crm
 
-skinparam shadowing false
-skinparam dpi 180
+!define TABLE(x) entity x << (T,#FFAAAA) >>
+!define PK(x) <u>x</u>
+!define FK(x) <i>x</i>
 
-class User {
-  +_id: ObjectId
-  +name: string
-  +email: string (unique)
-  +passwordHash: string
-  +role: "admin|financeiro|vendedor"
-  +teamId?: ObjectId
-  +photoUrl?: string
-  +active: boolean
-  +createdAt: Date
-  +updatedAt: Date
+' ==========================================
+' ENTIDADES PRINCIPAIS
+' ==========================================
+
+TABLE(User) {
+  PK(_id) : ObjectId
+  --
+  name : String
+  email : String <<unique>>
+  passwordHash : String
+  role : Enum
+  active : Boolean
+  phone : String
+  jobTitle : String
+  photoUrl : String
+  lastLoginAt : Date
+  notificationPreferences : Object
+  preferences : Object
+  distribution : Object
+  createdAt : Date
+  updatedAt : Date
 }
 
-class Pipeline {
-  +_id: ObjectId
-  +name: string
-  +order: number
-  +slaRules?: JSON
-  +wipLimits?: JSON
-  +createdBy: ObjectId
-  +createdAt: Date
-  +updatedAt: Date
+TABLE(Lead) {
+  PK(_id) : ObjectId
+  --
+  ' Dados básicos
+  name : String
+  company : String
+  phone : String
+  email : String
+  whatsapp : String
+  
+  ' Dados empresa
+  cnpj : String
+  cnpjType : Enum
+  razaoSocial : String
+  
+  ' Vidas
+  livesCount : Number
+  faixasEtarias : Object
+  
+  ' Valores
+  avgPrice : Number
+  valorProposta : Number
+  valorFechado : Number
+  
+  ' Status
+  status : Enum
+  qualificationStatus : Enum
+  qualificationScore : Number
+  temperature : Enum
+  priority : Enum
+  
+  ' SLA
+  enteredStageAt : Date
+  dueDate : Date
+  isOverdue : Boolean
+  overdueHours : Number
+  
+  ' Timeline
+  proximoContato : Date
+  ultimoContato : Date
+  lastInteractionAt : Date
+  
+  ' Contexto
+  origin : Enum
+  tags : [String]
+  observacoes : String
+  rank : Number
+  
+  ' Referências
+  FK(pipelineId) : ObjectId
+  FK(stageId) : ObjectId
+  FK(owner) : ObjectId
+  FK(owners) : [ObjectId]
+  FK(apoliceId) : ObjectId
+  FK(createdBy) : ObjectId
+  FK(updatedBy) : ObjectId
+  
+  createdAt : Date
+  updatedAt : Date
 }
 
-class Stage {
-  +_id: ObjectId
-  +pipelineId: ObjectId
-  +name: string
-  +key: string
-  +order: number
-  +wipLimit?: number
-  +requiredFieldsOnEnter?: string[]
-  +requiredFieldsOnExit?: string[]
-  +allowedRolesToEnter?: string[]
-  +allowedRolesToExit?: string[]
-  +createdAt: Date
-  +updatedAt: Date
+TABLE(Pipeline) {
+  PK(_id) : ObjectId
+  --
+  name : String
+  key : String <<unique>>
+  description : String
+  createdAt : Date
+  updatedAt : Date
 }
 
-class Lead {
-  +_id: ObjectId
-  +name: string
-  +company?: string
-  +phone: string
-  +email: string
-  +hasCnpj: boolean
-  +cnpjType?: "MEI|LTDA|SA|Outros"
-  +livesCount: number
-  +ages?: number[]
-  +ageBuckets?: JSON
-  +hasCurrentPlan: boolean
-  +currentPlan?: string
-  +avgPrice?: number
-  +preferredHospitals?: string[]
-  +state?: string
-  +city?: string
-  +origin: "instagram|indicacao|site|outros"
-  +owner: ObjectId (User)
-  +qualificationStatus: "Qualificado|Incompleto|Duplicado|Sem interesse"
-  +lostReason?: string
-  +notes?: string
-  +pipelineId: ObjectId
-  +stageId: ObjectId
-  +rank: string
-  +createdBy: ObjectId
-  +updatedBy: ObjectId
-  +lastActivityAt: Date
-  +wonAt?: Date
-  +lostAt?: Date
-  +createdAt: Date
-  +updatedAt: Date
+TABLE(Stage) {
+  PK(_id) : ObjectId
+  --
+  FK(pipelineId) : ObjectId
+  name : String
+  color : String
+  order : Number
+  slaHours : Number
+  isClosingStage : Boolean
+  createdAt : Date
+  updatedAt : Date
 }
 
-class Activity {
-  +_id: ObjectId
-  +leadId: ObjectId
-  +type: "created|moved|updated|call|whatsapp|email|meeting|attachment"
-  +payload: JSON
-  +userId: ObjectId
-  +ip?: string
-  +createdAt: Date
+TABLE(Activity) {
+  PK(_id) : ObjectId
+  --
+  FK(leadId) : ObjectId
+  FK(userId) : ObjectId
+  type : Enum
+  description : String
+  metadata : Object
+  scheduledFor : Date
+  completedAt : Date
+  createdAt : Date
+  updatedAt : Date
 }
 
-class Attachment {
-  +_id: ObjectId
-  +leadId: ObjectId
-  +filename: string
-  +mime: string
-  +size: number
-  +storageKey: string
-  +uploadedBy: ObjectId
-  +createdAt: Date
+TABLE(Note) {
+  PK(_id) : ObjectId
+  --
+  FK(leadId) : ObjectId
+  FK(userId) : ObjectId
+  content : String
+  isPinned : Boolean
+  createdAt : Date
+  updatedAt : Date
 }
 
-class View {
-  +_id: ObjectId
-  +name: string
-  +ownerId: ObjectId
-  +isPublic: boolean
-  +query: JSON
-  +createdAt: Date
-  +updatedAt: Date
+TABLE(Attachment) {
+  PK(_id) : ObjectId
+  --
+  FK(leadId) : ObjectId
+  filename : String
+  url : String
+  FK(uploadedBy) : ObjectId
+  createdAt : Date
+  updatedAt : Date
 }
 
-User "1" -- "many" Lead : owner >
-Pipeline "1" -- "many" Stage
-Stage "1" -- "many" Lead
-Lead "1" -- "many" Activity
-Lead "1" -- "many" Attachment
-User "1" -- "many" View
+TABLE(Apolice) {
+  PK(_id) : ObjectId
+  --
+  numeroApolice : String <<unique>>
+  FK(leadId) : ObjectId
+  empresaNome : String
+  empresaCnpj : String
+  
+  ' Plano
+  operadora : String
+  tipoPlano : String
+  nomePlano : String
+  coparticipacao : Boolean
+  
+  ' Datas
+  dataInicio : Date
+  dataVencimento : Date
+  dataRenovacao : Date
+  
+  ' Valores
+  valorMensal : Number
+  valorTotal : Number
+  comissao : Number
+  percentualComissao : Number
+  
+  ' Titular
+  titularNome : String
+  titularCpf : String
+  titularEmail : String
+  titularTelefone : String
+  
+  ' Vidas
+  quantidadeVidas : Number
+  dependentes : [Object]
+  faixasEtarias : Object
+  
+  ' Status
+  status : Enum
+  motivoCancelamento : String
+  observacoes : String
+  
+  FK(vendedorId) : ObjectId
+  createdAt : Date
+  updatedAt : Date
+}
+
+TABLE(Alert) {
+  PK(_id) : ObjectId
+  --
+  type : Enum
+  title : String
+  message : String
+  priority : Enum
+  
+  FK(userId) : ObjectId
+  FK(leadId) : ObjectId
+  FK(apoliceId) : ObjectId
+  
+  status : Enum
+  readAt : Date
+  resolvedAt : Date
+  
+  actionUrl : String
+  actionLabel : String
+  scheduledFor : Date
+  expiresAt : Date
+  
+  metadata : Object
+  FK(createdBy) : ObjectId
+  createdAt : Date
+  updatedAt : Date
+}
+
+TABLE(Notification) {
+  PK(_id) : ObjectId
+  --
+  FK(userId) : ObjectId
+  type : Enum
+  title : String
+  message : String
+  read : Boolean
+  link : String
+  metadata : Object
+  createdAt : Date
+  updatedAt : Date
+}
+
+TABLE(Email) {
+  PK(_id) : ObjectId
+  --
+  to : String
+  toName : String
+  cc : [String]
+  bcc : [String]
+  
+  subject : String
+  body : String
+  htmlBody : String
+  attachments : [Object]
+  
+  type : Enum
+  FK(leadId) : ObjectId
+  FK(apoliceId) : ObjectId
+  
+  status : Enum
+  sentAt : Date
+  errorMessage : String
+  retryCount : Number
+  
+  messageId : String
+  opened : Boolean
+  openedAt : Date
+  clicked : Boolean
+  clickedAt : Date
+  
+  templateId : String
+  templateData : Object
+  
+  FK(sentBy) : ObjectId
+  createdAt : Date
+  updatedAt : Date
+}
+
+TABLE(Integration) {
+  PK(_id) : ObjectId
+  --
+  name : String
+  type : Enum
+  active : Boolean
+  config : Object
+  autoMapping : Object
+  stats : Object
+  FK(createdBy) : ObjectId
+  createdAt : Date
+  updatedAt : Date
+}
+
+TABLE(Consent) {
+  PK(_id) : ObjectId
+  --
+  FK(leadId) : ObjectId
+  consentGiven : Boolean
+  consentDate : Date
+  ip : String
+  userAgent : String
+  createdAt : Date
+  updatedAt : Date
+}
+
+TABLE(Audit) {
+  PK(_id) : ObjectId
+  --
+  action : String
+  FK(userId) : ObjectId
+  resource : String
+  resourceId : String
+  payload : Object
+  createdAt : Date
+  updatedAt : Date
+}
+
+TABLE(View) {
+  PK(_id) : ObjectId
+  --
+  name : String
+  FK(owner) : ObjectId
+  filters : Object
+  isShared : Boolean
+  createdAt : Date
+  updatedAt : Date
+}
+
+TABLE(PasswordReset) {
+  PK(_id) : ObjectId
+  --
+  FK(userId) : ObjectId
+  token : String <<unique>>
+  expiresAt : Date <<TTL>>
+  createdAt : Date
+}
+
+' ==========================================
+' RELACIONAMENTOS
+' ==========================================
+
+' User -> Lead (owner/owners)
+User ||--o{ Lead : "owns"
+User ||--o{ Lead : "created by"
+User ||--o{ Lead : "updated by"
+
+' Pipeline -> Stage
+Pipeline ||--o{ Stage : "has stages"
+
+' Pipeline -> Lead
+Pipeline ||--o{ Lead : "contains"
+
+' Stage -> Lead
+Stage ||--o{ Lead : "current stage"
+
+' Lead -> Activity
+Lead ||--o{ Activity : "has activities"
+
+' User -> Activity
+User ||--o{ Activity : "performed by"
+
+' Lead -> Note
+Lead ||--o{ Note : "has notes"
+
+' User -> Note
+User ||--o{ Note : "written by"
+
+' Lead -> Attachment
+Lead ||--o{ Attachment : "has files"
+
+' User -> Attachment
+User ||--o{ Attachment : "uploaded by"
+
+' Lead -> Apolice
+Lead ||--o| Apolice : "converted to"
+
+' User -> Apolice
+User ||--o{ Apolice : "managed by"
+
+' Lead -> Alert
+Lead ||--o{ Alert : "generates"
+
+' Apolice -> Alert
+Apolice ||--o{ Alert : "generates"
+
+' User -> Alert
+User ||--o{ Alert : "receives"
+User ||--o{ Alert : "created by"
+
+' User -> Notification
+User ||--o{ Notification : "receives"
+
+' Lead -> Email
+Lead ||--o{ Email : "related to"
+
+' Apolice -> Email
+Apolice ||--o{ Email : "related to"
+
+' User -> Email
+User ||--o{ Email : "sent by"
+
+' User -> Integration
+User ||--o{ Integration : "created by"
+
+' Lead -> Consent
+Lead ||--o{ Consent : "has consents"
+
+' User -> Audit
+User ||--o{ Audit : "actions logged"
+
+' User -> View
+User ||--o{ View : "owns views"
+
+' User -> PasswordReset
+User ||--o{ PasswordReset : "requests"
+
+' ==========================================
+' LEGENDAS E NOTAS
+' ==========================================
+
+note right of Lead
+  **Entidade Central do CRM**
+  - Representa potenciais clientes
+  - Sistema de qualificação (0-100)
+  - SLA tracking automático
+  - Temperatura (hot/warm/cold)
+  - Kanban com drag & drop
+end note
+
+note right of Activity
+  **Audit Trail Completo**
+  - Registra todas as ações
+  - Histórico de mudanças
+  - Timeline do lead
+  - Base para relatórios
+end note
+
+note right of Alert
+  **Sistema de Alertas**
+  - Apólices vencendo
+  - Leads sem contato
+  - SLA ultrapassado
+  - Metas não atingidas
+end note
+
+note right of Apolice
+  **Contratos Fechados**
+  - Apólices de seguro
+  - Controle de renovação
+  - Cálculo de comissões
+  - Gestão de vidas
+end note
+
+legend right
+  **Modelo de Dados - Nautiluz CRM**
+  
+  Banco: MongoDB
+  Collections: 18
+  Data: 10/01/2026
+  
+  Convenções:
+  - PK: Primary Key (_id)
+  - FK: Foreign Key (ObjectId)
+  - ||--o{ : One to Many
+  - ||--o| : One to One
+  
+  Índices críticos:
+  • Lead: pipelineId + stageId + rank
+  • Activity: leadId + createdAt
+  • Alert: userId + status + createdAt
+  
+  Features especiais:
+  ✓ SLA tracking automático
+  ✓ Qualificação por score
+  ✓ Auditoria completa
+  ✓ LGPD compliance
+  ✓ Real-time updates (Socket.IO)
+end legend
 
 @enduml
