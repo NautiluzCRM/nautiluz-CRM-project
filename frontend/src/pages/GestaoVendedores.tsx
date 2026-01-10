@@ -156,7 +156,7 @@ const GestaoVendedores = () => {
     
     // Buscar dados completos do usuário
     try {
-      const userData = await getUserApi(vendedor.id);
+      const userData = await getUserApi(vendedor.id) as any;
       setFormTelefone(userData.phone || "");
       setFormCargo(userData.jobTitle || "");
     } catch (error) {

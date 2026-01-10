@@ -409,6 +409,7 @@ export async function createUserApi(dados: {
   nome: string;
   email: string;
   perfil: string;
+  senha?: string;
   telefone?: string;
   cargo?: string;
   assinatura?: string;
