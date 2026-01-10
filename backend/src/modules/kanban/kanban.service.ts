@@ -5,6 +5,8 @@ import { StatusCodes } from 'http-status-codes';
 import { emitKanbanUpdate } from '../../common/realtime.js';
 import mongoose from 'mongoose';
 import { UserModel } from '../users/user.model.js';
+import { calculateDueDate } from '../leads/sla.service.js';
+import { ActivityService } from '../../services/activity.service.js';
 
 // Valida se é um ObjectId válido
 function isValidObjectId(id: string): boolean {
@@ -63,9 +65,31 @@ export async function moveCard(params: { leadId: string; toStageId: string; befo
 
   const newRank = midpoint(beforeRank, afterRank);
 
+  const oldStageId = lead.stageId;
+  const oldStageName = oldStageId ? (await StageModel.findById(oldStageId))?.name : 'Desconhecido';
+
   lead.stageId = toStage._id;
   lead.rank = newRank;
   lead.updatedBy = params.userId as any;
+  
+  // Calcula o SLA quando mover para uma nova stage
+  if (oldStageId?.toString() !== params.toStageId) {
+    await calculateDueDate(lead._id, params.toStageId);
+    
+    // Registra atividade de movimentação
+    const userName = params.userId ? (await UserModel.findById(params.userId))?.name || 'Sistema' : 'Sistema';
+    await ActivityService.createActivity({
+      leadId: lead._id,
+      tipo: 'lead_movido',
+      descricao: `Lead movido de "${oldStageName}" para "${toStage.name}"`,
+      userId: params.userId ? new mongoose.Types.ObjectId(params.userId) : lead.createdBy || new mongoose.Types.ObjectId(),
+      userName,
+      metadata: {
+        from: oldStageName,
+        to: toStage.name
+      }
+    });
+  }
   
   try {
     // Usa validateBeforeSave: false para evitar revalidar campos obrigatórios

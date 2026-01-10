@@ -12,6 +12,7 @@ import apolicesRoutes from './modules/apolices/apolices.routes.js';
 import emailsRoutes from './modules/emails/emails.routes.js';
 import alertsRoutes from './modules/alerts/alerts.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
+import slaRoutes from './modules/leads/sla.routes.js';
 import { webhookHandler } from './modules/webhooks/webhook.controller.js';
 import { ActivityController } from './controllers/Activity.controller.js';
 import { NoteController } from './controllers/Note.controller.js';
@@ -35,6 +36,7 @@ router.use('/users', userRoutes);
 router.use('/pipelines', pipelineRoutes);
 router.use('/leads', leadRoutes);
 router.use('/kanban', kanbanRoutes);
+router.use('/sla', slaRoutes);
 
 // Novas funcionalidades
 router.use('/apolices', apolicesRoutes);

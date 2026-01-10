@@ -735,6 +735,70 @@ export async function fetchRecentActivities(limit = 50): Promise<Activity[]> {
   return request<Activity[]>(`/activities/recent?limit=${limit}`);
 }
 
+// ============================================
+// SLA e Qualificação
+// ============================================
+
+export interface SLAStatus {
+  isOverdue: boolean;
+  overdueHours: number;
+  daysUntilDue?: number;
+  hoursUntilDue?: number;
+}
+
+export interface QualificationCriteria {
+  hasContact: boolean;
+  hasCompanyData: boolean;
+  hasLivesCount: boolean;
+  hasBudget: boolean;
+  isEngaged: boolean;
+  score: number;
+}
+
+export interface QualificationEvaluation {
+  criteria: QualificationCriteria;
+  suggestedStatus: string;
+  isQualified: boolean;
+}
+
+/**
+ * Verifica o status de SLA de um lead
+ */
+export async function checkLeadSLA(leadId: string): Promise<SLAStatus> {
+  return request<SLAStatus>(`/sla/leads/${leadId}/sla`);
+}
+
+/**
+ * Avalia a qualificação de um lead
+ */
+export async function evaluateLeadQualification(leadId: string): Promise<QualificationEvaluation> {
+  return request<QualificationEvaluation>(`/sla/leads/${leadId}/qualification`);
+}
+
+/**
+ * Busca leads próximos do vencimento
+ */
+export async function getLeadsDueSoon(hours: number = 24): Promise<any[]> {
+  return request<any[]>(`/sla/due-soon?hours=${hours}`);
+}
+
+/**
+ * Obtém estatísticas de SLA por pipeline
+ */
+export async function getSLAStatsByPipeline(pipelineId: string): Promise<{
+  total: number;
+  onTime: number;
+  overdue: number;
+  noSLA: number;
+  avgOverdueHours: number;
+}> {
+  return request(`/sla/pipelines/${pipelineId}/stats`);
+}
+
+// ============================================
+// Observações (Notes)
+// ============================================
+
 // ==================== OBSERVAÇÕES (NOTAS) ====================
 
 export interface Note {
