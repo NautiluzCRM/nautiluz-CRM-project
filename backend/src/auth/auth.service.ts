@@ -54,12 +54,20 @@ export async function forgotPassword(email: string) {
   // Monta link de recuperação
   const resetLink = `${env.FRONTEND_URL}/redefinir-senha?token=${token}`;
 
+  console.log('📧 Enviando email de recuperação de senha...');
+  console.log('👤 Usuário:', user.name);
+  console.log('📧 Email:', user.email);
+  console.log('🔗 Link:', resetLink);
+
   // Envia email
   await sendPasswordResetEmail({
     to: user.email,
     userName: user.name,
-    resetLink
+    resetLink,
+    isNewUser: false
   });
+
+  console.log('✅ Email de recuperação enviado com sucesso!');
 
   return { message: 'Se o email existir, você receberá um link de recuperação.' };
 }

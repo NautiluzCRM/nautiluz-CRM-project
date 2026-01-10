@@ -17,6 +17,17 @@ const DistributionConfigSchema = new mongoose.Schema({
   lastLeadReceivedAt: { type: Date, default: null } 
 }, { _id: false });
 
+const NotificationPreferencesSchema = new mongoose.Schema({
+  email: { type: Boolean, default: true },
+  sla: { type: Boolean, default: true },
+  sms: { type: Boolean, default: false }
+}, { _id: false });
+
+const UserPreferencesSchema = new mongoose.Schema({
+  darkMode: { type: Boolean, default: false },
+  autoSave: { type: Boolean, default: true }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -29,6 +40,27 @@ const userSchema = new mongoose.Schema(
     },
     active: { type: Boolean, default: true },
     
+    // Informações de perfil
+    phone: { type: String },
+    jobTitle: { type: String },
+    emailSignature: { type: String },
+    photoUrl: { type: String }, // URL externa ou path local (legado)
+    photoBase64: { type: String }, // Foto em base64 armazenada no banco
+    lastLoginAt: { type: Date },
+    
+    // Preferências de notificação
+    notificationPreferences: {
+      type: NotificationPreferencesSchema,
+      default: () => ({})
+    },
+    
+    // Preferências do sistema
+    preferences: {
+      type: UserPreferencesSchema,
+      default: () => ({})
+    },
+    
+    // Configuração de distribuição de leads
     distribution: { 
       type: DistributionConfigSchema, 
       default: () => ({})

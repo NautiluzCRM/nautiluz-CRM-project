@@ -188,8 +188,8 @@ export function LinktreeForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center border animate-in fade-in zoom-in duration-300">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-card rounded-xl shadow-lg p-8 text-center border animate-in fade-in zoom-in duration-300">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-8 h-8 text-green-600" />
           </div>
@@ -205,14 +205,14 @@ export function LinktreeForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-6 px-4 md:py-10">
+    <div className="min-h-screen bg-background flex flex-col items-center py-6 px-4 md:py-10">
       
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Cotação Express</h1>
         <p className="text-gray-500 mt-2">Preencha para receber uma proposta personalizada</p>
       </div>
 
-      <div className="w-full max-w-2xl bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="w-full max-w-2xl bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="bg-primary/5 p-4 border-b">
           <h2 className="text-sm font-semibold text-primary uppercase tracking-wider text-center">Ficha de Solicitação</h2>
         </div>

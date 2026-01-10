@@ -86,7 +86,8 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
 export function getLead(id: string) {
   return LeadModel.findById(id)
     .populate('owners', 'name email')
-    .populate('owner', 'name email');
+    .populate('owner', 'name email')
+    .lean();
 }
 
 export async function findNextResponsible(lives: any, hasCnpj: boolean) {
@@ -195,6 +196,12 @@ export async function createLead(input: any, user?: UserAuth) {
   let ownersList = input.owners;
   if (!ownersList || ownersList.length === 0) {
     ownersList = ownerId ? [ownerId] : [];
+  }
+
+  // RESTRIÇÃO: Vendedores só podem criar leads para si mesmos
+  // Admins podem criar para qualquer vendedor
+  if (user && user.role === 'vendedor') {
+    ownersList = [user.sub];
   }
 
   const createdById = user?.sub || SYSTEM_ID;

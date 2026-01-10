@@ -68,7 +68,7 @@ export function BottomNav() {
               isAdmin ? "border-blue-400" : "border-transparent"
             )}>
               <Avatar className="h-6 w-6">
-                <AvatarImage src={user?.photoUrl} />
+                <AvatarImage src={(user as any)?.photoBase64 || user?.photoUrl} />
                 <AvatarFallback className="bg-primary text-[8px] text-primary-foreground leading-none">
                   {(user?.name || "U").slice(0, 2).toUpperCase()}
                 </AvatarFallback>

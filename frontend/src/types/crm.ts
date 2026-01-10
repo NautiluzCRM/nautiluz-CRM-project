@@ -40,6 +40,7 @@ export interface Lead {
   planoAtual?: string;
   valorMedio?: number;
   hospitaisPreferencia: string[];
+  preferredConvenios?: string[]; // Convênios/Operadoras preferidos
   
   // Atualizei para aceitar string genérica também
   origem: 'Instagram' | 'Indicação' | 'Site' | 'Outros' | string;
@@ -53,7 +54,8 @@ export interface Lead {
   statusQualificacao: 'Qualificado' | 'Incompleto' | 'Duplicado' | 'Sem interesse' | string;
   motivoPerda?: string;
   colunaAtual: string;
-  dataCriacao: Date;
+  createdAt?: Date; // Data de criação automática do Mongoose
+  updatedAt?: Date; // Data de atualização automática do Mongoose
   ultimaAtividade: Date;
   arquivos: string[];
   atividades: Atividade[];
@@ -93,4 +95,5 @@ export interface Pipeline {
   nome: string;
   colunas: Coluna[];
   leads: Lead[];
+  owners?: Array<{ _id: string; nome: string }>;
 }

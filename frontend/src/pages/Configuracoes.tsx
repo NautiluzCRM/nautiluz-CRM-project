@@ -22,11 +22,15 @@ import {
   updateStageApi,
   deleteStageApi,
   reorderStagesApi,
-  mapApiStageToColuna
+  mapApiStageToColuna,
+  updateUserPreferencesApi,
+  uploadUserPhotoApi,
+  removeUserPhotoApi
 } from "@/lib/api";
 import { Coluna } from "@/types/crm";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/hooks/use-theme";
 import { cn, formatPhone } from "@/lib/utils";
 
 import {
@@ -88,10 +92,12 @@ const convertFileToBase64 = (file: File): Promise<string> => {
 const Configuracoes = () => {
   const { toast } = useToast();
   const { user, updateUserLocal } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const isAdmin = user?.role === 'admin';
 
   const [notificacaoEmail, setNotificacaoEmail] = useState(true);
   const [notificacaoSMS, setNotificacaoSMS] = useState(false);
+  const [notificacaoSLA, setNotificacaoSLA] = useState(true);
   const [modoEscuro, setModoEscuro] = useState(false);
   const [autoSave, setAutoSave] = useState(true);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -133,10 +139,33 @@ const Configuracoes = () => {
     if (user) {
       setPerfilNome(user.name || "");
       setPerfilEmail(user.email || "");
-      if (user.photoUrl) setFotoPerfil(user.photoUrl);
+      // Priorizar photoBase64, depois photoUrl
+      const foto = (user as any).photoBase64 || user.photoUrl;
+      if (foto) setFotoPerfil(foto);
       setPerfilTelefone((user as any).phone || "");
       setPerfilCargo((user as any).jobTitle || "");
       setPerfilAssinatura((user as any).emailSignature || "");
+      
+      // Carregar preferências de notificação
+      if ((user as any).notificationPreferences) {
+        setNotificacaoEmail((user as any).notificationPreferences.email ?? true);
+        setNotificacaoSMS((user as any).notificationPreferences.sms ?? false);
+        setNotificacaoSLA((user as any).notificationPreferences.sla ?? true);
+      }
+      
+      // Carregar preferências do sistema
+      if ((user as any).preferences) {
+        const darkMode = (user as any).preferences.darkMode ?? false;
+        setModoEscuro(darkMode);
+        setAutoSave((user as any).preferences.autoSave ?? true);
+        
+        // Sincronizar o tema com a preferência do usuário
+        if (darkMode && theme === 'light') {
+          toggleTheme();
+        } else if (!darkMode && theme === 'dark') {
+          toggleTheme();
+        }
+      }
     }
   }, [user]);
 
@@ -146,7 +175,8 @@ const Configuracoes = () => {
 
     const mudouNome = perfilNome !== (user.name || "");
     const mudouEmail = perfilEmail !== (user.email || "");
-    const mudouFoto = fotoPerfil !== (user.photoUrl || null);
+    const fotoAtual = (user as any).photoBase64 || user.photoUrl || null;
+    const mudouFoto = fotoPerfil !== fotoAtual;
 
     const mudouTelefone = perfilTelefone !== ((user as any).phone || "");
     const mudouCargo = perfilCargo !== ((user as any).jobTitle || "");
@@ -581,9 +611,32 @@ const Configuracoes = () => {
     setPreviewUrl(null);
     setArquivoTemporario(null);
   };
+async () => {
+    const userId = user?.id || (user as any)?._id;
+    if (!userId) return;
 
-  const handleRemoverFoto = () => {
-    setFotoPerfil(null);
+    try {
+      await removeUserPhotoApi(userId);
+      setFotoPerfil(null);
+      setArquivoTemporario(null);
+      
+      updateUserLocal({
+        photoBase64: undefined,
+        photoUrl: undefined
+      });
+
+      toast({
+        title: "Foto Removida",
+        description: "Sua foto de perfil foi removida com sucesso."
+      });
+    } catch (error) {
+      console.error("Erro ao remover foto:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao Remover",
+        description: "Não foi possível remover a foto de perfil."
+      });
+    }
     setArquivoTemporario(null);
   };
 
@@ -625,19 +678,31 @@ const Configuracoes = () => {
     }
 
     try {
+      // Atualizar dados básicos
       await updateUserApi(userId, {
         nome: perfilNome,
         email: perfilEmail,
-        foto: fotoPerfil === null ? "" : fotoPerfil,
         telefone: perfilTelefone,
         cargo: perfilCargo,
         assinatura: perfilAssinatura
       });
 
+      // Atualizar foto se mudou
+      const fotoAtual = (user as any).photoBase64 || user.photoUrl || null;
+      if (fotoPerfil !== fotoAtual) {
+        if (fotoPerfil && fotoPerfil.startsWith('data:image/')) {
+          // Upload de nova foto
+          await uploadUserPhotoApi(userId, fotoPerfil);
+        } else if (fotoPerfil === null) {
+          // Remover foto
+          await removeUserPhotoApi(userId);
+        }
+      }
+
       updateUserLocal({
         name: perfilNome,
         email: perfilEmail,
-        photoUrl: fotoPerfil || undefined,
+        photoBase64: fotoPerfil || undefined,
         ...({ phone: perfilTelefone, jobTitle: perfilCargo, emailSignature: perfilAssinatura } as any)
       });
 
@@ -713,6 +778,94 @@ const Configuracoes = () => {
         variant: "destructive",
         title: "Erro ao Alterar Senha",
         description: msg
+      });
+    }
+  };
+
+  // Função para salvar preferências de notificação
+  const handleSalvarNotificacoes = async () => {
+    const userId = user?.id || (user as any)?._id;
+    if (!userId) return;
+
+    try {
+      const updatedUser = await updateUserPreferencesApi(userId, {
+        notificationPreferences: {
+          email: notificacaoEmail,
+          sms: notificacaoSMS,
+          sla: notificacaoSLA
+        }
+      });
+
+      updateUserLocal(updatedUser);
+
+      toast({
+        title: "Preferências Salvas",
+        description: "Suas preferências de notificação foram atualizadas."
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível salvar as preferências."
+      });
+    }
+  };
+
+  // Função para alterar modo escuro
+  const handleToggleModoEscuro = async (checked: boolean) => {
+    const userId = user?.id || (user as any)?._id;
+    if (!userId) return;
+
+    setModoEscuro(checked);
+    toggleTheme(); // Altera o tema imediatamente
+
+    try {
+      const updatedUser = await updateUserPreferencesApi(userId, {
+        preferences: {
+          darkMode: checked,
+          autoSave
+        }
+      });
+
+      updateUserLocal(updatedUser);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível salvar a preferência de tema."
+      });
+    }
+  };
+
+  // Função para alterar auto-save
+  const handleToggleAutoSave = async (checked: boolean) => {
+    const userId = user?.id || (user as any)?._id;
+    if (!userId) return;
+
+    setAutoSave(checked);
+
+    try {
+      const updatedUser = await updateUserPreferencesApi(userId, {
+        preferences: {
+          darkMode: modoEscuro,
+          autoSave: checked
+        }
+      });
+
+      updateUserLocal(updatedUser);
+
+      toast({
+        title: "Preferência Salva",
+        description: `Auto-salvar ${checked ? 'ativado' : 'desativado'}.`
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível salvar a preferência."
       });
     }
   };
@@ -1071,7 +1224,7 @@ const Configuracoes = () => {
                                   {usuario.perfil}
                                 </span>
                                 <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full border whitespace-nowrap ${usuario.ativo
-                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                  ? 'bg-success/10 text-success border-success/20 dark:bg-success/5'
                                   : 'bg-gray-100 text-gray-500 border-gray-200'
                                   }`}>
                                   {usuario.ativo ? 'Ativo' : 'Inativo'}
@@ -1094,7 +1247,7 @@ const Configuracoes = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={cn("h-8 w-8", usuario.ativo ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-green-600 hover:text-green-700 hover:bg-green-50")}
+                              className={cn("h-8 w-8", usuario.ativo ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-green-600 hover:text-green-700 hover:bg-success/10 dark:hover:bg-success/5")}
                               onClick={() => handleClickStatus(usuario)}
                               title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
                             >
@@ -1296,8 +1449,34 @@ const Configuracoes = () => {
                           </p>
                         </div>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={notificacaoSLA}
+                        onCheckedChange={setNotificacaoSLA}
+                      />
                     </div>
+
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Smartphone className="h-5 w-5 text-primary" />
+                        <div>
+                          <h4 className="font-medium">Notificações por SMS</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Receber alertas importantes via mensagem de texto
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={notificacaoSMS}
+                        onCheckedChange={setNotificacaoSMS}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <Button onClick={handleSalvarNotificacoes}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar Preferências
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1326,7 +1505,7 @@ const Configuracoes = () => {
                       </div>
                       <Switch
                         checked={modoEscuro}
-                        onCheckedChange={setModoEscuro}
+                        onCheckedChange={handleToggleModoEscuro}
                       />
                     </div>
 
@@ -1342,7 +1521,7 @@ const Configuracoes = () => {
                       </div>
                       <Switch
                         checked={autoSave}
-                        onCheckedChange={setAutoSave}
+                        onCheckedChange={handleToggleAutoSave}
                       />
                     </div>
                   </div>

@@ -38,8 +38,6 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
-  const hoje = new Date().toISOString().split('T')[0];
-
   const [formData, setFormData] = useState({
     nome: "",
     empresa: "",
@@ -54,7 +52,6 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
     planoAtual: "",
     cidade: "",
     uf: "",
-    dataCriacao: hoje,
     observacoes: ""
   });
 
@@ -97,15 +94,14 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
         email: leadToEdit.email || "",
         celular: leadToEdit.celular || "",
         origem: leadToEdit.origem || "Indicação",
-        quantidadeVidas: leadToEdit.quantidadeVidas || 1,
-        valorMedio: leadToEdit.valorMedio || 0,
+        quantidadeVidas: leadToEdit.quantidadeVidas ?? 1,
+        valorMedio: leadToEdit.valorMedio ?? 0,
         possuiCnpj: leadToEdit.possuiCnpj || false,
         tipoCnpj: leadToEdit.tipoCnpj || "",
         possuiPlano: leadToEdit.possuiPlano || false,
         planoAtual: leadToEdit.planoAtual || "",
         cidade: leadToEdit.cidade || "",
         uf: leadToEdit.uf || "",
-        dataCriacao: leadToEdit.dataCriacao ? new Date(leadToEdit.dataCriacao).toISOString().split('T')[0] : hoje,
         observacoes: leadToEdit.informacoes || ""
       });
       
@@ -150,7 +146,7 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
          setSelectedOwners([]);
       }
     }
-  }, [isOpen, leadToEdit, hoje]);
+  }, [isOpen, leadToEdit]);
 
   const handleAddHospital = (e?: React.KeyboardEvent | React.MouseEvent) => {
     if (e && 'key' in e && e.key !== 'Enter') return;
@@ -175,7 +171,16 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
   };
 
   const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Converte para número se for campo de quantidade de vidas ou valor
+    if (field === "quantidadeVidas") {
+      const numValue = value === "" ? 0 : parseInt(value, 10) || 0;
+      setFormData(prev => ({ ...prev, [field]: numValue }));
+    } else if (field === "valorMedio") {
+      const numValue = value === "" ? 0 : parseFloat(value) || 0;
+      setFormData(prev => ({ ...prev, [field]: numValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const toggleOwner = (userId: string) => {
@@ -297,13 +302,9 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
             </h3>
             
             <div className="grid grid-cols-12 gap-4">
-              <div className="col-span-12 md:col-span-8 space-y-2">
+              <div className="col-span-12 space-y-2">
                 <Label htmlFor="nome">Nome Completo *</Label>
                 <Input id="nome" value={formData.nome} onChange={(e) => handleChange("nome", e.target.value)} placeholder="Ex: Maria Silva" />
-              </div>
-              <div className="col-span-12 md:col-span-4 space-y-2">
-                <Label htmlFor="dataCriacao">Data de Entrada</Label>
-                <Input id="dataCriacao" type="date" value={formData.dataCriacao} onChange={(e) => handleChange("dataCriacao", e.target.value)} />
               </div>
               
               <div className="col-span-12 md:col-span-4 space-y-2">

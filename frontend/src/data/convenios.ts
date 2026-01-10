@@ -1,0 +1,26 @@
+// Lista de convênios/operadoras disponíveis com suas logos
+export const CONVENIOS = [
+  { nome: "Alice", logo: "/logos/alice.png" },
+  { nome: "Allianz", logo: "/logos/allianz.png" },
+  { nome: "Ameplan", logo: "/logos/ameplan.png" },
+  { nome: "Amil", logo: "/logos/amil.png" },
+  { nome: "Biovida", logo: "/logos/biovida.png" },
+  { nome: "Blue", logo: "/logos/blue.png" },
+  { nome: "Bradesco", logo: "/logos/bradesco.png" },
+  { nome: "Care Plus", logo: "/logos/careplus.png" },
+  { nome: "Cassi", logo: "/logos/cassi.png" },
+  { nome: "Cruz Azul", logo: "/logos/cruzazul.png" },
+  { nome: "GNDI", logo: "/logos/gndi.png" },
+  { nome: "GoCare", logo: "/logos/gocare.png" },
+  { nome: "Golden Cross", logo: "/logos/golden.png" },
+  { nome: "Hapvida", logo: "/logos/hapvida.png" },
+  { nome: "MedSênior", logo: "/logos/medsenior.png" },
+  { nome: "Omint", logo: "/logos/omint.png" },
+  { nome: "Porto Seguro", logo: "/logos/porto.png" },
+  { nome: "Prevent Senior", logo: "/logos/prevent.png" },
+  { nome: "São Cristóvão", logo: "/logos/saocristovao.png" },
+  { nome: "Sompo", logo: "/logos/sompo.png" },
+  { nome: "SulAmérica", logo: "/logos/sulamerica.png" },
+  { nome: "Trasmontano", logo: "/logos/trasmontano.png" },
+  { nome: "Unimed", logo: "/logos/unimed.png" }
+];

@@ -14,7 +14,20 @@ const userSchema = z.object({
   phone: z.string().optional(),
   jobTitle: z.string().optional(),
   emailSignature: z.string().optional(),
-  photoUrl: z.string().optional().nullable()
+  photoUrl: z.string().optional().nullable(),
+  photoBase64: z.string().optional().nullable()
+});
+
+const preferencesSchema = z.object({
+  notificationPreferences: z.object({
+    email: z.boolean().optional(),
+    sla: z.boolean().optional(),
+    sms: z.boolean().optional()
+  }).optional(),
+  preferences: z.object({
+    darkMode: z.boolean().optional(),
+    autoSave: z.boolean().optional()
+  }).optional()
 });
 
 export const listUsersHandler = asyncHandler(async (_req: Request, res: Response) => {
@@ -38,19 +51,23 @@ export const getUserHandler = asyncHandler(async (req: Request, res: Response) =
 export const updateUserHandler = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const currentUser = (req as any).user;
-  const body = userSchema.partial().parse(req.body);
+  
+  // Aceita tanto schema completo quanto preferências
+  const body = req.body.notificationPreferences || req.body.preferences 
+    ? preferencesSchema.parse(req.body)
+    : userSchema.partial().parse(req.body);
 
-  if (body.password && !body.currentPassword) {
+  if ('password' in body && body.password && !('currentPassword' in body && body.currentPassword)) {
     return res.status(400).json({ message: "Para alterar a senha, informe a senha atual." });
   }
 
   if (currentUser?.role !== 'admin') {
-    if (body.jobTitle) delete body.jobTitle;
-    if (body.email) delete body.email;
+    if ('jobTitle' in body) delete (body as any).jobTitle;
+    if ('email' in body) delete (body as any).email;
   }
 
   try {
-    const user = await updateUser(id, body);
+    const user = await updateUser(id, body as any);
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (error: any) {
@@ -66,6 +83,66 @@ export const deleteUserHandler = asyncHandler(async (req: Request, res: Response
   const user = await deleteUser(id);
   if (!user) return res.status(404).json({ message: 'User not found' });
   res.json(user);
+});
+
+// Upload de foto de perfil (base64)
+export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const currentUser = (req as any).user;
+  
+  // Verificar se é o próprio usuário ou admin
+  if (currentUser._id.toString() !== id && currentUser.role !== 'admin') {
+    return res.status(403).json({ message: 'Você não tem permissão para alterar a foto deste usuário' });
+  }
+  
+  const { photoBase64 } = req.body;
+  
+  if (!photoBase64) {
+    return res.status(400).json({ message: 'Foto em base64 é obrigatória' });
+  }
+  
+  // Validar se é uma imagem base64 válida
+  const base64Regex = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
+  if (!base64Regex.test(photoBase64)) {
+    return res.status(400).json({ message: 'Formato de imagem inválido. Use JPEG, PNG, GIF ou WebP' });
+  }
+  
+  // Verificar tamanho (limite de 2MB em base64 ~ 2.7MB real)
+  const sizeInBytes = (photoBase64.length * 3) / 4;
+  const maxSize = 2 * 1024 * 1024; // 2MB
+  
+  if (sizeInBytes > maxSize) {
+    return res.status(400).json({ message: 'A imagem excede o tamanho máximo de 2MB' });
+  }
+  
+  try {
+    const user = await updateUser(id, { photoBase64 });
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+    res.json({ message: 'Foto atualizada com sucesso', photoBase64: user.photoBase64 });
+  } catch (error: any) {
+    console.error('Erro ao atualizar foto:', error);
+    res.status(500).json({ message: 'Erro ao atualizar foto de perfil' });
+  }
+});
+
+// Remover foto de perfil
+export const removePhotoHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const currentUser = (req as any).user;
+  
+  // Verificar se é o próprio usuário ou admin
+  if (currentUser._id.toString() !== id && currentUser.role !== 'admin') {
+    return res.status(403).json({ message: 'Você não tem permissão para remover a foto deste usuário' });
+  }
+  
+  try {
+    const user = await updateUser(id, { photoBase64: null, photoUrl: null });
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+    res.json({ message: 'Foto removida com sucesso' });
+  } catch (error: any) {
+    console.error('Erro ao remover foto:', error);
+    res.status(500).json({ message: 'Erro ao remover foto de perfil' });
+  }
 });
 
 // Estatísticas de vendedores - APENAS ADMIN

@@ -318,7 +318,11 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
 }
 
 export async function fetchPipelineData(): Promise<Pipeline> {
-  const [pipelines, leads] = await Promise.all([fetchPipelines(), fetchLeads()]);
+  const [pipelines, leads, users] = await Promise.all([
+    fetchPipelines(), 
+    fetchLeads(),
+    fetchUsers()
+  ]);
   const pipeline = pipelines[0];
 
   if (!pipeline) {
@@ -327,6 +331,7 @@ export async function fetchPipelineData(): Promise<Pipeline> {
       nome: 'Pipeline não configurado',
       colunas: [],
       leads: [],
+      owners: [],
     };
   }
 
@@ -337,6 +342,7 @@ export async function fetchPipelineData(): Promise<Pipeline> {
     nome: pipeline.name,
     colunas: stages.map(mapApiStageToColuna),
     leads: leads.map(mapApiLeadToLead),
+    owners: users.filter(u => u.ativo).map(u => ({ _id: u.id, nome: u.nome })),
   };
 }
 
@@ -403,9 +409,11 @@ export async function createUserApi(dados: {
   nome: string;
   email: string;
   perfil: string;
+  senha?: string;
   telefone?: string;
   cargo?: string;
   assinatura?: string;
+  enviarEmailSenha?: boolean;
 }) {
   const payload = {
     name: dados.nome,
@@ -416,7 +424,8 @@ export async function createUserApi(dados: {
     active: true,
     phone: dados.telefone,
     jobTitle: dados.cargo,
-    emailSignature: dados.assinatura
+    emailSignature: dados.assinatura,
+    sendResetEmail: dados.enviarEmailSenha !== false // Por padrão, envia email
   };
 
   return request("/users", {
@@ -459,8 +468,46 @@ export async function updateUserApi(id: string, dados: {
   });
 }
 
+export async function updateUserPreferencesApi(id: string, preferences: {
+  notificationPreferences?: {
+    email?: boolean;
+    sla?: boolean;
+    sms?: boolean;
+  };
+  preferences?: {
+    darkMode?: boolean;
+    autoSave?: boolean;
+  };
+}) {
+  return request(`/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(preferences),
+  });
+}
+
+export async function getUserApi(id: string) {
+  return request(`/users/${id}`, {
+    method: "GET",
+  });
+}
+
 export async function deleteUserApi(id: string) {
   return request(`/users/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// Upload de foto de perfil (base64)
+export async function uploadUserPhotoApi(id: string, photoBase64: string) {
+  return request(`/users/${id}/photo`, {
+    method: "POST",
+    body: JSON.stringify({ photoBase64 }),
+  });
+}
+
+// Remover foto de perfil
+export async function removeUserPhotoApi(id: string) {
+  return request(`/users/${id}/photo`, {
     method: "DELETE",
   });
 }
@@ -703,6 +750,70 @@ export async function fetchLeadActivities(leadId: string, limit = 20): Promise<A
 export async function fetchRecentActivities(limit = 50): Promise<Activity[]> {
   return request<Activity[]>(`/activities/recent?limit=${limit}`);
 }
+
+// ============================================
+// SLA e Qualificação
+// ============================================
+
+export interface SLAStatus {
+  isOverdue: boolean;
+  overdueHours: number;
+  daysUntilDue?: number;
+  hoursUntilDue?: number;
+}
+
+export interface QualificationCriteria {
+  hasContact: boolean;
+  hasCompanyData: boolean;
+  hasLivesCount: boolean;
+  hasBudget: boolean;
+  isEngaged: boolean;
+  score: number;
+}
+
+export interface QualificationEvaluation {
+  criteria: QualificationCriteria;
+  suggestedStatus: string;
+  isQualified: boolean;
+}
+
+/**
+ * Verifica o status de SLA de um lead
+ */
+export async function checkLeadSLA(leadId: string): Promise<SLAStatus> {
+  return request<SLAStatus>(`/sla/leads/${leadId}/sla`);
+}
+
+/**
+ * Avalia a qualificação de um lead
+ */
+export async function evaluateLeadQualification(leadId: string): Promise<QualificationEvaluation> {
+  return request<QualificationEvaluation>(`/sla/leads/${leadId}/qualification`);
+}
+
+/**
+ * Busca leads próximos do vencimento
+ */
+export async function getLeadsDueSoon(hours: number = 24): Promise<any[]> {
+  return request<any[]>(`/sla/due-soon?hours=${hours}`);
+}
+
+/**
+ * Obtém estatísticas de SLA por pipeline
+ */
+export async function getSLAStatsByPipeline(pipelineId: string): Promise<{
+  total: number;
+  onTime: number;
+  overdue: number;
+  noSLA: number;
+  avgOverdueHours: number;
+}> {
+  return request(`/sla/pipelines/${pipelineId}/stats`);
+}
+
+// ============================================
+// Observações (Notes)
+// ============================================
 
 // ==================== OBSERVAÇÕES (NOTAS) ====================
 

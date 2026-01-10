@@ -100,6 +100,7 @@ export interface Lead extends Document {
   
   // Preferências
   preferredHospitals?: string[];
+  preferredConvenios?: string[]; // Convênios/Operadoras preferidos
   preferenciaCoparticipacao?: boolean;
   preferenciaEnfermaria?: boolean;
   
@@ -151,6 +152,12 @@ export interface Lead extends Document {
   updatedBy?: Types.ObjectId;
   lastActivityAt?: Date;
   lastContactAt?: Date;
+  
+  // SLA e Vencimento
+  enteredStageAt?: Date; // Quando entrou na stage atual
+  dueDate?: Date; // Data de vencimento calculada baseada no SLA da stage
+  isOverdue?: boolean; // Se está atrasado
+  overdueHours?: number; // Horas de atraso
   
   // Timestamps
   createdAt?: Date;
@@ -211,6 +218,7 @@ const leadSchema = new Schema<Lead>(
     
     // Preferências
     preferredHospitals: [String],
+    preferredConvenios: [String], // Convênios/Operadoras preferidos
     preferenciaCoparticipacao: Boolean,
     preferenciaEnfermaria: Boolean,
     
@@ -261,7 +269,13 @@ const leadSchema = new Schema<Lead>(
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     lastActivityAt: Date,
-    lastContactAt: Date
+    lastContactAt: Date,
+    
+    // SLA e Vencimento
+    enteredStageAt: { type: Date, index: true },
+    dueDate: { type: Date, index: true },
+    isOverdue: { type: Boolean, default: false, index: true },
+    overdueHours: { type: Number, default: 0 }
   },
   {
     timestamps: true
