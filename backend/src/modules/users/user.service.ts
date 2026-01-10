@@ -13,7 +13,7 @@ export function getUser(id: string) {
   return UserModel.findById(id);
 }
 
-export async function createUser(input: { name: string; email: string; password: string; role: string; active?: boolean; phone?: string; jobTitle?: string; emailSignature?: string; photoUrl?: string | null; sendResetEmail?: boolean; }) {
+export async function createUser(input: { name: string; email: string; password: string; role: string; active?: boolean; phone?: string; jobTitle?: string; emailSignature?: string; photoUrl?: string | null; photoBase64?: string | null; sendResetEmail?: boolean; }) {
   const passwordHash = await hashPassword(input.password);
   
   const user = await UserModel.create({
@@ -25,7 +25,8 @@ export async function createUser(input: { name: string; email: string; password:
     phone: input.phone,
     jobTitle: input.jobTitle,
     emailSignature: input.emailSignature,
-    photoUrl: input.photoUrl
+    photoUrl: input.photoUrl,
+    photoBase64: input.photoBase64
   });
 
   // Se sendResetEmail for true (padrão ao criar vendedor), envia email de redefinição
@@ -78,6 +79,7 @@ export async function updateUser(id: string, input: Partial<{
   jobTitle: string; 
   emailSignature: string; 
   photoUrl: string | null;
+  photoBase64: string | null;
   notificationPreferences: {
     email?: boolean;
     sla?: boolean;

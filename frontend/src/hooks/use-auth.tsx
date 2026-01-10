@@ -7,6 +7,7 @@ type AuthUser = {
   email?: string;
   role?: string;
   photoUrl?: string;
+  photoBase64?: string;
 } | null;
 
 type AuthContextValue = {

@@ -299,7 +299,7 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-1 md:gap-2 px-1.5 md:px-2 h-9 md:h-10">
                 <Avatar className="h-7 w-7 md:h-8 md:w-8">
-                  <AvatarImage src={user?.photoUrl || "/placeholder-avatar.jpg"} alt={user?.name || "Usuário"} />
+                  <AvatarImage src={(user as any)?.photoBase64 || user?.photoUrl || "/placeholder-avatar.jpg"} alt={user?.name || "Usuário"} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {(user?.name || "N").slice(0, 2).toUpperCase()}
                   </AvatarFallback>

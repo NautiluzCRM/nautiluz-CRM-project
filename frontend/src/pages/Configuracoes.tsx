@@ -23,7 +23,9 @@ import {
   deleteStageApi,
   reorderStagesApi,
   mapApiStageToColuna,
-  updateUserPreferencesApi
+  updateUserPreferencesApi,
+  uploadUserPhotoApi,
+  removeUserPhotoApi
 } from "@/lib/api";
 import { Coluna } from "@/types/crm";
 import { useAuth } from "@/hooks/use-auth";
@@ -137,7 +139,9 @@ const Configuracoes = () => {
     if (user) {
       setPerfilNome(user.name || "");
       setPerfilEmail(user.email || "");
-      if (user.photoUrl) setFotoPerfil(user.photoUrl);
+      // Priorizar photoBase64, depois photoUrl
+      const foto = (user as any).photoBase64 || user.photoUrl;
+      if (foto) setFotoPerfil(foto);
       setPerfilTelefone((user as any).phone || "");
       setPerfilCargo((user as any).jobTitle || "");
       setPerfilAssinatura((user as any).emailSignature || "");
@@ -171,7 +175,8 @@ const Configuracoes = () => {
 
     const mudouNome = perfilNome !== (user.name || "");
     const mudouEmail = perfilEmail !== (user.email || "");
-    const mudouFoto = fotoPerfil !== (user.photoUrl || null);
+    const fotoAtual = (user as any).photoBase64 || user.photoUrl || null;
+    const mudouFoto = fotoPerfil !== fotoAtual;
 
     const mudouTelefone = perfilTelefone !== ((user as any).phone || "");
     const mudouCargo = perfilCargo !== ((user as any).jobTitle || "");
@@ -606,9 +611,32 @@ const Configuracoes = () => {
     setPreviewUrl(null);
     setArquivoTemporario(null);
   };
+async () => {
+    const userId = user?.id || (user as any)?._id;
+    if (!userId) return;
 
-  const handleRemoverFoto = () => {
-    setFotoPerfil(null);
+    try {
+      await removeUserPhotoApi(userId);
+      setFotoPerfil(null);
+      setArquivoTemporario(null);
+      
+      updateUserLocal({
+        photoBase64: undefined,
+        photoUrl: undefined
+      });
+
+      toast({
+        title: "Foto Removida",
+        description: "Sua foto de perfil foi removida com sucesso."
+      });
+    } catch (error) {
+      console.error("Erro ao remover foto:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao Remover",
+        description: "Não foi possível remover a foto de perfil."
+      });
+    }
     setArquivoTemporario(null);
   };
 
@@ -650,19 +678,31 @@ const Configuracoes = () => {
     }
 
     try {
+      // Atualizar dados básicos
       await updateUserApi(userId, {
         nome: perfilNome,
         email: perfilEmail,
-        foto: fotoPerfil === null ? "" : fotoPerfil,
         telefone: perfilTelefone,
         cargo: perfilCargo,
         assinatura: perfilAssinatura
       });
 
+      // Atualizar foto se mudou
+      const fotoAtual = (user as any).photoBase64 || user.photoUrl || null;
+      if (fotoPerfil !== fotoAtual) {
+        if (fotoPerfil && fotoPerfil.startsWith('data:image/')) {
+          // Upload de nova foto
+          await uploadUserPhotoApi(userId, fotoPerfil);
+        } else if (fotoPerfil === null) {
+          // Remover foto
+          await removeUserPhotoApi(userId);
+        }
+      }
+
       updateUserLocal({
         name: perfilNome,
         email: perfilEmail,
-        photoUrl: fotoPerfil || undefined,
+        photoBase64: fotoPerfil || undefined,
         ...({ phone: perfilTelefone, jobTitle: perfilCargo, emailSignature: perfilAssinatura } as any)
       });
 
