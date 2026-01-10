@@ -87,7 +87,8 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
 export function getLead(id: string) {
   return LeadModel.findById(id)
     .populate('owners', 'name email')
-    .populate('owner', 'name email');
+    .populate('owner', 'name email')
+    .lean();
 }
 
 // Lógica de Distribuição (Fila)
