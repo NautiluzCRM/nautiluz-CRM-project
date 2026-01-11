@@ -144,19 +144,22 @@ export function LinktreeForm() {
         phone: formData.celular,
         email: formData.email,
         
-        // Garante formatação correta da cidade no envio
+        // Formata a cidade
         city: formatCityName(formData.cidade),
         state: formData.uf,
         
+        // Converte números
         livesCount: Number(formData.quantidadeVidas),
-        avgPrice: valorInvestimento,
+        avgPrice: Number(formData.valorMedio),
         
+        // Dados de CNPJ e Plano
         hasCnpj: formData.possuiCnpj,
         cnpjType: formData.possuiCnpj ? formData.tipoCnpj : "",
         
         hasCurrentPlan: formData.possuiPlano,
-        currentPlan: formData.planoAtual,
+        currentPlan: formData.possuiPlano ? formData.planoAtual : "",
         
+        // Arrays
         ageBuckets: faixas,
         preferredHospitals: hospitaisFinais,
 

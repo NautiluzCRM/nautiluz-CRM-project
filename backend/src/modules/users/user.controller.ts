@@ -4,18 +4,37 @@ import { z } from 'zod';
 import { createUser, deleteUser, getUser, listUsers, updateUser } from './user.service.js';
 import { LeadModel } from '../leads/lead.model.js';
 
-const userSchema = z.object({
+// Schema de Distribuição
+const distributionSchema = z.object({
+  active: z.boolean().optional(),
+  minLives: z.number().optional(),
+  maxLives: z.number().optional(),
+  cnpjRule: z.enum(['required', 'forbidden', 'both']).optional()
+});
+
+// Schema Base (Campos comuns a todos)
+const baseUserSchema = z.object({
   name: z.string(),
   email: z.string().email(),
-  password: z.string().min(6),
-  currentPassword: z.string().optional(),
   role: z.string(),
   active: z.boolean().optional(),
   phone: z.string().optional(),
   jobTitle: z.string().optional(),
   emailSignature: z.string().optional(),
   photoUrl: z.string().optional().nullable(),
-  photoBase64: z.string().optional().nullable()
+  photoBase64: z.string().optional().nullable(),
+  distribution: distributionSchema.optional(),
+});
+
+// Schema para CRIAÇÃO (Senha Obrigatória)
+const createUserSchema = baseUserSchema.extend({
+  password: z.string().min(6),
+});
+
+// chema para ATUALIZAÇÃO (Senha Opcional + Atual)
+const updateUserSchema = baseUserSchema.extend({
+  password: z.string().min(6).optional(),
+  currentPassword: z.string().optional(),
 });
 
 const preferencesSchema = z.object({
@@ -36,8 +55,8 @@ export const listUsersHandler = asyncHandler(async (_req: Request, res: Response
 });
 
 export const createUserHandler = asyncHandler(async (req: Request, res: Response) => {
-  const body = userSchema.parse(req.body);
-  const user = await createUser(body);
+  const body = createUserSchema.parse(req.body);
+  const user = await createUser(body as any);
   res.status(201).json(user);
 });
 
@@ -52,22 +71,38 @@ export const updateUserHandler = asyncHandler(async (req: Request, res: Response
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // Aceita tanto schema completo quanto preferências
+  // 🔍 LOG ESPIÃO 1: O que chegou na porta do Backend?
+  console.log('---  DEBUG UPDATE ---');
+  console.log('1. User Logado:', currentUser?.email, '| Role:', currentUser?.role);
+  console.log('2. Body Bruto:', JSON.stringify(req.body.distribution, null, 2));
+
   const body = req.body.notificationPreferences || req.body.preferences 
     ? preferencesSchema.parse(req.body)
-    : userSchema.partial().parse(req.body);
+    : updateUserSchema.partial().parse(req.body);
+
+  console.log('3. Body Pós-Zod:', JSON.stringify((body as any).distribution, null, 2));
 
   if ('password' in body && body.password && !('currentPassword' in body && body.currentPassword)) {
     return res.status(400).json({ message: "Para alterar a senha, informe a senha atual." });
   }
 
+  // Verificação de segurança
   if (currentUser?.role !== 'admin') {
+    if ('distribution' in body) {
+       console.log(' ALERTA: Removendo distribution pois role não é admin. Role atual:', currentUser?.role);
+       delete (body as any).distribution;
+    }
     if ('jobTitle' in body) delete (body as any).jobTitle;
     if ('email' in body) delete (body as any).email;
   }
 
   try {
     const user = await updateUser(id, body as any);
+    
+    // 🔍 LOG ESPIÃO 3: O que o Banco devolveu?
+    console.log('4. Salvo no Banco:', JSON.stringify(user?.distribution, null, 2));
+    console.log('---------------------');
+
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (error: any) {
@@ -90,7 +125,6 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // Verificar se é o próprio usuário ou admin
   if (currentUser._id.toString() !== id && currentUser.role !== 'admin') {
     return res.status(403).json({ message: 'Você não tem permissão para alterar a foto deste usuário' });
   }
@@ -101,13 +135,11 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
     return res.status(400).json({ message: 'Foto em base64 é obrigatória' });
   }
   
-  // Validar se é uma imagem base64 válida
   const base64Regex = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
   if (!base64Regex.test(photoBase64)) {
     return res.status(400).json({ message: 'Formato de imagem inválido. Use JPEG, PNG, GIF ou WebP' });
   }
   
-  // Verificar tamanho (limite de 2MB em base64 ~ 2.7MB real)
   const sizeInBytes = (photoBase64.length * 3) / 4;
   const maxSize = 2 * 1024 * 1024; // 2MB
   
@@ -130,7 +162,6 @@ export const removePhotoHandler = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // Verificar se é o próprio usuário ou admin
   if (currentUser._id.toString() !== id && currentUser.role !== 'admin') {
     return res.status(403).json({ message: 'Você não tem permissão para remover a foto deste usuário' });
   }
@@ -145,23 +176,17 @@ export const removePhotoHandler = asyncHandler(async (req: Request, res: Respons
   }
 });
 
-// Estatísticas de vendedores - APENAS ADMIN
+// Estatísticas de vendedores
 export const getSellersStatsHandler = asyncHandler(async (_req: Request, res: Response) => {
-  // Buscar todos os usuários vendedores
   const users = await listUsers();
   const sellers = users.filter((u: any) => u.role === 'vendedor');
-  
-  // Buscar todos os leads
   const leads = await LeadModel.find().lean();
   
   const hoje = new Date();
   const trintaDiasAtras = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000);
   
-  // Calcular estatísticas por vendedor
   const sellersStats = sellers.map((seller: any) => {
     const sellerId = seller._id.toString();
-    
-    // Filtrar leads do vendedor (owner ou owners array)
     const sellerLeads = leads.filter((lead: any) => {
       const ownerId = lead.owner?.toString();
       const ownersIds = (lead.owners || []).map((o: any) => o.toString());
@@ -169,34 +194,26 @@ export const getSellersStatsHandler = asyncHandler(async (_req: Request, res: Re
     });
     
     const leadsQualificados = sellerLeads.filter(
-      (l: any) => l.qualificationStatus === 'qualificado' || l.qualificationStatus === 'proposta_enviada' || l.qualificationStatus === 'negociacao'
+      (l: any) => ['qualificado', 'proposta_enviada', 'negociacao'].includes(l.qualificationStatus)
     );
-    
     const leadsConvertidos = sellerLeads.filter(
       (l: any) => l.qualificationStatus === 'fechado_ganho'
     );
-    
     const valorTotal = sellerLeads.reduce(
       (acc: number, l: any) => acc + (l.avgPrice || l.valorProposta || 0), 0
     );
-    
     const valorConvertido = leadsConvertidos.reduce(
       (acc: number, l: any) => acc + (l.valorFechado || l.avgPrice || 0), 0
     );
-    
     const leadsRecentes = sellerLeads.filter(
       (l: any) => new Date(l.createdAt) >= trintaDiasAtras
     );
-    
     const taxaConversao = sellerLeads.length > 0 
       ? (leadsConvertidos.length / sellerLeads.length) * 100 
       : 0;
-    
     const ticketMedio = leadsConvertidos.length > 0
       ? valorConvertido / leadsConvertidos.length
       : 0;
-    
-    // Determinar tendência
     const tendencia = 
       leadsRecentes.length > sellerLeads.length * 0.3 ? 'up' :
       leadsRecentes.length < sellerLeads.length * 0.1 ? 'down' : 'stable';
@@ -207,7 +224,10 @@ export const getSellersStatsHandler = asyncHandler(async (_req: Request, res: Re
       email: seller.email,
       foto: seller.photoUrl || null,
       ativo: seller.active !== false,
-      perfil: 'Vendedor',
+      cargo: seller.jobTitle || "",
+      perfil: seller.role === 'admin' ? 'Administrador' : 
+              seller.role === 'gerente' ? 'Gerente' : 'Vendedor',  
+      distribution: seller.distribution,    
       ultimoAcesso: seller.lastLoginAt || seller.updatedAt,
       totalLeads: sellerLeads.length,
       leadsQualificados: leadsQualificados.length,
@@ -221,10 +241,8 @@ export const getSellersStatsHandler = asyncHandler(async (_req: Request, res: Re
     };
   });
   
-  // Ordenar por valor total no pipeline
   sellersStats.sort((a, b) => b.valorTotalPipeline - a.valorTotalPipeline);
   
-  // Calcular totais gerais
   const totals = {
     totalVendedores: sellers.length,
     vendedoresAtivos: sellers.filter((s: any) => s.active !== false).length,
@@ -237,8 +255,5 @@ export const getSellersStatsHandler = asyncHandler(async (_req: Request, res: Re
       : 0
   };
   
-  res.json({
-    sellers: sellersStats,
-    totals
-  });
+  res.json({ sellers: sellersStats, totals });
 });
