@@ -439,23 +439,37 @@ export async function updateUserApi(id: string, dados: {
   email?: string; 
   perfil?: string; 
   ativo?: boolean;
+  active?: boolean;   // 👈 NOVO: Aceita 'active' (inglês) que vem do Modal
   senha?: string;
   senhaAtual?: string;
   foto?: string;
   telefone?: string;
   cargo?: string;
   assinatura?: string;
+  distribution?: any; // 👈 NOVO: Aceita o objeto do Robô
 }) {
   const payload: any = {};
+  
+  // Mapeamento dos campos básicos
   if (dados.nome) payload.name = dados.nome;
   if (dados.email) payload.email = dados.email;
+  
+  // Lógica para aceitar tanto 'ativo' quanto 'active'
   if (dados.ativo !== undefined) payload.active = dados.ativo;
+  if (dados.active !== undefined) payload.active = dados.active;
+
   if (dados.senha) payload.password = dados.senha;
   if (dados.senhaAtual) payload.currentPassword = dados.senhaAtual;
   if (dados.foto !== undefined) payload.photoUrl = dados.foto;
   if (dados.telefone !== undefined) payload.phone = dados.telefone;
   if (dados.cargo !== undefined) payload.jobTitle = dados.cargo;
   if (dados.assinatura !== undefined) payload.emailSignature = dados.assinatura;
+  
+  // 👇 AQUI ESTÁ A CORREÇÃO PRINCIPAL
+  // Agora passamos o objeto distribution para o backend
+  if (dados.distribution) {
+    payload.distribution = dados.distribution;
+  }
   
   if (dados.perfil) {
     payload.role = dados.perfil.toLowerCase() === 'administrador' ? 'admin' : 

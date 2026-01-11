@@ -6,7 +6,6 @@ import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { LeadModel } from '../leads/lead.model.js';
 import { UserModel } from '../users/user.model.js';
-// 👇 CERTIFIQUE-SE QUE O ARQUIVO SE CHAMA 'note.model.ts'
 import { Note } from '../../models/Note.model.js';
 
 const SYSTEM_ID = '000000000000000000000000';
@@ -51,12 +50,12 @@ const converterFaixasEtariasParaObjeto = (buckets: number[]) => {
 const gerarResumoTecnico = (dados: any) => {
   const { temCnpj, safeCnpjType, temPlano, currentPlan, preferredHospitals, textoFaixas } = dados;
   return `
-📋 DADOS TÉCNICOS DO FORMULÁRIO:
+ DADOS TÉCNICOS DO FORMULÁRIO:
 
-🏢 CNPJ: ${temCnpj ? 'SIM' : 'NÃO'} ${safeCnpjType ? '(' + safeCnpjType + ')' : ''}
-🩺 Plano Atual: ${temPlano ? 'SIM' : 'NÃO'} ${currentPlan ? '(' + currentPlan + ')' : ''}
-🏥 Hospitais: ${preferredHospitals && preferredHospitals.length ? preferredHospitals.join(', ') : '-'}
-👥 Faixas Etárias:
+ CNPJ: ${temCnpj ? 'SIM' : 'NÃO'} ${safeCnpjType ? '(' + safeCnpjType + ')' : ''}
+ Plano Atual: ${temPlano ? 'SIM' : 'NÃO'} ${currentPlan ? '(' + currentPlan + ')' : ''}
+ Hospitais: ${preferredHospitals && preferredHospitals.length ? preferredHospitals.join(', ') : '-'}
+ Faixas Etárias:
 ${textoFaixas}
 `.trim();
 };
@@ -81,11 +80,10 @@ export const linktreeHandler = asyncHandler(async (req: Request, res: Response) 
   // --- TRATAMENTO DE DADOS ---
   const phoneClean = normalizarTelefone(phone);
   
-  // 🛡️ CORREÇÃO DO BUG DO EMAIL:
   // Se for vazio, traço ou muito curto, consideramos inválido.
   let emailClean = email ? email.trim().toLowerCase() : '';
   if (emailClean === '-' || emailClean === 'nao' || emailClean.length < 5 || !emailClean.includes('@')) {
-     emailClean = ''; // Anula o email para não buscar por traço
+     emailClean = ''; 
   }
 
   const count = Number(livesCount) || 1;
@@ -100,7 +98,7 @@ export const linktreeHandler = asyncHandler(async (req: Request, res: Response) 
 
   const dadosFormatados = { temCnpj, safeCnpjType, temPlano, currentPlan, preferredHospitals, textoFaixas };
 
-  // --- BUSCA LEAD (CORRIGIDA) ---
+  // --- BUSCA LEAD  ---
   // Montamos a lista de condições dinamicamente
   const searchConditions: any[] = [{ phone: phoneClean }];
   
@@ -162,17 +160,17 @@ export const linktreeHandler = asyncHandler(async (req: Request, res: Response) 
     // Log Técnico
     const resumoTecnico = gerarResumoTecnico(dadosFormatados);
     const tituloAtividade = houveRedistribuicao 
-      ? '🔄 Lead RE-CONVERTIDO e REDISTRIBUÍDO' 
-      : '🔄 Lead RE-CONVERTIDO (Mantido)';
+      ? ' Lead RE-CONVERTIDO e REDISTRIBUÍDO' 
+      : ' Lead RE-CONVERTIDO (Mantido)';
       
-    const logUnificado = `${tituloAtividade}\n----------------------------------------\n👤 Dados Anteriores: ${existingLead.livesCount} vidas\n----------------------------------------\n${resumoTecnico}`;
+    const logUnificado = `${tituloAtividade}\n----------------------------------------\n Dados Anteriores: ${existingLead.livesCount} vidas\n----------------------------------------\n${resumoTecnico}`;
 
     const leadAny = existingLead as any; 
 
     const updatedLead = await updateLead(existingLead._id.toString(), {
       name,
       phone: phoneClean,
-      // 🛡️ SÓ ATUALIZA O EMAIL SE O NOVO FOR VÁLIDO. SE FOR VAZIO, MANTÉM O ANTIGO.
+      //  SÓ ATUALIZA O EMAIL SE O NOVO FOR VÁLIDO. SE FOR VAZIO, MANTÉM O ANTIGO.
       email: (emailClean && emailClean !== '') ? emailClean : existingLead.email,
       
       livesCount: count,
@@ -210,7 +208,7 @@ export const linktreeHandler = asyncHandler(async (req: Request, res: Response) 
   const lead = await createLead({
     name, 
     phone: phoneClean, 
-    email: emailClean, // Se for vazio, salva vazio mesmo
+    email: emailClean, 
     origin: 'Linktree', 
     pipelineId: pipeline._id.toString(), 
     stageId: stage._id.toString(), 

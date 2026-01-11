@@ -11,7 +11,6 @@ import { Note } from '../../models/Note.model.js';
 
 const SYSTEM_ID = '000000000000000000000000';
 
-// --- FUNÇÕES AUXILIARES ---
 
 const normalizarTelefone = (phone: string): string => {
   if (!phone) return '';
@@ -31,17 +30,24 @@ const textoParaBooleano = (texto: any): boolean => {
 const gerarResumoTecnicoWebhook = (dados: any) => {
   const { investimento, hospitalPreferencia, temCnpj, temPlano, cidade, estado } = dados;
   return `
-📋 DADOS TÉCNICOS (WEBHOOK):
+ DADOS TÉCNICOS (WEBHOOK):
 ---------------------------
-💰 Investimento: R$ ${investimento || '0,00'}
-🏥 Hospital: ${hospitalPreferencia || '-'}
-🏢 CNPJ: ${temCnpj ? 'SIM' : 'NÃO'}
-🩺 Plano Atual: ${temPlano ? 'SIM' : 'NÃO'}
-📍 Local: ${cidade || '-'} / ${estado || '-'}
+ Investimento: R$ ${investimento || '0,00'}
+ Hospital: ${hospitalPreferencia || '-'}
+ CNPJ: ${temCnpj ? 'SIM' : 'NÃO'}
+ Plano Atual: ${temPlano ? 'SIM' : 'NÃO'}
+ Local: ${cidade || '-'} / ${estado || '-'}
 `.trim();
 };
 
 export const webhookHandler = asyncHandler(async (req: Request, res: Response) => {
+  const webhookSecret = process.env.WEBHOOK_SECRET || 'minha_senha_super_secreta';
+  const requestToken = req.headers['x-webhook-token'] || req.query.token;
+
+  if (requestToken !== webhookSecret) {
+    console.log(`[ALERTA] Tentativa de acesso não autorizado ao Webhook.`);
+    return res.status(403).json({ error: 'Acesso negado.' });
+  }
   const { 
     nome, email, telefone, origem, quantidadeVidas, observacoes,
     cidade, estado, investimento, possuiCNPJ, jaTemPlano, hospitalPreferencia
@@ -145,10 +151,10 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     // --- LOG UNIFICADO ---
     const resumoTecnico = gerarResumoTecnicoWebhook(dadosFormatados);
     const tituloAtividade = houveRedistribuicao 
-      ? '🔄 Lead RE-CONVERTIDO e REDISTRIBUÍDO (Webhook)' 
-      : '🔄 Lead RE-CONVERTIDO (Mantido - Webhook)';
+      ? ' Lead RE-CONVERTIDO e REDISTRIBUÍDO (Webhook)' 
+      : ' Lead RE-CONVERTIDO (Mantido - Webhook)';
       
-    const logUnificado = `${tituloAtividade}\n----------------------------------------\n👤 Dados Anteriores: ${existingLead.livesCount} vidas\n----------------------------------------\n${resumoTecnico}`;
+    const logUnificado = `${tituloAtividade}\n----------------------------------------\n Dados Anteriores: ${existingLead.livesCount} vidas\n----------------------------------------\n${resumoTecnico}`;
 
     const leadAny = existingLead as any;
 

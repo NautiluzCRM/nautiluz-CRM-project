@@ -108,8 +108,8 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
   .select('_id name distribution');
 
   if (bestSeller) {
-    console.log(`[DISTRIBUIÇÃO] 🎯 Lead (${livesNumber} vidas) entregue para: ${bestSeller.name}`);
-    console.log(`   📅 Última vez que ele recebeu antes de agora: ${bestSeller.distribution?.lastLeadReceivedAt || 'NUNCA'}`);
+    console.log(`[DISTRIBUIÇÃO]  Lead (${livesNumber} vidas) entregue para: ${bestSeller.name}`);
+    console.log(`    Última vez que ele recebeu antes de agora: ${bestSeller.distribution?.lastLeadReceivedAt || 'NUNCA'}`);
 
     await UserModel.updateOne(
       { _id: bestSeller._id },
@@ -119,34 +119,26 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
     return bestSeller._id.toString();
   }
 
-  console.warn(`[DISTRIBUIÇÃO] ⚠️ Ninguém atende o perfil: ${livesNumber} vidas | CNPJ: ${hasCnpj}`);
+  console.warn(`[DISTRIBUIÇÃO]  Ninguém atende o perfil: ${livesNumber} vidas | CNPJ: ${hasCnpj}`);
   return null; 
 }
 
 export async function createLead(input: any, user?: UserAuth) {
 
+
   // 1. VERIFICAÇÃO DE DUPLICIDADE (BUSCA INTELIGENTE)
   const criteriosBusca: any[] = [{ phone: input.phone }];
-
   if (input.email && input.email.trim() !== '') {
     criteriosBusca.push({ email: input.email });
   }
 
-  const existingLead = await LeadModel.findOne({
-    $or: criteriosBusca
-  });
+  const existingLead = await LeadModel.findOne({ $or: criteriosBusca });
 
   if (existingLead) {
-    // --- LÓGICA DE ATUALIZAÇÃO POR DUPLICIDADE ---
-    
-    // 🧹 LIMPEZA: Removemos toda a lógica que criava o texto "historico" 
-    // e concatenava nas notas. Agora atualizamos apenas os dados.
-
     const updatedLead = await LeadModel.findByIdAndUpdate(
       existingLead._id,
       {
         ...input,
-        // notes: ... (REMOVIDO: Não alteramos mais as notas aqui)
         lastActivity: new Date(),
         updatedBy: user?.sub || SYSTEM_ID 
       },
@@ -165,46 +157,35 @@ export async function createLead(input: any, user?: UserAuth) {
     return updatedLead;
   }
 
-  // 2. CRIAÇÃO DE NOVO LEAD
-  if (input.cnpjType === '') {
-    delete input.cnpjType;
-  }
+  // ... (Validações de Pipeline, Stage, Distribuição continuam iguais) ...
   
+  if (input.cnpjType === '') delete input.cnpjType;
   const pipeline = await PipelineModel.findById(input.pipelineId);
   if (!pipeline) throw new AppError('Pipeline inválido', StatusCodes.BAD_REQUEST);
-  
   const stage = await StageModel.findById(input.stageId);
   if (!stage) throw new AppError('Stage inválido', StatusCodes.BAD_REQUEST);
 
   const rank = input.rank || '0|hzzzzz:';
   
   let ownerId = user?.sub; 
-
   if (!ownerId && input.livesCount) {
-    const distributedOwner = await findNextResponsible(
-      input.livesCount, 
-      input.hasCnpj || false 
-    );
-    
-    if (distributedOwner) {
-      ownerId = distributedOwner;
-    } else {
-      console.warn(`[DISTRIBUIÇÃO] Nenhum vendedor encontrado para ${input.livesCount} vidas.`);
-    }
+    const distributedOwner = await findNextResponsible(input.livesCount, input.hasCnpj || false);
+    if (distributedOwner) ownerId = distributedOwner;
   }
 
   let ownersList = input.owners;
   if (!ownersList || ownersList.length === 0) {
     ownersList = ownerId ? [ownerId] : [];
   }
-
-  // RESTRIÇÃO: Vendedores só podem criar leads para si mesmos
-  // Admins podem criar para qualquer vendedor
+  
   if (user && user.role === 'vendedor') {
     ownersList = [user.sub];
   }
 
-  const createdById = user?.sub || SYSTEM_ID;
+  
+  // Verifica se o user.sub é um ObjectId válido do Mongo. Se não for, usa o SYSTEM_ID.
+  const isValidCreatorId = user?.sub && mongoose.Types.ObjectId.isValid(user.sub);
+  const createdById = isValidCreatorId ? user.sub : SYSTEM_ID;
 
   const lead = await LeadModel.create({ 
     ...input, 
@@ -216,18 +197,29 @@ export async function createLead(input: any, user?: UserAuth) {
     lastActivity: input.createdAt || new Date()
   });
 
+  // Prepara dados para o Log de Atividade
   const creatorId = user?.sub;
-  const userDoc = creatorId ? await UserModel.findById(creatorId) : null;
-  const userName = userDoc?.name || 'Sistema';
-  const finalUserId = creatorId || SYSTEM_ID;
+  let userName = 'Sistema';
+  
+  // Valida o ID final que vai para o ActivityService
+  // Se o creatorId não for válido (ex: undefined ou string estranha), usa SYSTEM_ID
+  const finalUserId = (creatorId && mongoose.Types.ObjectId.isValid(creatorId)) 
+    ? creatorId 
+    : SYSTEM_ID;
+
+  if (creatorId && mongoose.Types.ObjectId.isValid(creatorId)) {
+     const userDoc = await UserModel.findById(creatorId);
+     if (userDoc) userName = userDoc.name;
+  }
 
   const descricaoLog = input.customCreationLog || `Lead criado por ${userName}`;
 
+  // Cria a atividade com garantia de ID válido
   await ActivityService.createActivity({
     leadId: lead._id.toString(),
     tipo: 'lead_criado',
     descricao: descricaoLog,
-    userId: finalUserId,
+    userId: finalUserId, 
     userName: userName
   });
 
