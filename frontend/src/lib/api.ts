@@ -95,8 +95,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
   if (res.status === 401) {
+    console.log('[API] Recebido 401. Tentando renovar token...');
+    
     const newToken = await refreshAccessToken();
     if (newToken) {
+      console.log('[API] Token renovado com sucesso.');
       const retryHeaders = {
         ...headers,
         ...getAuthHeaders(newToken),
@@ -104,6 +107,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       res = await fetch(`${API_URL}${path}`, { ...options, headers: retryHeaders });
     } else {
       // Refresh falhou definitivamente - limpa auth e redireciona
+      console.error('[API] Falha ao renovar token. Limpando sessão.');
       clearAuthStorage();
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
