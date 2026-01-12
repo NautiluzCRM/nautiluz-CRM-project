@@ -19,7 +19,8 @@ const stageSchema = z.object({
   order: z.number(), 
   key: z.string(),
   color: z.string().optional(),
-  sla: z.number().optional()
+  sla: z.number().optional(),
+  columnTag: z.string().optional()
 });
 
 const reorderSchema = z.object({
