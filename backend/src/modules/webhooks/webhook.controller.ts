@@ -6,11 +6,9 @@ import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { LeadModel } from '../leads/lead.model.js';
 import { UserModel } from '../users/user.model.js';
-// 👇 IMPORTANTE: Verifique se o caminho está correto para o seu projeto
 import { Note } from '../../models/Note.model.js'; 
 
 const SYSTEM_ID = '000000000000000000000000';
-
 
 const normalizarTelefone = (phone: string): string => {
   if (!phone) return '';
@@ -26,31 +24,66 @@ const textoParaBooleano = (texto: any): boolean => {
   return t === 'sim' || t === 'yes' || t === 'true' || t === 's' || t === '1';
 };
 
-// Gera o resumo técnico específico para os campos do Webhook
+const processarFaixasEtarias = (textoInput: string) => {
+  const faixas = {
+    ate18: 0, de19a23: 0, de24a28: 0, de29a33: 0, de34a38: 0,
+    de39a43: 0, de44a48: 0, de49a53: 0, de54a58: 0, acima59: 0
+  };
+  const idadesArray = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+  if (!textoInput || typeof textoInput !== 'string') {
+    return { faixas, idadesArray };
+  }
+
+  const mapaDeChaves: Record<number, keyof typeof faixas> = {
+    1: 'ate18', 2: 'de19a23', 3: 'de24a28', 4: 'de29a33', 5: 'de34a38',
+    6: 'de39a43', 7: 'de44a48', 8: 'de49a53', 9: 'de54a58', 10: 'acima59'
+  };
+
+  const partes = textoInput.split(',');
+
+  partes.forEach(parte => {
+    const [codigoStr, qtdStr] = parte.trim().split(':');
+    const codigo = parseInt(codigoStr);
+    const qtd = parseInt(qtdStr);
+
+    if (!isNaN(codigo) && !isNaN(qtd) && codigo >= 1 && codigo <= 10) {
+      const chave = mapaDeChaves[codigo];
+      if (chave) faixas[chave] = qtd;
+      idadesArray[codigo - 1] = qtd;
+    }
+  });
+
+  return { faixas, idadesArray };
+};
+
 const gerarResumoTecnicoWebhook = (dados: any) => {
-  const { investimento, hospitalPreferencia, temCnpj, temPlano, cidade, estado } = dados;
+  const { investimento, hospitalPreferencia, temCnpj, temPlano, cidade, estado, tipoCNPJ, operadora } = dados;
   return `
- DADOS TÉCNICOS (WEBHOOK):
+DADOS TÉCNICOS (WEBHOOK):
 ---------------------------
- Investimento: R$ ${investimento || '0,00'}
- Hospital: ${hospitalPreferencia || '-'}
- CNPJ: ${temCnpj ? 'SIM' : 'NÃO'}
- Plano Atual: ${temPlano ? 'SIM' : 'NÃO'}
- Local: ${cidade || '-'} / ${estado || '-'}
+Investimento: R$ ${investimento || '0,00'}
+Hospital: ${hospitalPreferencia || '-'}
+CNPJ: ${temCnpj ? 'SIM' : 'NÃO'} ${tipoCNPJ ? `(${tipoCNPJ})` : ''}
+Plano Atual: ${temPlano ? 'SIM' : 'NÃO'} ${operadora ? `(${operadora})` : ''}
+Local: ${cidade || '-'} / ${estado || '-'}
 `.trim();
 };
 
 export const webhookHandler = asyncHandler(async (req: Request, res: Response) => {
+  
   const webhookSecret = process.env.WEBHOOK_SECRET || 'minha_senha_super_secreta';
   const requestToken = req.headers['x-webhook-token'] || req.query.token;
 
   if (requestToken !== webhookSecret) {
-    console.log(`[ALERTA] Tentativa de acesso não autorizado ao Webhook.`);
+    console.log(`[ALERTA] Bloqueio de Segurança Webhook.`);
     return res.status(403).json({ error: 'Acesso negado.' });
   }
+
   const { 
     nome, email, telefone, origem, quantidadeVidas, observacoes,
-    cidade, estado, investimento, possuiCNPJ, jaTemPlano, hospitalPreferencia
+    cidade, estado, investimento, possuiCNPJ, jaTemPlano, hospitalPreferencia,
+    distribuicaoVidas, tipoCNPJ, operadora
   } = req.body;
 
   console.log('[WEBHOOK] Payload recebido:', req.body);
@@ -61,21 +94,27 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     });
   }
 
-  // --- 1. TRATAMENTO DE DADOS ---
+  // --- 1. PROCESSAMENTOS ---
   const phoneClean = normalizarTelefone(telefone);
   
-  // Tratamento rigoroso de email (igual Linktree)
   let emailClean = email ? email.trim().toLowerCase() : '';
   if (emailClean === '-' || emailClean === 'nao' || emailClean.length < 5 || !emailClean.includes('@')) {
      emailClean = ''; 
   }
 
-  const lives = Number(quantidadeVidas) || 1;
+  // Processa as faixas etárias PRIMEIRO
+  const { faixas, idadesArray } = processarFaixasEtarias(distribuicaoVidas);
+
+  let lives = Number(quantidadeVidas);
+  if (!lives || isNaN(lives) || lives === 0) {
+    const somaVidas = idadesArray.reduce((acc, curr) => acc + curr, 0);
+    lives = somaVidas > 0 ? somaVidas : 1;
+    console.log(`[WEBHOOK] Vidas calculadas via distribuição: ${lives}`);
+  }
+
   const temCnpj = textoParaBooleano(possuiCNPJ);
   const temPlano = textoParaBooleano(jaTemPlano);
   const valorEstimado = Number(investimento) || 0;
-  
-  // Transforma hospital em Array para o banco
   const listaHospitais = hospitalPreferencia ? [hospitalPreferencia] : [];
 
   const dadosFormatados = { 
@@ -84,10 +123,11 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     temCnpj, 
     temPlano, 
     cidade, 
-    estado 
+    estado,
+    tipoCNPJ,   
+    operadora  
   };
 
-  // --- 2. BUSCA INTELIGENTE (EXISTE?) ---
   const searchConditions: any[] = [{ phone: phoneClean }];
   if (emailClean && emailClean !== '') {
     searchConditions.push({ email: emailClean });
@@ -98,21 +138,19 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   });
 
   // ===============================================================
-  // CASO 1: ATUALIZAÇÃO (LEAD EXISTENTE)
+  // CASO 1: ATUALIZAÇÃO
   // ===============================================================
   if (existingLead) {
     console.log(`[WEBHOOK] Atualizando Lead: ${existingLead.name}`);
 
     let novoDono = existingLead.owners || [];
     let houveRedistribuicao = false;
-
-    // --- PROTEÇÃO DE CARTEIRA (STICKY ROUTING) ---
+    
     const donoAtualId = (existingLead.owners && existingLead.owners.length > 0) ? existingLead.owners[0] : null;
     let manterDonoAtual = false;
 
     if (donoAtualId) {
       const regraCnpj = temCnpj ? { $in: ['required', 'both'] } : { $in: ['forbidden', 'both'] };
-      
       const donoQualificado = await UserModel.findOne({
         _id: donoAtualId,
         active: true,
@@ -122,13 +160,9 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
         'distribution.cnpjRule': regraCnpj
       });
 
-      if (donoQualificado) {
-        console.log(`[WEBHOOK] Dono atual qualificado. Mantendo.`);
-        manterDonoAtual = true;
-      }
+      if (donoQualificado) manterDonoAtual = true;
     }
 
-    // Se o dono atual não serve mais, redistribui
     if (!manterDonoAtual) {
       const donoDistribuido = await findNextResponsible(lives, temCnpj);
       if (donoDistribuido) {
@@ -137,7 +171,6 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
       }
     }
 
-    // --- CRIAÇÃO DE NOTA VISUAL (Se houver observações) ---
     if (observacoes && observacoes.trim() !== '') {
       await Note.create({
         leadId: existingLead._id,
@@ -148,11 +181,10 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
       });
     }
 
-    // --- LOG UNIFICADO ---
     const resumoTecnico = gerarResumoTecnicoWebhook(dadosFormatados);
     const tituloAtividade = houveRedistribuicao 
-      ? ' Lead RE-CONVERTIDO e REDISTRIBUÍDO (Webhook)' 
-      : ' Lead RE-CONVERTIDO (Mantido - Webhook)';
+      ? ' Lead RE-CONVERTIDO e REDISTRIBUÍDO' 
+      : ' Lead RE-CONVERTIDO (Mantido)';
       
     const logUnificado = `${tituloAtividade}\n----------------------------------------\n Dados Anteriores: ${existingLead.livesCount} vidas\n----------------------------------------\n${resumoTecnico}`;
 
@@ -162,20 +194,19 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
       name: nome,
       phone: phoneClean,
       email: (emailClean && emailClean !== '') ? emailClean : existingLead.email,
-      
       livesCount: lives,
       avgPrice: valorEstimado,
       hasCnpj: temCnpj,
       hasCurrentPlan: temPlano,
       preferredHospitals: listaHospitais.length ? listaHospitais : leadAny.preferredHospitals,
-      
       city: cidade || existingLead.city,
       state: estado || existingLead.state,
-      
       owners: novoDono,
-      lastActivity: new Date(),
       
-      // Passamos o log pronto para o Service não criar log genérico
+      faixasEtarias: faixas,
+      ageBuckets: idadesArray,
+
+      lastActivity: new Date(),
       customUpdateLog: logUnificado 
     });
 
@@ -188,15 +219,17 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   }
 
   // ===============================================================
-  // CASO 2: CRIAÇÃO (NOVO LEAD)
+  // CASO 2: CRIAÇÃO
   // ===============================================================
-  
   const pipeline = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
   const stage = await StageModel.findOne({ pipelineId: pipeline?._id, key: 'novo' }) || await StageModel.findOne({ pipelineId: pipeline?._id });
 
   if (!pipeline || !stage) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Configuração de Funil ausente.' });
   }
+
+  const donoInicial = await findNextResponsible(lives, temCnpj);
+  const ownersList = donoInicial ? [donoInicial] : []; 
 
   const logTecnicoUnificado = `Lead criado via Webhook.\n\n${gerarResumoTecnicoWebhook(dadosFormatados)}`;
 
@@ -210,20 +243,17 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     livesCount: lives,
     hasCnpj: temCnpj,
     avgPrice: valorEstimado,
-    
-    // Deixa notes limpo, usaremos a Note visual abaixo
     notes: '', 
-    
     city: cidade || 'A verificar',
     state: estado || 'SP',
-    owners: [], 
+    owners: ownersList,
     rank: 'c' + Date.now(),
-    
     hasCurrentPlan: temPlano,
     preferredHospitals: listaHospitais,
-    ageBuckets: [],
     
-    // Log Inteligente na criação
+    faixasEtarias: faixas,
+    ageBuckets: idadesArray,
+
     customCreationLog: logTecnicoUnificado
   });
 
@@ -231,7 +261,6 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     throw new AppError('Erro ao processar o Lead no sistema.', StatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // Cria a nota visual se tiver observação
   if (observacoes && observacoes.trim() !== '') {
     await Note.create({
       leadId: resultLead._id,
