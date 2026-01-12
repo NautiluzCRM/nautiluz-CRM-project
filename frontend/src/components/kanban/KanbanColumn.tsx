@@ -30,11 +30,17 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
     return leads.some(lead => lead.id === over.id);
   }, [isOver, over, leads]);
 
+  // SLA Ativo: Apenas se for número E maior que zero
+  const hasActiveSla = typeof coluna.sla === 'number' && coluna.sla > 0;
+
   const leadsVencidos = leads.filter(lead => {
-    if (!coluna.sla) return false;
+    // Se não tem SLA ativo, não há vencimento
+    if (!hasActiveSla) return false;
+    
     const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
     const horasPassadas = (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60);
-    return horasPassadas > coluna.sla;
+    
+    return horasPassadas > (coluna.sla || 0);
   });
 
   const isWipExceeded = coluna.wipLimit && leads.length > coluna.wipLimit;
@@ -44,7 +50,6 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
       ref={setNodeRef}
       className={`
         flex flex-col w-72 sm:w-80 rounded-lg shrink-0
-        /* Aqui usamos 'isActive' em vez de apenas 'isOver' */
         ${isActive ? 'bg-muted/50 border-2 border-primary/20 border-dashed' : 'bg-secondary/30 border-2 border-transparent'}
         transition-colors duration-200
       `}
@@ -67,17 +72,25 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
         
         {/* Indicadores */}
         <div className="flex gap-2">
-          {coluna.sla && leadsVencidos.length > 0 && (
+          {/* Badge Vermelha: Apenas se SLA ativo E tiver vencidos */}
+          {hasActiveSla && leadsVencidos.length > 0 && (
             <Badge variant="destructive" className="text-xs flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               {leadsVencidos.length} vencido{leadsVencidos.length > 1 ? 's' : ''}
             </Badge>
           )}
           
-          {coluna.sla && (
+          {/* Badge de Tempo SLA (ou Sem SLA) */}
+          {hasActiveSla ? (
             <Badge variant="outline" className="text-xs flex items-center gap-1">
               <Clock className="h-3 w-3" />
               SLA: {coluna.sla}h
+            </Badge>
+          ) : (
+            // Badge para quando é zero ou undefined
+            <Badge variant="outline" className="text-xs flex items-center gap-1 text-muted-foreground bg-muted/50 border-dashed">
+              <Clock className="h-3 w-3 opacity-50" />
+              Sem SLA
             </Badge>
           )}
           
@@ -94,8 +107,10 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => {
              const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
-             const isVencido = coluna.sla && 
-               (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60) > coluna.sla;
+             
+             // Card só fica vermelho se tiver SLA ativo (>0)
+             const isVencido = hasActiveSla && 
+               (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60) > (coluna.sla || 0);
 
             return (
               <KanbanCard
