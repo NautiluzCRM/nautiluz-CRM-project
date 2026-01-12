@@ -4,6 +4,14 @@ import { Lead, Pipeline, Coluna } from "@/types/crm";
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000/api";
 const storages = [localStorage, sessionStorage];
 
+// Flag para evitar múltiplos redirects simultâneos
+let isRedirecting = false;
+
+// Função para resetar o estado de redirect (útil após login)
+export function resetRedirectFlag() {
+  isRedirecting = false;
+}
+
 const getStoredValue = (key: string) => localStorage.getItem(key) ?? sessionStorage.getItem(key);
 
 const clearAuthStorage = () => {
@@ -40,9 +48,13 @@ async function refreshAccessToken() {
   const refreshToken = storage.getItem("refreshToken") ?? getStoredValue("refreshToken");
   
   // Se não tem token de refresh, não há o que fazer
-  if (!refreshToken) return null;
+  if (!refreshToken) {
+    console.warn('[Auth] Nenhum refresh token disponível');
+    return null;
+  }
 
   try {
+    console.log('[Auth] Tentando renovar access token...');
     const res = await fetch(`${API_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -51,11 +63,18 @@ async function refreshAccessToken() {
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error(`[Auth] Falha no refresh: ${res.status} - ${errText}`);
+      let errorDetail = errText;
+      try {
+        const errorJson = JSON.parse(errText);
+        errorDetail = errorJson.message || errText;
+      } catch {}
+      
+      console.error(`[Auth] Falha no refresh (${res.status}): ${errorDetail}`);
 
       // SÓ desloga se o token for explicitamente recusado (401/403) ou inválido (400)
       // Se for erro de servidor (500+), NÃO desloga, permite tentar de novo depois
       if (res.status === 400 || res.status === 401 || res.status === 403) {
+        console.warn('[Auth] Refresh token expirado ou inválido. Limpando sessão.');
         clearAuthStorage();
       }
       return null;
@@ -64,11 +83,13 @@ async function refreshAccessToken() {
     const data = await res.json();
     
     if (data?.accessToken) {
+      console.log('[Auth] Token renovado com sucesso');
       setAccessToken(data.accessToken);
 
       // --- ROTAÇÃO: Se o backend mandou um novo refresh token, atualiza! ---
       if (data.refreshToken) {
         storage.setItem("refreshToken", data.refreshToken);
+        console.log('[Auth] Refresh token também atualizado');
       }
       // ---------------------------------------------------------------------
 
@@ -81,6 +102,7 @@ async function refreshAccessToken() {
     return null;
   }
   
+  console.warn('[Auth] Resposta de refresh sem accessToken');
   return null;
 }
 // -------------------------------------------------------------------------
@@ -95,24 +117,46 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
   if (res.status === 401) {
-    console.log('[API] Recebido 401. Tentando renovar token...');
+    console.log(`[API] Recebido 401 em ${path}. Tentando renovar token...`);
     
     const newToken = await refreshAccessToken();
     if (newToken) {
-      console.log('[API] Token renovado com sucesso.');
+      console.log('[API] Token renovado. Retentando requisição...');
       const retryHeaders = {
         ...headers,
         ...getAuthHeaders(newToken),
       };
       res = await fetch(`${API_URL}${path}`, { ...options, headers: retryHeaders });
+      
+      if (res.status === 401) {
+        console.error('[API] 401 persistiu após refresh. Token pode estar sem permissões.');
+      }
     } else {
       // Refresh falhou definitivamente - limpa auth e redireciona
-      console.error('[API] Falha ao renovar token. Limpando sessão.');
+      console.error('[API] Falha ao renovar token. Sessão expirada.');
       clearAuthStorage();
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+      
+      // Evita múltiplos redirects simultâneos
+      if (!isRedirecting && !window.location.pathname.includes('/login')) {
+        isRedirecting = true;
+        
+        // Mostra mensagem amigável
+        const mensagem = 'Sua sessão expirou. Por favor, faça login novamente.';
+        
+        // Tenta usar toast se disponível
+        if (typeof window !== 'undefined' && (window as any).toast) {
+          (window as any).toast.error(mensagem);
+        } else {
+          console.warn(mensagem);
+        }
+        
+        // Pequeno delay para permitir que a mensagem seja vista
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 500);
       }
-      throw new Error('Sessão expirada');
+      
+      throw new Error('Sessão expirada. Por favor, faça login novamente.');
     }
   }
 
@@ -344,14 +388,24 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
 }
 
 export async function fetchPipelineData(): Promise<Pipeline> {
+  console.log('[API] Iniciando fetchPipelineData...');
+  
   const [pipelines, leads, users] = await Promise.all([
     fetchPipelines(), 
     fetchLeads(),
     fetchUsers()
   ]);
+  
+  console.log('[API] Dados recebidos:', {
+    pipelines: pipelines.length,
+    leads: leads.length,
+    users: users.length
+  });
+  
   const pipeline = pipelines[0];
 
   if (!pipeline) {
+    console.warn('[API] Nenhum pipeline encontrado!');
     return {
       id: '',
       nome: 'Pipeline não configurado',
@@ -361,7 +415,11 @@ export async function fetchPipelineData(): Promise<Pipeline> {
     };
   }
 
+  console.log('[API] Pipeline encontrado:', pipeline.name, 'ID:', pipeline._id || pipeline.id);
+  
   const stages = await fetchStages(pipeline._id || pipeline.id);
+  
+  console.log('[API] Stages carregados:', stages.length);
 
   return {
     id: pipeline._id || pipeline.id,

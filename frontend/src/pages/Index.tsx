@@ -48,10 +48,26 @@ const Index = () => {
   // Função para recarregar os dados do Kanban
   const loadPipeline = async () => {
     try {
+      console.log('[Index] Carregando pipeline...');
       const data = await fetchPipelineData();
+      console.log('[Index] Pipeline carregado:', {
+        nome: data.nome,
+        colunas: data.colunas.length,
+        leads: data.leads.length,
+        owners: data.owners.length
+      });
       setPipeline(data);
-    } catch (error) {
-      console.error("Erro ao carregar pipeline", error);
+    } catch (error: any) {
+      console.error("Erro ao carregar pipeline:", error);
+      
+      // Se for erro de sessão expirada, não mostra toast (já vai redirecionar)
+      if (!error?.message?.includes('expirada')) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao carregar pipeline",
+          description: error?.message || "Não foi possível carregar os dados. Tente novamente.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -419,7 +435,7 @@ const Index = () => {
 
         {/* Kanban Board */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          {pipeline ? (
+          {!isLoading && pipeline && pipeline.colunas && pipeline.colunas.length > 0 ? (
             <KanbanBoard
               colunas={pipeline.colunas}
               leads={filteredLeads}
@@ -430,6 +446,13 @@ const Index = () => {
                 setIsModalOpen(true);
               }}
             />
+          ) : !isLoading && (!pipeline || !pipeline.colunas || pipeline.colunas.length === 0) ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center p-8">
+                <p className="text-lg font-semibold mb-2">Pipeline não configurado</p>
+                <p className="text-sm text-muted-foreground">Execute o script de seed para criar o pipeline.</p>
+              </div>
+            </div>
           ) : null}
         </div>
       </div>
@@ -458,8 +481,6 @@ const Index = () => {
         onSuccess={() => {
           loadPipeline(); // Recarrega os dados após criar
           refreshStats(); // Atualiza estatísticas
-          refreshStats(); // Atualiza estatísticas
-          refreshStats(); // Atualiza estatísticas
         }}
       />
 
@@ -482,8 +503,6 @@ const Index = () => {
         onSuccess={() => {
           loadPipeline(); // Recarrega os dados após editar
           refreshStats(); // Atualiza estatísticas
-          refreshStats(); // Atualiza as estatísticas
-          refreshStats(); // Atualizar estatísticas
           setIsEditModalOpen(false);
           setLeadToEdit(null);
         }}
