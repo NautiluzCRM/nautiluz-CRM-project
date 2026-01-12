@@ -405,10 +405,15 @@ const GestaoVendedores = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorValor.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-100 text-yellow-700' : index === 1 ? 'bg-gray-100 text-gray-700' : index === 2 ? 'bg-orange-100 text-warning dark:text-warning-foreground' : 'bg-muted text-muted-foreground'}`}>{index + 1}</span>
-                      <Avatar className="h-8 w-8"><AvatarImage src={v.foto || ''} /><AvatarFallback className="text-xs bg-primary/10">{v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}</AvatarFallback></Avatar>
-                      <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{v.nome}</p><p className="text-xs text-muted-foreground">{v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
                     </div>
                   ))}
                 </CardContent>
@@ -421,10 +426,21 @@ const GestaoVendedores = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorConversao.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-500 text-white' : 'bg-muted text-muted-foreground'}`}>{index + 1}</span>
-                      <Avatar className="h-8 w-8"><AvatarImage src={v.foto || ''} /><AvatarFallback className="text-xs bg-primary/10">{v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}</AvatarFallback></Avatar>
-                      <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{v.nome}</p><div className="flex items-center gap-2"><Progress value={v.taxaConversao} className="h-1.5 flex-1" /><span className="text-xs font-medium">{v.taxaConversao.toFixed(1)}%</span></div></div>
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1">
+                        <p className="font-semibold">{v.nome}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Progress value={v.taxaConversao} className="h-1.5 flex-1" />
+                          <span className="text-sm font-medium text-muted-foreground">{v.taxaConversao.toFixed(1)}%</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </CardContent>
@@ -437,10 +453,15 @@ const GestaoVendedores = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorLeads.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-500 text-white' : 'bg-muted text-muted-foreground'}`}>{index + 1}</span>
-                      <Avatar className="h-8 w-8"><AvatarImage src={v.foto || ''} /><AvatarFallback className="text-xs bg-primary/10">{v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}</AvatarFallback></Avatar>
-                      <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{v.nome}</p><p className="text-xs text-muted-foreground">{v.totalLeads} leads</p></div>
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.totalLeads} leads</p></div>
                     </div>
                   ))}
                 </CardContent>
