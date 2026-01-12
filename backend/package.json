@@ -13,6 +13,7 @@
     "start": "node dist/server.js",
     "render-build": "npm install --include=dev && npm run build",
     "seed": "npx tsx src/database/seed.ts",
+    "restore-pipeline": "npx tsx scripts/restore-pipeline.ts",
     "test:activity": "node --loader ts-node/esm test-activity.ts",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings=0"
   },

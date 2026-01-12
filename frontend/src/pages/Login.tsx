@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import {
 import { Eye, EyeOff, Lock, Mail, CheckCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { API_URL } from "@/lib/api";
+import { API_URL, resetRedirectFlag } from "@/lib/api";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -33,6 +33,11 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login } = useAuth();
+
+  // Reseta flag de redirect quando chega na página de login
+  useEffect(() => {
+    resetRedirectFlag();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

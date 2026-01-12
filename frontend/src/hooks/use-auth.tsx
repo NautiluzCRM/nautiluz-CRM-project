@@ -98,11 +98,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // CORREÇÃO: Usa helper local em vez de getAuthStorage inexistente
     const refreshToken = getStoredItem("refreshToken");
     
-    if (!refreshToken) return false;
+    if (!refreshToken) {
+      console.warn('[Auth Hook] Nenhum refresh token disponível');
+      return false;
+    }
 
     try {
       const baseUrl = API_URL || "http://localhost:10000/api";
       
+      console.log('[Auth Hook] Tentando renovar token...');
       const res = await fetch(`${baseUrl}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -112,12 +116,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!res.ok) {
         // Se for erro de servidor (500+), NÃO desloga, apenas retorna false
         if (res.status >= 500) {
-            console.warn(`[Auth] Erro servidor (${res.status}) ao renovar. Tentando depois.`);
+            console.warn(`[Auth Hook] Erro servidor (${res.status}) ao renovar. Tentando depois.`);
             return false;
         }
 
         // Se for 401/403, aí sim desloga
-        console.error(`[Auth] Token inválido (${res.status}). Deslogando.`);
+        const errText = await res.text();
+        let errorDetail = errText;
+        try {
+          const errorJson = JSON.parse(errText);
+          errorDetail = errorJson.message || errText;
+        } catch {}
+        
+        console.error(`[Auth Hook] Token inválido (${res.status}): ${errorDetail}`);
         clearAllAuthStorage();
         setAuth({ token: null, refresh: null, user: null });
         return false;
@@ -125,11 +136,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const data = await res.json();
       if (data?.accessToken) {
+        console.log('[Auth Hook] Token renovado com sucesso');
         setStoredItem("authToken", data.accessToken);
         
         // Se vier novo refresh, salva também
         if (data.refreshToken) {
             setStoredItem("refreshToken", data.refreshToken);
+            console.log('[Auth Hook] Refresh token também atualizado');
         }
 
         setAuth(prev => ({ 
@@ -139,9 +152,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }));
         return true;
       }
+      console.warn('[Auth Hook] Resposta sem accessToken');
       return false;
     } catch (error) {
-      console.error("[Auth] Erro de rede ao renovar:", error);
+      console.error("[Auth Hook] Erro de rede ao renovar:", error);
       return false;
     }
   }, []);
