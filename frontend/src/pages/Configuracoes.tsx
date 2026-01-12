@@ -483,6 +483,7 @@ const Configuracoes = () => {
         name: editForm.nome,
         sla: editForm.sla,
         color: editForm.cor,
+        columnTag: editForm.columnTag
       });
 
       toast({ title: "Atualizado", description: "Etapa salva com sucesso." });
@@ -898,7 +899,7 @@ const Configuracoes = () => {
               <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6 pt-0">
 
                 <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
-                  <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" />
+                  <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" className="object-cover" />
                   <AvatarFallback className="text-base sm:text-lg bg-primary text-primary-foreground">
                     {(user?.name || "N").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
@@ -1201,7 +1202,7 @@ const Configuracoes = () => {
                           {/* LADO ESQUERDO: Avatar + Infos */}
                           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                             <Avatar className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
-                              <AvatarImage src={usuario.foto} alt={usuario.nome} />
+                              <AvatarImage src={usuario.foto} alt={usuario.nome} className="object-cover" />
                               <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                                 {usuario.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
                               </AvatarFallback>
@@ -1299,8 +1300,8 @@ const Configuracoes = () => {
                                 <SortableStageRow key={stage.id} id={stage.id}>
                                   <div className="grid grid-cols-[1fr_auto] items-center w-full gap-2 sm:gap-4 py-1 pr-1">
 
-                                    {/* LADO ESQUERDO: Cor + Nome */}
-                                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
+                                    {/* LADO ESQUERDO: Cor + Nome + Tag */}
+                                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden flex-1">
 
                                       {/* Cor */}
                                       {isEditing ? (
@@ -1317,22 +1318,38 @@ const Configuracoes = () => {
                                         />
                                       )}
 
-                                      {/* Nome */}
-                                      {isEditing ? (
-                                        <Input
-                                          value={editForm.nome !== undefined ? editForm.nome : stage.nome}
-                                          onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
-                                          className="h-8 text-sm w-full min-w-0"
-                                          placeholder="Nome"
-                                        />
-                                      ) : (
-                                        <span
-                                          className="font-medium text-sm sm:text-base text-foreground truncate block w-full"
-                                          title={stage.nome}
-                                        >
-                                          {stage.nome}
-                                        </span>
-                                      )}
+                                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 w-full min-w-0">
+                                        {/* Nome */}
+                                        {isEditing ? (
+                                          <Input
+                                            value={editForm.nome !== undefined ? editForm.nome : stage.nome}
+                                            onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
+                                            className="h-8 text-sm w-full min-w-[120px]"
+                                            placeholder="Nome da Etapa"
+                                          />
+                                        ) : (
+                                          <span
+                                            className="font-medium text-sm sm:text-base text-foreground truncate block"
+                                            title={stage.nome}
+                                          >
+                                            {stage.nome}
+                                          </span>
+                                        )}
+
+                                        {/* INPUT DE TAG (CAMPO DE TEXTO) */}
+                                        {isEditing ? (
+                                          <Input
+                                            value={editForm.columnTag !== undefined ? editForm.columnTag : (stage.columnTag || "")}
+                                            onChange={(e) => setEditForm({ ...editForm, columnTag: e.target.value })}
+                                            className="h-7 text-xs w-full sm:w-32 bg-muted/20"
+                                            placeholder="Tag (ex: ganho)"
+                                          />
+                                        ) : stage.columnTag ? (
+                                          <div className="text-[10px] text-muted-foreground bg-muted/30 px-2 py-0.5 rounded border truncate max-w-[100px]" title={`Tag: ${stage.columnTag}`}>
+                                            #{stage.columnTag}
+                                          </div>
+                                        ) : null}
+                                      </div>
                                     </div>
 
                                     {/* LADO DIREITO: SLA + Botões */}
@@ -1373,7 +1390,7 @@ const Configuracoes = () => {
                                           <>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => {
                                               setEditingStageId(stage.id);
-                                              setEditForm({ nome: stage.nome, sla: stage.sla, cor: stage.cor });
+                                              setEditForm({ nome: stage.nome, sla: stage.sla, cor: stage.cor, columnTag: stage.columnTag });
                                             }}>
                                               <Edit className="h-4 w-4" />
                                             </Button>
