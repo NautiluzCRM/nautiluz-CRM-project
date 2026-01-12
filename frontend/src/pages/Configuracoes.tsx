@@ -96,7 +96,6 @@ const Configuracoes = () => {
   const isAdmin = user?.role === 'admin';
 
   const [notificacaoEmail, setNotificacaoEmail] = useState(true);
-  const [notificacaoSMS, setNotificacaoSMS] = useState(false);
   const [notificacaoSLA, setNotificacaoSLA] = useState(true);
   const [modoEscuro, setModoEscuro] = useState(false);
   const [autoSave, setAutoSave] = useState(true);
@@ -149,7 +148,6 @@ const Configuracoes = () => {
       // Carregar preferências de notificação
       if ((user as any).notificationPreferences) {
         setNotificacaoEmail((user as any).notificationPreferences.email ?? true);
-        setNotificacaoSMS((user as any).notificationPreferences.sms ?? false);
         setNotificacaoSLA((user as any).notificationPreferences.sla ?? true);
       }
       
@@ -791,7 +789,6 @@ const Configuracoes = () => {
       const updatedUser = await updateUserPreferencesApi(userId, {
         notificationPreferences: {
           email: notificacaoEmail,
-          sms: notificacaoSMS,
           sla: notificacaoSLA
         }
       });
@@ -1452,22 +1449,6 @@ const Configuracoes = () => {
                       <Switch
                         checked={notificacaoSLA}
                         onCheckedChange={setNotificacaoSLA}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Smartphone className="h-5 w-5 text-primary" />
-                        <div>
-                          <h4 className="font-medium">Notificações por SMS</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Receber alertas importantes via mensagem de texto
-                          </p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={notificacaoSMS}
-                        onCheckedChange={setNotificacaoSMS}
                       />
                     </div>
                   </div>

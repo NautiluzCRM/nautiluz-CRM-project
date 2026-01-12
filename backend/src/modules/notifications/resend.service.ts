@@ -12,7 +12,7 @@ export class ResendEmailService {
     }
 
     this.resend = new Resend(env.RESEND_API_KEY || 're_dummy_key');
-    this.fromEmail = env.EMAIL_FROM || 'Nautiluz CRM <noreply@nautiluz.com>';
+    this.fromEmail = env.RESEND_FROM_EMAIL || 'Nautiluz CRM <onboarding@resend.dev>';
   }
 
   /**
@@ -118,7 +118,7 @@ export class ResendEmailService {
     const leadUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/leads/${leadId}`;
 
     try {
-      await this.resend.emails.send({
+      const result = await this.resend.emails.send({
         from: this.fromEmail,
         to,
         subject: `Novo Lead Atribuído: ${leadName}`,
@@ -143,7 +143,8 @@ export class ResendEmailService {
         `,
       });
 
-      logger.info(`Email de novo lead enviado para ${to}`);
+      logger.info(`Email de novo lead enviado para ${to} - ID: ${result.data?.id}`);
+      return result;
     } catch (error) {
       logger.error({ err: error, to, leadName }, 'Erro ao enviar email de novo lead');
       throw error;
