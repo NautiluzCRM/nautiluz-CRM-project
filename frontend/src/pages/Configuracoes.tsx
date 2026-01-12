@@ -611,7 +611,8 @@ const Configuracoes = () => {
     setPreviewUrl(null);
     setArquivoTemporario(null);
   };
-async () => {
+
+  const handleRemoverFoto = async () => {
     const userId = user?.id || (user as any)?._id;
     if (!userId) return;
 
@@ -637,7 +638,6 @@ async () => {
         description: "Não foi possível remover a foto de perfil."
       });
     }
-    setArquivoTemporario(null);
   };
 
   const handleButtonClick = () => {

@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Navigate } from "react-router-dom";
 import { EditSellerModal } from "@/components/ui/EditSellerModal";
+import { useStats } from "@/contexts/StatsContext";
 
 interface VendedorStats {
   id: string;
@@ -80,17 +81,10 @@ interface Totals {
 const GestaoVendedores = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [vendedores, setVendedores] = useState<VendedorStats[]>([]);
-  const [totals, setTotals] = useState<Totals>({
-    totalVendedores: 0,
-    vendedoresAtivos: 0,
-    totalLeadsEquipe: 0,
-    totalConvertidos: 0,
-    valorTotalEquipe: 0,
-    valorConvertidoEquipe: 0,
-    mediaConversao: 0
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Usar o contexto de estatísticas ao invés de estado local
+  const { vendedores, totals, isLoading, refreshStats } = useStats();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -114,30 +108,7 @@ const GestaoVendedores = () => {
 
   const isAdmin = user?.role === 'admin';
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const data = await fetchSellersStats();
-      setVendedores(data.sellers);
-      setTotals(data.totals);
-    } catch (error) {
-      console.error("Erro ao carregar dados", error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível carregar os dados dos vendedores."
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Não precisa mais do useEffect e loadData, o contexto já carrega automaticamente
 
   const handleConfigurarVendedor = async (vendedor: VendedorStats) => {
     try {
@@ -243,7 +214,7 @@ const GestaoVendedores = () => {
       }
 
       setIsModalOpen(false);
-      loadData(); 
+      refreshStats(); 
     } catch (error: any) {
       console.error(error);
       toast({
@@ -269,7 +240,7 @@ const GestaoVendedores = () => {
 
       setIsDeleting(false);
       setVendedorToDelete(null);
-      loadData();
+      refreshStats();
     } catch (error) {
       console.error(error);
       toast({
@@ -405,24 +376,28 @@ const GestaoVendedores = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="overview" className="flex items-center gap-1.5">
+            <TabsTrigger value="overview" className="flex items-center gap-1.5 text-sm">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Visão Geral</span>
             </TabsTrigger>
-            <TabsTrigger value="ranking" className="flex items-center gap-1.5">
+            <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-sm">
               <Trophy className="h-4 w-4" />
               <span className="hidden sm:inline">Ranking</span>
             </TabsTrigger>
-            <TabsTrigger value="detalhes" className="flex items-center gap-1.5">
+            <TabsTrigger value="detalhes" className="flex items-center gap-1.5 text-sm">
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">Detalhes</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6 mt-4">
+          <TabsContent value="overview" className="mt-4 space-y-4">
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><DollarSign className="h-4 w-4 text-success/80" /> Top por Valor em Pipeline</CardTitle></CardHeader>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-success/80" /> Top por Valor em Pipeline
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorValor.map((v, index) => (
                     <div key={v.id} className="flex items-center gap-3">
@@ -434,7 +409,11 @@ const GestaoVendedores = () => {
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Zap className="h-4 w-4 text-accent-foreground/80" /> Top por Taxa de Conversão</CardTitle></CardHeader>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-accent-foreground/80" /> Top por Taxa de Conversão
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorConversao.map((v, index) => (
                     <div key={v.id} className="flex items-center gap-3">
@@ -446,7 +425,11 @@ const GestaoVendedores = () => {
                 </CardContent>
               </Card>
                <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-primary/80" /> Top por Quantidade de Leads</CardTitle></CardHeader>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary/80" /> Top por Quantidade de Leads
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorLeads.map((v, index) => (
                     <div key={v.id} className="flex items-center gap-3">
@@ -460,9 +443,13 @@ const GestaoVendedores = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="ranking" className="mt-4">
+          <TabsContent value="ranking" className="mt-4 space-y-4">
              <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5 text-yellow-500" /> Ranking de Vendedores</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-yellow-500" /> Ranking de Vendedores
+                </CardTitle>
+              </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {filteredVendedores.map((v, index) => (
@@ -477,7 +464,7 @@ const GestaoVendedores = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="detalhes" className="mt-4">
+          <TabsContent value="detalhes" className="mt-4 space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Detalhes dos Vendedores</CardTitle>
@@ -696,7 +683,7 @@ const GestaoVendedores = () => {
         isOpen={isConfigOpen}
         onClose={() => setIsConfigOpen(false)}
         onSuccess={() => {
-          loadData(); 
+          refreshStats(); 
         }}
       />
 
