@@ -144,19 +144,19 @@ const Configuracoes = () => {
       setPerfilTelefone((user as any).phone || "");
       setPerfilCargo((user as any).jobTitle || "");
       setPerfilAssinatura((user as any).emailSignature || "");
-      
+
       // Carregar preferências de notificação
       if ((user as any).notificationPreferences) {
         setNotificacaoEmail((user as any).notificationPreferences.email ?? true);
         setNotificacaoSLA((user as any).notificationPreferences.sla ?? true);
       }
-      
+
       // Carregar preferências do sistema
       if ((user as any).preferences) {
         const darkMode = (user as any).preferences.darkMode ?? false;
         setModoEscuro(darkMode);
         setAutoSave((user as any).preferences.autoSave ?? true);
-        
+
         // Sincronizar o tema com a preferência do usuário
         if (darkMode && theme === 'light') {
           toggleTheme();
@@ -195,12 +195,12 @@ const Configuracoes = () => {
   const carregarUsuarios = async () => {
     try {
       const dados = await fetchUsers();
-      
+
       // Ordena alfabeticamente pelo nome
-      const usuariosOrdenados = [...dados].sort((a, b) => 
+      const usuariosOrdenados = [...dados].sort((a, b) =>
         (a.nome || "").localeCompare(b.nome || "")
       );
-      
+
       setUsuarios(usuariosOrdenados);
     } catch (error) {
       console.error("Erro ao carregar usuários:", error);
@@ -618,7 +618,7 @@ const Configuracoes = () => {
       await removeUserPhotoApi(userId);
       setFotoPerfil(null);
       setArquivoTemporario(null);
-      
+
       updateUserLocal({
         photoBase64: undefined,
         photoUrl: undefined
@@ -1345,10 +1345,12 @@ const Configuracoes = () => {
                                         {isEditing ? (
                                           <input
                                             type="number"
+                                            min="0"
                                             value={editForm.sla !== undefined ? editForm.sla : (stage.sla || 0)}
                                             onChange={(e) => {
-                                              if (e.target.value.length <= 5) {
-                                                setEditForm({ ...editForm, sla: Number(e.target.value) })
+                                              const val = Number(e.target.value);
+                                              if (val >= 0 && e.target.value.length <= 5) {
+                                                setEditForm({ ...editForm, sla: val })
                                               }
                                             }}
                                             className="w-8 sm:w-12 text-center h-6 text-xs bg-transparent border-b border-muted-foreground/30 focus:outline-none focus:border-primary"

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { fetchSellersStats } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
 
 interface VendedorStats {
   id: string;
@@ -43,6 +44,7 @@ interface StatsContextType {
 const StatsContext = createContext<StatsContextType | undefined>(undefined);
 
 export function StatsProvider({ children }: { children: ReactNode }) {
+  const { user, isAuthenticated } = useAuth();
   const [vendedores, setVendedores] = useState<VendedorStats[]>([]);
   const [totals, setTotals] = useState<Totals>({
     totalVendedores: 0,
@@ -57,23 +59,34 @@ export function StatsProvider({ children }: { children: ReactNode }) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const refreshStats = useCallback(async () => {
+    // Só carrega se estiver autenticado e for admin
+    if (!isAuthenticated || user?.role !== 'admin') {
+      console.log('[StatsContext] Usuário não autenticado ou não é admin. Pulando carregamento.');
+      return;
+    }
+
     try {
       setIsLoading(true);
+      console.log('[StatsContext] Carregando estatísticas de vendedores...');
       const data = await fetchSellersStats();
+      console.log('[StatsContext] Dados recebidos:', data);
       setVendedores(data.sellers);
       setTotals(data.totals);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error("Erro ao carregar estatísticas:", error);
+      console.error("[StatsContext] Erro ao carregar estatísticas:", error);
+      // Não re-throw aqui para evitar quebrar a UI
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, user]);
 
-  // Carrega inicialmente
+  // Carrega inicialmente apenas se autenticado e admin
   useEffect(() => {
-    refreshStats();
-  }, [refreshStats]);
+    if (isAuthenticated && user?.role === 'admin') {
+      refreshStats();
+    }
+  }, [isAuthenticated, user?.role, refreshStats]);
 
   return (
     <StatsContext.Provider value={{ vendedores, totals, isLoading, refreshStats, lastUpdated }}>
