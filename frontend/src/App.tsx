@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { StatsProvider } from "@/contexts/StatsContext";
 
 import Linktree from "./pages/Linktree";
 
@@ -33,10 +34,11 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+        <StatsProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
             <Routes>
               {/* --- ROTAS PÚBLICAS (Qualquer um acessa) --- */}
               <Route path="/login" element={<Login />} />
@@ -69,6 +71,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+    </StatsProvider>
     </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>

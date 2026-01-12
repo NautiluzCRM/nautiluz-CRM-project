@@ -10,12 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { fetchPipelineData, moveLeadApi, updateLeadApi, deleteLeadApi } from "@/lib/api";
 import { CreateLeadModal } from "@/components/CreateLeadModal";
 import { useToast } from "@/hooks/use-toast";
+import { useStats } from "@/contexts/StatsContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 const Index = () => {
   const { toast } = useToast();
+  const { refreshStats } = useStats();
 
   const [pipeline, setPipeline] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -104,6 +106,8 @@ const Index = () => {
 
     try {
       await moveLeadApi(leadId, novaColuna, beforeId, afterId);
+      // Atualizar estatísticas após mover o lead
+      refreshStats();
     } catch (error) {
       console.error("Erro ao mover lead:", error);
       toast({
@@ -440,6 +444,10 @@ const Index = () => {
           await deleteLeadApi(leadId);
           toast({ title: "Excluído!", description: "Lead removido com sucesso." });
           loadPipeline();
+          refreshStats();
+          refreshStats();
+          refreshStats();
+          refreshStats();
         }}
       />
 
@@ -449,6 +457,9 @@ const Index = () => {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={() => {
           loadPipeline(); // Recarrega os dados após criar
+          refreshStats(); // Atualiza estatísticas
+          refreshStats(); // Atualiza estatísticas
+          refreshStats(); // Atualiza estatísticas
         }}
       />
 
@@ -470,6 +481,9 @@ const Index = () => {
         }}
         onSuccess={() => {
           loadPipeline(); // Recarrega os dados após editar
+          refreshStats(); // Atualiza estatísticas
+          refreshStats(); // Atualiza as estatísticas
+          refreshStats(); // Atualizar estatísticas
           setIsEditModalOpen(false);
           setLeadToEdit(null);
         }}

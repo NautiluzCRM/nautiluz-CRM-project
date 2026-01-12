@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Navigate } from "react-router-dom";
 import { EditSellerModal } from "@/components/ui/EditSellerModal";
+import { useStats } from "@/contexts/StatsContext";
 
 interface VendedorStats {
   id: string;
@@ -80,17 +81,10 @@ interface Totals {
 const GestaoVendedores = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [vendedores, setVendedores] = useState<VendedorStats[]>([]);
-  const [totals, setTotals] = useState<Totals>({
-    totalVendedores: 0,
-    vendedoresAtivos: 0,
-    totalLeadsEquipe: 0,
-    totalConvertidos: 0,
-    valorTotalEquipe: 0,
-    valorConvertidoEquipe: 0,
-    mediaConversao: 0
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Usar o contexto de estatísticas ao invés de estado local
+  const { vendedores, totals, isLoading, refreshStats, lastUpdated } = useStats();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -109,35 +103,12 @@ const GestaoVendedores = () => {
   const [formEmail, setFormEmail] = useState("");
   const [formTelefone, setFormTelefone] = useState("");
   const [formCargo, setFormCargo] = useState(""); // Já existia
-  const [formPerfil, setFormPerfil] = useState("Vendedor"); // 👇 NOVO: Estado do Perfil
+  const [formPerfil, setFormPerfil] = useState("Vendedor"); 
   const [isSaving, setIsSaving] = useState(false);
 
   const isAdmin = user?.role === 'admin';
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const data = await fetchSellersStats();
-      setVendedores(data.sellers);
-      setTotals(data.totals);
-    } catch (error) {
-      console.error("Erro ao carregar dados", error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível carregar os dados dos vendedores."
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Não precisa mais do useEffect e loadData, o contexto já carrega automaticamente
 
   const handleConfigurarVendedor = async (vendedor: VendedorStats) => {
     try {
@@ -243,7 +214,7 @@ const GestaoVendedores = () => {
       }
 
       setIsModalOpen(false);
-      loadData(); 
+      refreshStats(); 
     } catch (error: any) {
       console.error(error);
       toast({
@@ -269,7 +240,7 @@ const GestaoVendedores = () => {
 
       setIsDeleting(false);
       setVendedorToDelete(null);
-      loadData();
+      refreshStats();
     } catch (error) {
       console.error(error);
       toast({
@@ -314,6 +285,11 @@ const GestaoVendedores = () => {
             </h1>
             <p className="text-sm text-muted-foreground">
               Acompanhe o desempenho da sua equipe de vendas
+              {lastUpdated && (
+                <span className="ml-2 text-xs opacity-60">
+                  • Atualizado {new Date(lastUpdated).toLocaleTimeString('pt-BR')}
+                </span>
+              )}
             </p>
           </div>
 
@@ -405,54 +381,87 @@ const GestaoVendedores = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="overview" className="flex items-center gap-1.5">
+            <TabsTrigger value="overview" className="flex items-center gap-1.5 text-sm">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Visão Geral</span>
             </TabsTrigger>
-            <TabsTrigger value="ranking" className="flex items-center gap-1.5">
+            <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-sm">
               <Trophy className="h-4 w-4" />
               <span className="hidden sm:inline">Ranking</span>
             </TabsTrigger>
-            <TabsTrigger value="detalhes" className="flex items-center gap-1.5">
+            <TabsTrigger value="detalhes" className="flex items-center gap-1.5 text-sm">
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">Detalhes</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6 mt-4">
+          <TabsContent value="overview" className="mt-4 space-y-4">
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><DollarSign className="h-4 w-4 text-success/80" /> Top por Valor em Pipeline</CardTitle></CardHeader>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-success/80" /> Top por Valor em Pipeline
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorValor.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-100 text-yellow-700' : index === 1 ? 'bg-gray-100 text-gray-700' : index === 2 ? 'bg-orange-100 text-warning dark:text-warning-foreground' : 'bg-muted text-muted-foreground'}`}>{index + 1}</span>
-                      <Avatar className="h-8 w-8"><AvatarImage src={v.foto || ''} /><AvatarFallback className="text-xs bg-primary/10">{v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}</AvatarFallback></Avatar>
-                      <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{v.nome}</p><p className="text-xs text-muted-foreground">{v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Zap className="h-4 w-4 text-accent-foreground/80" /> Top por Taxa de Conversão</CardTitle></CardHeader>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-accent-foreground/80" /> Top por Taxa de Conversão
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorConversao.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-500 text-white' : 'bg-muted text-muted-foreground'}`}>{index + 1}</span>
-                      <Avatar className="h-8 w-8"><AvatarImage src={v.foto || ''} /><AvatarFallback className="text-xs bg-primary/10">{v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}</AvatarFallback></Avatar>
-                      <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{v.nome}</p><div className="flex items-center gap-2"><Progress value={v.taxaConversao} className="h-1.5 flex-1" /><span className="text-xs font-medium">{v.taxaConversao.toFixed(1)}%</span></div></div>
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1">
+                        <p className="font-semibold">{v.nome}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Progress value={v.taxaConversao} className="h-1.5 flex-1" />
+                          <span className="text-sm font-medium text-muted-foreground">{v.taxaConversao.toFixed(1)}%</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
                <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-primary/80" /> Top por Quantidade de Leads</CardTitle></CardHeader>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary/80" /> Top por Quantidade de Leads
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorLeads.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-500 text-white' : 'bg-muted text-muted-foreground'}`}>{index + 1}</span>
-                      <Avatar className="h-8 w-8"><AvatarImage src={v.foto || ''} /><AvatarFallback className="text-xs bg-primary/10">{v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}</AvatarFallback></Avatar>
-                      <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{v.nome}</p><p className="text-xs text-muted-foreground">{v.totalLeads} leads</p></div>
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.totalLeads} leads</p></div>
                     </div>
                   ))}
                 </CardContent>
@@ -460,9 +469,13 @@ const GestaoVendedores = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="ranking" className="mt-4">
+          <TabsContent value="ranking" className="mt-4 space-y-4">
              <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5 text-yellow-500" /> Ranking de Vendedores</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-yellow-500" /> Ranking de Vendedores
+                </CardTitle>
+              </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {filteredVendedores.map((v, index) => (
@@ -477,7 +490,7 @@ const GestaoVendedores = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="detalhes" className="mt-4">
+          <TabsContent value="detalhes" className="mt-4 space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Detalhes dos Vendedores</CardTitle>
@@ -696,7 +709,7 @@ const GestaoVendedores = () => {
         isOpen={isConfigOpen}
         onClose={() => setIsConfigOpen(false)}
         onSuccess={() => {
-          loadData(); 
+          refreshStats(); 
         }}
       />
 
