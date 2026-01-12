@@ -72,20 +72,8 @@ export async function moveCard(params: { leadId: string; toStageId: string; befo
   lead.rank = newRank;
   lead.updatedBy = params.userId as any;
   
-  // Atualiza o qualificationStatus baseado no nome da stage
-  const stageName = toStage.name.toLowerCase().trim();
-  if (stageName.includes('fechado') && stageName.includes('ganho')) {
-    lead.qualificationStatus = 'fechado_ganho';
-  } else if (stageName.includes('fechado') && stageName.includes('perdido')) {
-    lead.qualificationStatus = 'fechado_perdido';
-  } else if (stageName.includes('proposta')) {
-    lead.qualificationStatus = 'proposta_enviada';
-  } else if (stageName.includes('negociação') || stageName.includes('negociacao')) {
-    lead.qualificationStatus = 'negociacao';
-  } else if (stageName.includes('qualificado')) {
-    lead.qualificationStatus = 'qualificado';
-  } else if (stageName.includes('contato')) {
-    lead.qualificationStatus = 'em_contato';
+  if (toStage.columnTag && toStage.columnTag.trim() !== '') {
+    lead.qualificationStatus = toStage.columnTag;
   }
   
   // Calcula o SLA quando mover para uma nova stage

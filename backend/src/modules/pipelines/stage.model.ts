@@ -8,6 +8,7 @@ export interface Stage {
   color?: string;
   sla?: number;
   wipLimit?: number;
+  columnTag?: string;
   requiredFieldsOnEnter?: string[];
   requiredFieldsOnExit?: string[];
   allowedRolesToEnter?: string[];
@@ -22,6 +23,7 @@ const stageSchema = new Schema<Stage>({
   color: { type: String, default: '#3B82F6' },
   sla: { type: Number, default: 0 },
   wipLimit: { type: Number },
+  columnTag: { type: String, default: '' },
   requiredFieldsOnEnter: [{ type: String }],
   requiredFieldsOnExit: [{ type: String }],
   allowedRolesToEnter: [{ type: String }],

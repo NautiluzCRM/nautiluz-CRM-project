@@ -285,6 +285,7 @@ export function mapApiStageToColuna(stage: any): Coluna {
     ordem: stage.order,
     wipLimit: stage.wipLimit,
     sla: stage.sla,
+    columnTag: stage.columnTag || ''
   };
 }
 
@@ -613,7 +614,8 @@ export async function createStageApi(pipelineId: string, dados: {
   order: number; 
   key: string; 
   color: string; 
-  sla: number 
+  sla: number;
+  columnTag?: string;
 }) {
   return request(`/pipelines/${pipelineId}/stages`, {
     method: "POST",
@@ -625,7 +627,8 @@ export async function updateStageApi(stageId: string, dados: {
   name?: string; 
   order?: number; 
   color?: string; 
-  sla?: number 
+  sla?: number;
+  columnTag?: string;
 }) {
   return request(`/pipelines/stages/${stageId}`, {
     method: "PATCH",

@@ -23,11 +23,11 @@ export function listStages(pipelineId: string) {
   return StageModel.find({ pipelineId }).sort({ order: 1 });
 }
 
-export function createStage(pipelineId: string, input: { name: string; order: number; key: string; color?: string; sla?: number }) {
+export function createStage(pipelineId: string, input: { name: string; order: number; key: string; color?: string; sla?: number; columnTag?: string }) {
   return StageModel.create({ pipelineId, ...input });
 }
 
-export function updateStage(id: string, input: Partial<{ name: string; order: number; key: string; color?: string; sla?: number }>) {
+export function updateStage(id: string, input: Partial<{ name: string; order: number; key: string; color?: string; sla?: number; columnTag?: string }>) {
   return StageModel.findByIdAndUpdate(id, input, { new: true });
 }
 

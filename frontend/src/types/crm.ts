@@ -79,6 +79,7 @@ export interface Coluna {
   ordem: number;
   sla?: number; // em horas
   wipLimit?: number;
+  columnTag?: string;
 }
 
 export interface Usuario {
