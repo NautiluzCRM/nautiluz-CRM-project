@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { loginApi } from "@/lib/api";
+import { loginApi, API_URL } from "@/lib/api"; // Importe API_URL aqui
 
 type AuthUser = {
   id?: string;
@@ -21,28 +21,17 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// Verifica se o token JWT está expirado (sem fazer chamada HTTP)
-function isTokenExpired(token: string | null): boolean {
-  if (!token) return true;
-  
-  try {
-    // JWT tem 3 partes separadas por ponto
-    const parts = token.split('.');
-    if (parts.length !== 3) return true;
-    
-    // Decodifica o payload (segunda parte)
-    const payload = JSON.parse(atob(parts[1]));
-    
-    // Verifica expiração (exp é em segundos, Date.now() em ms)
-    if (payload.exp) {
-      const expirationTime = payload.exp * 1000;
-      // Considera expirado se faltar menos de 10 segundos
-      return Date.now() >= expirationTime - 10000;
-    }
-    
-    return false; // Sem exp = não expira
-  } catch {
-    return true; // Token inválido = expirado
+// --- HELPER LOCAL PARA EVITAR O REFERENCE ERROR ---
+function getStoredItem(key: string): string | null {
+  return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+}
+
+function setStoredItem(key: string, value: string) {
+  // Se já existe no session, atualiza lá. Senão, vai pro local (padrão ou persistência)
+  if (sessionStorage.getItem(key)) {
+    sessionStorage.setItem(key, value);
+  } else {
+    localStorage.setItem(key, value);
   }
 }
 
@@ -55,20 +44,33 @@ function clearAllAuthStorage() {
   }
 }
 
-function readStoredAuth(): { token: string | null; refresh: string | null; user: AuthUser } {
-  const storages = [localStorage, sessionStorage];
-  const read = (key: string) => {
-    for (const storage of storages) {
-      const value = storage.getItem(key);
-      if (value) return value;
-    }
-    return null;
-  };
-
+// Verifica se o token JWT está expirado (sem fazer chamada HTTP)
+function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  
   try {
-    const token = read("authToken");
-    const refresh = read("refreshToken");
-    const userRaw = read("authUser");
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    
+    const payload = JSON.parse(atob(parts[1]));
+    
+    if (payload.exp) {
+      const expirationTime = payload.exp * 1000;
+      // Considera expirado se faltar menos de 10 segundos
+      return Date.now() >= expirationTime - 10000;
+    }
+    
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+function readStoredAuth(): { token: string | null; refresh: string | null; user: AuthUser } {
+  try {
+    const token = getStoredItem("authToken");
+    const refresh = getStoredItem("refreshToken");
+    const userRaw = getStoredItem("authUser");
     
     // Se o token está expirado E não há refresh token, limpa tudo
     if (isTokenExpired(token) && !refresh) {
@@ -93,18 +95,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Função para renovar o token automaticamente
   const renewToken = useCallback(async () => {
-    const storage = getAuthStorage();
-    const refreshToken = storage.getItem("refreshToken") ?? getStoredValue("refreshToken");
+    // CORREÇÃO: Usa helper local em vez de getAuthStorage inexistente
+    const refreshToken = getStoredItem("refreshToken");
+    
     if (!refreshToken) return false;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:10000/api"}/auth/refresh`, {
+      const baseUrl = API_URL || "http://localhost:10000/api";
+      
+      const res = await fetch(`${baseUrl}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: refreshToken }),
       });
 
       if (!res.ok) {
+        // Se for erro de servidor (500+), NÃO desloga, apenas retorna false
+        if (res.status >= 500) {
+            console.warn(`[Auth] Erro servidor (${res.status}) ao renovar. Tentando depois.`);
+            return false;
+        }
+
+        // Se for 401/403, aí sim desloga
+        console.error(`[Auth] Token inválido (${res.status}). Deslogando.`);
         clearAllAuthStorage();
         setAuth({ token: null, refresh: null, user: null });
         return false;
@@ -112,19 +125,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const data = await res.json();
       if (data?.accessToken) {
-        storage.setItem("authToken", data.accessToken);
-        setAuth(prev => ({ ...prev, token: data.accessToken }));
+        setStoredItem("authToken", data.accessToken);
+        
+        // Se vier novo refresh, salva também
+        if (data.refreshToken) {
+            setStoredItem("refreshToken", data.refreshToken);
+        }
+
+        setAuth(prev => ({ 
+            ...prev, 
+            token: data.accessToken,
+            refresh: data.refreshToken || prev.refresh
+        }));
         return true;
       }
       return false;
     } catch (error) {
-      console.error("Erro ao renovar token:", error);
+      console.error("[Auth] Erro de rede ao renovar:", error);
       return false;
     }
   }, []);
 
   useEffect(() => {
-    // Verifica se o token está expirado ao montar
     if (token && isTokenExpired(token) && !refresh) {
       clearAllAuthStorage();
       setAuth({ token: null, refresh: null, user: null });
@@ -132,13 +154,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(false);
   }, []);
 
-  // Sistema de renovação automática do token
+  // Sistema de renovação automática
   useEffect(() => {
     if (!token || !refresh) return;
 
-    // Verifica e renova o token periodicamente (a cada 5 minutos)
     const checkAndRenew = async () => {
-      // Se o token vai expirar em menos de 5 minutos, renova
       try {
         const parts = token.split('.');
         if (parts.length === 3) {
@@ -147,55 +167,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const expirationTime = payload.exp * 1000;
             const timeUntilExpiry = expirationTime - Date.now();
             
-            // Se faltar menos de 5 minutos para expirar, renova
+            // Se faltar menos de 5 minutos, tenta renovar
             if (timeUntilExpiry < 5 * 60 * 1000) {
-              console.log('Token próximo de expirar, renovando...');
-              const renewed = await renewToken();
-              if (!renewed) {
-                console.error('Falha ao renovar token, fazendo logout...');
-                clearAllAuthStorage();
-                setAuth({ token: null, refresh: null, user: null });
-              }
+              console.log('[Auth] Token expirando, renovando...');
+              await renewToken();
             }
           }
         }
       } catch (error) {
-        console.error('Erro ao verificar expiração do token:', error);
+        console.error('[Auth] Erro check expiração:', error);
       }
     };
 
-    // Verifica imediatamente
     checkAndRenew();
+    const interval = setInterval(checkAndRenew, 2 * 60 * 1000); // Checa a cada 2 min
 
-    // Verifica a cada 2 minutos
-    const interval = setInterval(checkAndRenew, 2 * 60 * 1000);
-
-    // Listener para atividade do usuário - renova token em caso de interação
-    const handleUserActivity = () => {
-      checkAndRenew();
-    };
-
-    // Eventos que indicam atividade do usuário
-    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-    
-    // Throttle para não verificar a cada interação (só a cada 1 minuto de atividade)
+    // Listener de atividade (com throttle para não spammar)
     let lastActivityCheck = Date.now();
-    const throttledActivity = () => {
+    const handleUserActivity = () => {
       const now = Date.now();
-      if (now - lastActivityCheck > 60 * 1000) { // 1 minuto
+      if (now - lastActivityCheck > 60 * 1000) { 
         lastActivityCheck = now;
-        handleUserActivity();
+        checkAndRenew();
       }
     };
 
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
     activityEvents.forEach(event => {
-      window.addEventListener(event, throttledActivity, { passive: true });
+      window.addEventListener(event, handleUserActivity, { passive: true });
     });
 
     return () => {
       clearInterval(interval);
       activityEvents.forEach(event => {
-        window.removeEventListener(event, throttledActivity);
+        window.removeEventListener(event, handleUserActivity);
       });
     };
   }, [token, refresh, renewToken]);
@@ -218,12 +223,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("authUser");
-    sessionStorage.removeItem("authToken");
-    sessionStorage.removeItem("refreshToken");
-    sessionStorage.removeItem("authUser");
+    clearAllAuthStorage();
     setAuth({ token: null, refresh: null, user: null });
   }, []);
 
@@ -244,7 +244,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, []);
 
-  // isAuthenticated só é true se tem token E não está expirado
   const isAuthenticated = useMemo(() => {
     return Boolean(token) && !isTokenExpired(token);
   }, [token]);
