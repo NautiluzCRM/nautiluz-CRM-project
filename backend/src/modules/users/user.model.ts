@@ -1,19 +1,14 @@
 import mongoose from 'mongoose';
-import { hash, compare } from 'bcrypt';
 
 const DistributionConfigSchema = new mongoose.Schema({
   active: { type: Boolean, default: true }, 
-  
   minLives: { type: Number, default: 0 },   
   maxLives: { type: Number, default: 9999 }, 
-  
-
   cnpjRule: { 
     type: String, 
     enum: ['required', 'forbidden', 'both'], 
     default: 'both' 
   },
-
   lastLeadReceivedAt: { type: Date, default: null } 
 }, { _id: false });
 
@@ -32,7 +27,10 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    passwordHash: { type: String, required: true },
+    
+    // A senha já vem criptografada do Service, então aqui é só String normal
+    passwordHash: { type: String, required: true, select: false },
+    
     role: { 
       type: String, 
       enum: ['admin', 'vendedor', 'gerente'], 
@@ -44,23 +42,22 @@ const userSchema = new mongoose.Schema(
     phone: { type: String },
     jobTitle: { type: String },
     emailSignature: { type: String },
-    photoUrl: { type: String }, // URL externa ou path local (legado)
-    photoBase64: { type: String }, // Foto em base64 armazenada no banco
+    photoUrl: { type: String },
+    photoBase64: { type: String },
     lastLoginAt: { type: Date },
     
-    // Preferências de notificação
+    // Preferências
     notificationPreferences: {
       type: NotificationPreferencesSchema,
       default: () => ({})
     },
     
-    // Preferências do sistema
     preferences: {
       type: UserPreferencesSchema,
       default: () => ({})
     },
     
-    // Configuração de distribuição de leads
+    //  Configuração de distribuição 
     distribution: { 
       type: DistributionConfigSchema, 
       default: () => ({})
@@ -69,14 +66,5 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('passwordHash')) return next();
-  this.passwordHash = await hash(this.passwordHash, 8);
-  next();
-});
-
-userSchema.methods.comparePassword = async function (password: string) {
-  return compare(password, this.passwordHash);
-};
 
 export const UserModel = mongoose.model('User', userSchema);

@@ -1,24 +1,59 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { asyncHandler } from '../../common/http.js';
-import { createLead, updateLead, addActivity } from '../leads/leads.service.js'; 
+import { asyncHandler, AppError } from '../../common/http.js';
+import { createLead, updateLead, findNextResponsible } from '../leads/leads.service.js';
 import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { LeadModel } from '../leads/lead.model.js';
+import { UserModel } from '../users/user.model.js';
+// 👇 IMPORTANTE: Verifique se o caminho está correto para o seu projeto
+import { Note } from '../../models/Note.model.js'; 
+
+const SYSTEM_ID = '000000000000000000000000';
+
+
+const normalizarTelefone = (phone: string): string => {
+  if (!phone) return '';
+  let cleaned = phone.replace(/[^\d+]/g, '');
+  if (cleaned.startsWith('55') && !cleaned.startsWith('+')) cleaned = '+' + cleaned;
+  if (!cleaned.startsWith('+') && cleaned.length <= 11) cleaned = '+55' + cleaned;
+  return cleaned;
+};
 
 const textoParaBooleano = (texto: any): boolean => {
   if (!texto) return false;
   const t = String(texto).toLowerCase().trim();
-  return t === 'sim' || t === 'yes' || t === 'true' || t === 's';
+  return t === 'sim' || t === 'yes' || t === 'true' || t === 's' || t === '1';
+};
+
+// Gera o resumo técnico específico para os campos do Webhook
+const gerarResumoTecnicoWebhook = (dados: any) => {
+  const { investimento, hospitalPreferencia, temCnpj, temPlano, cidade, estado } = dados;
+  return `
+ DADOS TÉCNICOS (WEBHOOK):
+---------------------------
+ Investimento: R$ ${investimento || '0,00'}
+ Hospital: ${hospitalPreferencia || '-'}
+ CNPJ: ${temCnpj ? 'SIM' : 'NÃO'}
+ Plano Atual: ${temPlano ? 'SIM' : 'NÃO'}
+ Local: ${cidade || '-'} / ${estado || '-'}
+`.trim();
 };
 
 export const webhookHandler = asyncHandler(async (req: Request, res: Response) => {
+  const webhookSecret = process.env.WEBHOOK_SECRET || 'minha_senha_super_secreta';
+  const requestToken = req.headers['x-webhook-token'] || req.query.token;
+
+  if (requestToken !== webhookSecret) {
+    console.log(`[ALERTA] Tentativa de acesso não autorizado ao Webhook.`);
+    return res.status(403).json({ error: 'Acesso negado.' });
+  }
   const { 
     nome, email, telefone, origem, quantidadeVidas, observacoes,
     cidade, estado, investimento, possuiCNPJ, jaTemPlano, hospitalPreferencia
   } = req.body;
 
-  console.log(' [WEBHOOK] Payload recebido:', req.body);
+  console.log('[WEBHOOK] Payload recebido:', req.body);
 
   if (!nome || !telefone) {
     return res.status(StatusCodes.BAD_REQUEST).json({ 
@@ -26,68 +61,136 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     });
   }
 
-  // Tratamento de dados novos
+  // --- 1. TRATAMENTO DE DADOS ---
+  const phoneClean = normalizarTelefone(telefone);
+  
+  // Tratamento rigoroso de email (igual Linktree)
+  let emailClean = email ? email.trim().toLowerCase() : '';
+  if (emailClean === '-' || emailClean === 'nao' || emailClean.length < 5 || !emailClean.includes('@')) {
+     emailClean = ''; 
+  }
+
   const lives = Number(quantidadeVidas) || 1;
   const temCnpj = textoParaBooleano(possuiCNPJ);
   const temPlano = textoParaBooleano(jaTemPlano);
   const valorEstimado = Number(investimento) || 0;
+  
+  // Transforma hospital em Array para o banco
+  const listaHospitais = hospitalPreferencia ? [hospitalPreferencia] : [];
 
-  // 1. VERIFICAR SE O LEAD JÁ EXISTE
+  const dadosFormatados = { 
+    investimento: valorEstimado, 
+    hospitalPreferencia, 
+    temCnpj, 
+    temPlano, 
+    cidade, 
+    estado 
+  };
+
+  // --- 2. BUSCA INTELIGENTE (EXISTE?) ---
+  const searchConditions: any[] = [{ phone: phoneClean }];
+  if (emailClean && emailClean !== '') {
+    searchConditions.push({ email: emailClean });
+  }
+
   const existingLead = await LeadModel.findOne({
-    $or: [{ email: email }, { phone: telefone }]
+    $or: searchConditions
   });
 
   // ===============================================================
-  // LÓGICA DE ATUALIZAÇÃO (INVERTIDA: NOVO NO CARD, VELHO NA OBS)
+  // CASO 1: ATUALIZAÇÃO (LEAD EXISTENTE)
   // ===============================================================
   if (existingLead) {
-    console.log(`Atualizando Lead Existente: ${existingLead.name}`);
+    console.log(`[WEBHOOK] Atualizando Lead: ${existingLead.name}`);
 
-    // Limpeza: Se a nota antiga já for muito grande, pegamos só o essencial ou mantemos tudo
-    // Aqui formatamos o bloco de histórico para ficar bem separado
-    const historicoAntigo = `
-\n========================================
- \nARQUIVADO EM ${new Date().toLocaleDateString('pt-BR')} (RE-CONVERSÃO)
-\n========================================
- \nNome Anterior: ${existingLead.name}
- \nVidas: ${existingLead.livesCount} |  Valor: ${existingLead.avgPrice}
- \nLocal: ${existingLead.city}/${existingLead.state}
- \nObs Antiga: ${existingLead.notes ? existingLead.notes.split('========================================')[0].trim() : '-'}
-`.trim(); 
-// O split acima ajuda a não duplicar infinitamente o cabeçalho se o lead converter 10 vezes
+    let novoDono = existingLead.owners || [];
+    let houveRedistribuicao = false;
 
-    // Adiciona 2 quebras de linha (\n\n) para garantir separação visual
-    const notasAtualizadas = historicoAntigo + '\n\n' + (existingLead.notes || '');
+    // --- PROTEÇÃO DE CARTEIRA (STICKY ROUTING) ---
+    const donoAtualId = (existingLead.owners && existingLead.owners.length > 0) ? existingLead.owners[0] : null;
+    let manterDonoAtual = false;
 
-    await updateLead(existingLead._id.toString(), {
+    if (donoAtualId) {
+      const regraCnpj = temCnpj ? { $in: ['required', 'both'] } : { $in: ['forbidden', 'both'] };
+      
+      const donoQualificado = await UserModel.findOne({
+        _id: donoAtualId,
+        active: true,
+        'distribution.active': true,
+        'distribution.minLives': { $lte: lives },
+        'distribution.maxLives': { $gte: lives },
+        'distribution.cnpjRule': regraCnpj
+      });
+
+      if (donoQualificado) {
+        console.log(`[WEBHOOK] Dono atual qualificado. Mantendo.`);
+        manterDonoAtual = true;
+      }
+    }
+
+    // Se o dono atual não serve mais, redistribui
+    if (!manterDonoAtual) {
+      const donoDistribuido = await findNextResponsible(lives, temCnpj);
+      if (donoDistribuido) {
+        novoDono = [donoDistribuido as any];
+        houveRedistribuicao = true;
+      }
+    }
+
+    // --- CRIAÇÃO DE NOTA VISUAL (Se houver observações) ---
+    if (observacoes && observacoes.trim() !== '') {
+      await Note.create({
+        leadId: existingLead._id,
+        conteudo: `[Observação do Formulário]: ${observacoes}`,
+        userId: SYSTEM_ID as any, 
+        userName: 'Webhook (Site)', 
+        isPinned: true            
+      });
+    }
+
+    // --- LOG UNIFICADO ---
+    const resumoTecnico = gerarResumoTecnicoWebhook(dadosFormatados);
+    const tituloAtividade = houveRedistribuicao 
+      ? ' Lead RE-CONVERTIDO e REDISTRIBUÍDO (Webhook)' 
+      : ' Lead RE-CONVERTIDO (Mantido - Webhook)';
+      
+    const logUnificado = `${tituloAtividade}\n----------------------------------------\n Dados Anteriores: ${existingLead.livesCount} vidas\n----------------------------------------\n${resumoTecnico}`;
+
+    const leadAny = existingLead as any;
+
+    const updatedLead = await updateLead(existingLead._id.toString(), {
       name: nome,
+      phone: phoneClean,
+      email: (emailClean && emailClean !== '') ? emailClean : existingLead.email,
+      
       livesCount: lives,
       avgPrice: valorEstimado,
-      city: cidade || existingLead.city,
-      state: estado || existingLead.state,
       hasCnpj: temCnpj,
       hasCurrentPlan: temPlano,
-      notes: notasAtualizadas, // Salva o histórico formatado
-      lastActivity: new Date(), 
-      phone: telefone,
-      email: email || existingLead.email
+      preferredHospitals: listaHospitais.length ? listaHospitais : leadAny.preferredHospitals,
+      
+      city: cidade || existingLead.city,
+      state: estado || existingLead.state,
+      
+      owners: novoDono,
+      lastActivity: new Date(),
+      
+      // Passamos o log pronto para o Service não criar log genérico
+      customUpdateLog: logUnificado 
     });
 
-    await addActivity(existingLead._id.toString(), 'Sistema', {
-      description: 'Lead RE-CONVERTIDO: Dados atualizados.',
-      payload: req.body
-    });
-
-    return res.status(StatusCodes.OK).json({ 
-      message: 'Lead atualizado.', 
-      leadId: existingLead._id,
-      updated: true
+    return res.status(StatusCodes.CREATED).json({
+      success: true,
+      action: 'updated',
+      leadId: updatedLead?._id,
+      message: 'Lead Atualizado com sucesso.'
     });
   }
 
   // ===============================================================
-  // LÓGICA DE CRIAÇÃO (Se é novo)
+  // CASO 2: CRIAÇÃO (NOVO LEAD)
   // ===============================================================
+  
   const pipeline = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
   const stage = await StageModel.findOne({ pipelineId: pipeline?._id, key: 'novo' }) || await StageModel.findOne({ pipelineId: pipeline?._id });
 
@@ -95,37 +198,54 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Configuração de Funil ausente.' });
   }
 
-  // Formatação Limpa para Lead Novo
-  const notasIniciais = `
-${observacoes || ''}
+  const logTecnicoUnificado = `Lead criado via Webhook.\n\n${gerarResumoTecnicoWebhook(dadosFormatados)}`;
 
- \nDETALHES DO FORMULÁRIO:
-\n---------------------------
- \nInvestimento: ${investimento || '-'}
- \nHospital: ${hospitalPreferencia || '-'}
- \nCNPJ: ${temCnpj ? 'SIM' : 'NÃO'}
- \nPlano Atual: ${temPlano ? 'SIM' : 'NÃO'}
-  `.trim();
-
-  const newLead = await createLead({
+  const resultLead = await createLead({
     name: nome,
-    phone: telefone,
-    email: email || '',
+    phone: phoneClean,
+    email: emailClean,
     origin: origem || 'Meta Ads', 
     pipelineId: pipeline._id.toString(),
     stageId: stage._id.toString(),
     livesCount: lives,
     hasCnpj: temCnpj,
     avgPrice: valorEstimado,
-    notes: notasIniciais,
+    
+    // Deixa notes limpo, usaremos a Note visual abaixo
+    notes: '', 
+    
     city: cidade || 'A verificar',
     state: estado || 'SP',
     owners: [], 
-    rank: 'c' + Date.now() 
+    rank: 'c' + Date.now(),
+    
+    hasCurrentPlan: temPlano,
+    preferredHospitals: listaHospitais,
+    ageBuckets: [],
+    
+    // Log Inteligente na criação
+    customCreationLog: logTecnicoUnificado
   });
+
+  if (!resultLead) {
+    throw new AppError('Erro ao processar o Lead no sistema.', StatusCodes.INTERNAL_SERVER_ERROR);
+  }
+
+  // Cria a nota visual se tiver observação
+  if (observacoes && observacoes.trim() !== '') {
+    await Note.create({
+      leadId: resultLead._id,
+      conteudo: `[Observação Inicial]: ${observacoes}`,
+      userId: SYSTEM_ID as any,
+      userName: 'Webhook (Site)',
+      isPinned: true
+    });
+  }
 
   return res.status(StatusCodes.CREATED).json({
     success: true,
-    leadId: newLead?._id // Adicionei o ?._id antes, mas aqui sabemos que newLead existe
+    action: 'created',
+    leadId: resultLead._id,
+    message: 'Lead Criado com sucesso'
   });
 });

@@ -13,7 +13,25 @@ export function getUser(id: string) {
   return UserModel.findById(id);
 }
 
-export async function createUser(input: { name: string; email: string; password: string; role: string; active?: boolean; phone?: string; jobTitle?: string; emailSignature?: string; photoUrl?: string | null; photoBase64?: string | null; sendResetEmail?: boolean; }) {
+export async function createUser(input: { 
+  name: string; 
+  email: string; 
+  password: string; 
+  role: string; 
+  active?: boolean; 
+  phone?: string; 
+  jobTitle?: string; 
+  emailSignature?: string; 
+  photoUrl?: string | null; 
+  photoBase64?: string | null; 
+  sendResetEmail?: boolean;
+  distribution?: {
+    active?: boolean;      
+    minLives?: number;    
+    maxLives?: number;     
+    cnpjRule?: string;      
+  }; 
+}) {
   const passwordHash = await hashPassword(input.password);
   
   const user = await UserModel.create({
@@ -26,17 +44,16 @@ export async function createUser(input: { name: string; email: string; password:
     jobTitle: input.jobTitle,
     emailSignature: input.emailSignature,
     photoUrl: input.photoUrl,
-    photoBase64: input.photoBase64
+    photoBase64: input.photoBase64,
+    distribution: input.distribution 
   });
 
-  // Se sendResetEmail for true (padrão ao criar vendedor), envia email de redefinição
   if (input.sendResetEmail !== false) {
     try {
-      console.log('🔵 Iniciando envio de email para:', user.email);
+      console.log(' Iniciando envio de email para:', user.email);
       
-      // Gera token de redefinição
       const token = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); 
 
       await PasswordResetModel.create({
         userId: user._id,
@@ -44,13 +61,11 @@ export async function createUser(input: { name: string; email: string; password:
         expiresAt
       });
 
-      console.log('✅ Token criado:', token);
+      console.log(' Token criado:', token);
 
-      // Monta link de definição de senha
       const resetLink = `${env.FRONTEND_URL}/redefinir-senha?token=${token}`;
-      console.log('🔗 Link gerado:', resetLink);
+      console.log(' Link gerado:', resetLink);
 
-      // Envia email
       const result = await sendPasswordResetEmail({
         to: user.email,
         userName: user.name,
@@ -58,16 +73,16 @@ export async function createUser(input: { name: string; email: string; password:
         isNewUser: true
       });
       
-      console.log('✅ Email enviado com sucesso para:', user.email, 'Resultado:', result);
+      console.log(' Email enviado com sucesso para:', user.email, 'Resultado:', result);
     } catch (emailError) {
-      console.error('❌ Erro ao enviar email de boas-vindas:', emailError);
-      // Não falha a criação do usuário se o email falhar
+      console.error('Erro ao enviar email de boas-vindas:', emailError);
     }
   }
 
   return user;
 }
 
+// 👇 ATUALIZADO: Campos de distribution opcionais aqui também
 export async function updateUser(id: string, input: Partial<{ 
   name: string; 
   email: string; 
@@ -80,6 +95,12 @@ export async function updateUser(id: string, input: Partial<{
   emailSignature: string; 
   photoUrl: string | null;
   photoBase64: string | null;
+  distribution: {
+    active?: boolean;       
+    minLives?: number;      
+    maxLives?: number;      
+    cnpjRule?: string;      
+  };
   notificationPreferences: {
     email?: boolean;
     sla?: boolean;

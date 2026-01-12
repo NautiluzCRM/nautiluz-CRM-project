@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ import {
   type Activity as ApiActivity,
   type Note as ApiNote
 } from "@/lib/api";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const FAIXAS_LABELS = [
   "0-18", "19-23", "24-28", "29-33", "34-38",
@@ -52,12 +54,10 @@ const FAIXAS_LABELS = [
 ];
 
 // --- FUNÇÃO AUXILIAR PARA ASSETS LOCAIS ---
-// Certifique-se de ter as imagens em /frontend/public/logos/nome.png
 const getOperadoraInfo = (plano?: string) => {
   if (!plano) return null;
   const text = plano.toLowerCase();
   
-  // Grandes Nacionais
   if (text.includes('amil') || text.includes('one health') || text.includes('lincx')) return { src: '/logos/amil.png', name: 'Amil' };
   if (text.includes('bradesco')) return { src: '/logos/bradesco.png', name: 'Bradesco' };
   if (text.includes('sulamerica') || text.includes('sul américa')) return { src: '/logos/sulamerica.png', name: 'SulAmérica' };
@@ -67,13 +67,11 @@ const getOperadoraInfo = (plano?: string) => {
   if (text.includes('porto')) return { src: '/logos/porto.png', name: 'Porto Seguro' };
   if (text.includes('cassi')) return { src: '/logos/cassi.png', name: 'Cassi' };
   
-  // Premium / Seguradoras
   if (text.includes('omint')) return { src: '/logos/omint.png', name: 'Omint' };
   if (text.includes('allianz')) return { src: '/logos/allianz.png', name: 'Allianz' };
   if (text.includes('sompo')) return { src: '/logos/sompo.png', name: 'Sompo' };
   if (text.includes('care plus') || text.includes('careplus')) return { src: '/logos/careplus.png', name: 'Care Plus' };
   
-  // Regionais Fortes / Senior / Outros
   if (text.includes('golden') || text.includes('cross')) return { src: '/logos/golden.png', name: 'Golden Cross' };
   if (text.includes('prevent')) return { src: '/logos/prevent.png', name: 'Prevent Senior' };
   if (text.includes('alice')) return { src: '/logos/alice.png', name: 'Alice' };
@@ -111,7 +109,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteContent, setNoteContent] = useState("");
 
-  // Dados derivados (executados sempre, mesmo se lead for null)
+  // Dados derivados
   const leadData = lead as any;
   const leadId = lead?._id || lead?.id;
 
@@ -121,7 +119,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
   const isOwner = lead ? (lead.ownersIds || []).some(id => id === currentUserId) : false;
   const isLegacyOwner = lead ? ((!lead.ownersIds || lead.ownersIds.length === 0) && lead.responsavel === user?.name) : false;
   const canEdit = isAdmin || isOwner || isLegacyOwner;
-  // ---------------------------
 
   const operadoraInfo = lead ? getOperadoraInfo(lead.planoAtual) : null;
 
@@ -133,7 +130,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     }
   }, [isOpen, leadId]);
   
-  // Return condicional DEPOIS de todos os hooks
   if (!lead) return null;
   
   const loadActivities = async () => {
@@ -143,7 +139,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
       const data = await fetchLeadActivities(leadId);
       setActivities(data);
     } catch (error: any) {
-      // Ignora erro 404 (rota não existe) silenciosamente
       if (!error?.message?.includes('404') && !error?.message?.includes('Cannot GET')) {
         console.error('Erro ao carregar atividades:', error);
       }
@@ -160,7 +155,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
       const data = await fetchLeadNotes(leadId);
       setNotes(data);
     } catch (error: any) {
-      // Ignora erro 404 (rota não existe) silenciosamente
       if (!error?.message?.includes('404') && !error?.message?.includes('Cannot GET')) {
         console.error('Erro ao carregar notas:', error);
       }
@@ -231,10 +225,38 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     ? Math.floor((Date.now() - new Date(lead.ultimaAtividade).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  const faixasPreenchidas = (lead.idades || []).map((count, index) => ({
-    label: FAIXAS_LABELS[index],
-    count: count
-  })).filter(item => item.count > 0);
+  // --- CORREÇÃO AQUI: Lógica Híbrida (Objeto Novo ou Array Antigo) ---
+  let faixasPreenchidas: { label: string; count: number }[] = [];
+  
+  // 1. Tenta usar o objeto novo (lead.faixasEtarias)
+  if (lead.faixasEtarias) {
+      const mapKeys = [
+          { key: 'ate18', label: '0-18' },
+          { key: 'de19a23', label: '19-23' },
+          { key: 'de24a28', label: '24-28' },
+          { key: 'de29a33', label: '29-33' },
+          { key: 'de34a38', label: '34-38' },
+          { key: 'de39a43', label: '39-43' },
+          { key: 'de44a48', label: '44-48' },
+          { key: 'de49a53', label: '49-53' },
+          { key: 'de54a58', label: '54-58' },
+          { key: 'acima59', label: '59+' }
+      ];
+      
+      faixasPreenchidas = mapKeys.map(m => ({
+          label: m.label,
+          // @ts-ignore - Acesso dinâmico seguro
+          count: (lead.faixasEtarias as any)[m.key] || 0
+      })).filter(x => x.count > 0);
+  } 
+  // 2. Fallback para array antigo (lead.idades)
+  else if (lead.idades && lead.idades.length > 0) {
+      faixasPreenchidas = lead.idades.map((count, index) => ({
+        label: FAIXAS_LABELS[index],
+        count: count
+      })).filter(item => item.count > 0);
+  }
+  // -----------------------------------------------------------------
   
   const ownersList = (leadData.owners || []) as any[];
   
@@ -432,7 +454,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                   <div className="flex items-baseline justify-end gap-1">
                     <span className="text-xs text-emerald-600">R$</span>
                     <span className="text-2xl font-bold text-emerald-600">
-                      {lead.valorMedio > 0 
+                      {lead.valorMedio && lead.valorMedio > 0 
                         ? lead.valorMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
                         : "0,00"}
                     </span>
@@ -512,7 +534,9 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                       ) : (
                         <>
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm flex-1">{note.conteudo}</p>
+                            <p className="text-sm flex-1 whitespace-pre-wrap" style={{ wordBreak: 'break-word' }}>
+                              {note.conteudo ? note.conteudo.replace(/\\n/g, '\n') : ''}
+                            </p>
                             {canEdit && (
                               <div className="flex gap-1">
                                 <Button
@@ -550,8 +574,8 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30">
-                    {lead.informacoes || "Nenhuma observação"}
+                  <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30 whitespace-pre-wrap">
+                    {lead.informacoes ? lead.informacoes.replace(/\\n/g, '\n') : "Nenhuma observação"}
                   </div>
                 )}
               </div>
@@ -610,7 +634,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Criado em:</p>
                   <p className="font-medium">
-                    {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : '-'}
+                    {lead.dataCriacao ? new Date(lead.dataCriacao).toLocaleDateString('pt-BR') : '-'}
                   </p>
                 </div>
                 <Separator />
@@ -626,27 +650,66 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
             {/* Atividades Recentes */}
             <div className="space-y-3">
               <h3 className="text-base font-semibold">Atividades Recentes</h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                 {loadingActivities ? (
                   <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground">Carregando...</p>
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
                   </div>
                 ) : activities.length > 0 ? (
-                  activities.slice(0, 5).map((atividade) => (
-                    <div key={atividade._id} className="p-3 bg-muted/30 border rounded-lg text-sm">
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className="text-xs">
-                          {(atividade.tipo || '').replace(/_/g, ' ')}                        
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(atividade.createdAt).toLocaleDateString('pt-BR', { 
-                            day: '2-digit', 
-                            month: 'short'
-                          })}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{atividade.descricao}</p>
-                    </div>
+                  activities.slice(0, 10).map((atividade) => (
+                    <Dialog key={atividade._id}>
+                      <DialogTrigger asChild>
+                        {/* O Card agora é um botão clicável */}
+                        <div 
+                          className="p-3 bg-white border rounded-lg text-sm cursor-pointer hover:bg-gray-50 hover:shadow-sm transition-all group"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">
+                              {(atividade.tipo || '').replace(/_/g, ' ')}                         
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(atividade.createdAt).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          
+                          {/* Esse texto agora será o principal indicador para clicar */}
+                          <div className="text-[10px] text-blue-500 mt-1 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            Ver detalhes →
+                          </div>
+                        </div>
+                      </DialogTrigger>
+                      
+                      {/* A Janela que abre ao clicar */}
+                      <DialogContent className="max-w-md sm:max-w-lg z-[9999]">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2 text-base">
+                            <Activity className="h-4 w-4 text-primary" />
+                            Detalhes da Atividade
+                          </DialogTitle>
+                          <DialogDescription>
+                            Registrado por <span className="font-semibold text-foreground">{atividade.userName || 'Sistema'}</span> em {new Date(atividade.createdAt).toLocaleString('pt-BR')}
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="mt-2">
+                          <Badge variant="secondary" className="mb-4">
+                            {(atividade.tipo || '').replace(/_/g, ' ')}
+                          </Badge>
+                          
+                          <ScrollArea className="max-h-[50vh] rounded-md border p-4 bg-muted/20">
+                            {/* whitespace-pre-wrap garante que os parágrafos não fiquem grudados */}
+                            <p className="text-sm text-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                              {atividade.descricao}
+                            </p>
+                          </ScrollArea>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   ))
                 ) : (
                   <div className="text-center py-6 border rounded-lg bg-muted/30">

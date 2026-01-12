@@ -11,20 +11,40 @@ import crypto from 'crypto';
 export async function login(email: string, password: string) {
   const user = await UserModel.findOne({ email, active: true }).select('+passwordHash');
   if (!user) throw new AppError('Credenciais inválidas', StatusCodes.UNAUTHORIZED);
+  
   const ok = await verifyPassword(user.passwordHash, password);
   if (!ok) throw new AppError('Credenciais inválidas', StatusCodes.UNAUTHORIZED);
+  
   const payload = { sub: String(user._id), role: user.role };
+  
   const accessToken = signAccessToken(payload);
   const refreshToken = signRefreshToken(payload);
+  
   return { accessToken, refreshToken, user };
 }
 
 export async function refresh(token: string) {
+  // 1. Verifica se o refresh token antigo é válido
   const payload = verifyRefreshToken(token);
+  
+  // 2. Busca o usuário no banco para garantir que ainda existe e está ativo
   const user = await UserModel.findById(payload.sub);
-  if (!user || !user.active) throw new AppError('Usuário não encontrado', StatusCodes.UNAUTHORIZED);
-  const accessToken = signAccessToken({ sub: payload.sub, role: payload.role });
-  return { accessToken };
+  
+  if (!user || !user.active) {
+    throw new AppError('Usuário não encontrado ou inativo', StatusCodes.UNAUTHORIZED);
+  }
+  
+  const payloadJwt = { sub: String(user._id), role: user.role };
+
+  // 3. Gera um novo Access Token (padrão)
+  const accessToken = signAccessToken(payloadJwt);
+
+  // 4. CORREÇÃO ESSENCIAL: Gera um NOVO Refresh Token (Rotação)
+  // Isso renova a validade da sessão (ex: +7 dias a partir de agora)
+  const refreshToken = signRefreshToken(payloadJwt);
+
+  // 5. Retorna ambos para o frontend salvar
+  return { accessToken, refreshToken };
 }
 
 export async function forgotPassword(email: string) {

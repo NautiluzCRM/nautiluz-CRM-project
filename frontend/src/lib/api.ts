@@ -34,29 +34,56 @@ function getAuthHeaders(tokenOverride?: string) {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// --- CORREÇÃO PRINCIPAL: Rotação de Token e Tratamento de Erro Seguro ---
 async function refreshAccessToken() {
   const storage = getAuthStorage();
   const refreshToken = storage.getItem("refreshToken") ?? getStoredValue("refreshToken");
+  
+  // Se não tem token de refresh, não há o que fazer
   if (!refreshToken) return null;
 
-  const res = await fetch(`${API_URL}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: refreshToken }),
-  });
+  try {
+    const res = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: refreshToken }),
+    });
 
-  if (!res.ok) {
-    clearAuthStorage();
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[Auth] Falha no refresh: ${res.status} - ${errText}`);
+
+      // SÓ desloga se o token for explicitamente recusado (401/403) ou inválido (400)
+      // Se for erro de servidor (500+), NÃO desloga, permite tentar de novo depois
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        clearAuthStorage();
+      }
+      return null;
+    }
+
+    const data = await res.json();
+    
+    if (data?.accessToken) {
+      setAccessToken(data.accessToken);
+
+      // --- ROTAÇÃO: Se o backend mandou um novo refresh token, atualiza! ---
+      if (data.refreshToken) {
+        storage.setItem("refreshToken", data.refreshToken);
+      }
+      // ---------------------------------------------------------------------
+
+      return data.accessToken as string;
+    }
+  } catch (error) {
+    // Erro de rede (internet caiu, servidor fora do ar)
+    console.error("[Auth] Erro de rede ao tentar refresh:", error);
+    // NÃO desloga em erro de rede, retorna null para tentar no próximo ciclo
     return null;
   }
-
-  const data = await res.json();
-  if (data?.accessToken) {
-    setAccessToken(data.accessToken);
-    return data.accessToken as string;
-  }
+  
   return null;
 }
+// -------------------------------------------------------------------------
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = {
@@ -76,9 +103,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       };
       res = await fetch(`${API_URL}${path}`, { ...options, headers: retryHeaders });
     } else {
-      // Refresh falhou - limpa auth e redireciona para login
+      // Refresh falhou definitivamente - limpa auth e redireciona
       clearAuthStorage();
-      // Só redireciona se não estiver já na página de login
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
@@ -88,7 +114,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `Erro HTTP ${res.status}`);
+    // Tenta fazer parse do JSON de erro se possível
+    let errorMessage = text || `Erro HTTP ${res.status}`;
+    try {
+        const jsonError = JSON.parse(text);
+        if (jsonError.message) errorMessage = jsonError.message;
+    } catch {}
+    
+    throw new Error(errorMessage);
   }
   return (await res.json()) as T;
 }
@@ -131,13 +164,8 @@ export async function createLeadApi(data: any) {
     hasCurrentPlan: Boolean(data.possuiPlano),
     currentPlan: data.planoAtual,
     
-    // --- CORREÇÃO AQUI ---
-    // Removemos o antigo 'ageBuckets' que usava array
-    // ageBuckets: data.idades, 
-    
-    // Adicionamos o novo objeto que o Backend espera
+    // Mapeamento correto das faixas etárias (Objeto)
     faixasEtarias: data.faixasEtarias,
-    // ---------------------
 
     city: data.cidade,
     state: data.uf,
@@ -250,12 +278,10 @@ export function mapApiLeadToLead(api: any): Lead {
     tipoCnpj: api.cnpjType || "Outros",
     quantidadeVidas: api.livesCount || api.quantidadeVidas || 0,
     
-    // --- CORREÇÃO IMPORTANTE AQUI ---
     // Mantém compatibilidade com array antigo (idades), mas lê o objeto novo (faixasEtarias)
     idades: api.ageBuckets || api.idades || [],
     faixasEtarias: api.faixasEtarias || {}, 
-    // --------------------------------
-
+    
     possuiPlano: api.hasCurrentPlan ?? false,
     planoAtual: api.currentPlan,
     valorMedio: api.avgPrice,
@@ -294,11 +320,7 @@ export function mapLeadToApiPayload(lead: Partial<Lead>) {
     cnpjType: lead.tipoCnpj,
     livesCount: lead.quantidadeVidas,
     
-    // --- CORREÇÃO AQUI ---
-    // Removemos: ageBuckets: lead.idades,
-    // Adicionamos:
     faixasEtarias: (lead as any).faixasEtarias,
-    // ---------------------
 
     hasCurrentPlan: lead.possuiPlano,
     currentPlan: lead.planoAtual,
@@ -439,23 +461,33 @@ export async function updateUserApi(id: string, dados: {
   email?: string; 
   perfil?: string; 
   ativo?: boolean;
+  active?: boolean;
   senha?: string;
   senhaAtual?: string;
   foto?: string;
   telefone?: string;
   cargo?: string;
   assinatura?: string;
+  distribution?: any;
 }) {
   const payload: any = {};
+  
   if (dados.nome) payload.name = dados.nome;
   if (dados.email) payload.email = dados.email;
+  
   if (dados.ativo !== undefined) payload.active = dados.ativo;
+  if (dados.active !== undefined) payload.active = dados.active;
+
   if (dados.senha) payload.password = dados.senha;
   if (dados.senhaAtual) payload.currentPassword = dados.senhaAtual;
   if (dados.foto !== undefined) payload.photoUrl = dados.foto;
   if (dados.telefone !== undefined) payload.phone = dados.telefone;
   if (dados.cargo !== undefined) payload.jobTitle = dados.cargo;
   if (dados.assinatura !== undefined) payload.emailSignature = dados.assinatura;
+  
+  if (dados.distribution) {
+    payload.distribution = dados.distribution;
+  }
   
   if (dados.perfil) {
     payload.role = dados.perfil.toLowerCase() === 'administrador' ? 'admin' : 
@@ -669,52 +701,34 @@ export interface Notification {
   updatedAt: string;
 }
 
-/**
- * Busca todas as notificações do usuário
- */
 export async function fetchNotifications(unreadOnly = false): Promise<Notification[]> {
   const query = unreadOnly ? '?unreadOnly=true' : '';
   return request<Notification[]>(`/notifications${query}`);
 }
 
-/**
- * Busca a contagem de notificações não lidas
- */
 export async function fetchUnreadCount(): Promise<number> {
   const data = await request<{ count: number }>('/notifications/unread-count');
   return data.count;
 }
 
-/**
- * Marca uma notificação como lida
- */
 export async function markNotificationAsRead(notificationId: string): Promise<Notification> {
   return request<Notification>(`/notifications/${notificationId}/read`, {
     method: 'PATCH',
   });
 }
 
-/**
- * Marca todas as notificações como lidas
- */
 export async function markAllNotificationsAsRead(): Promise<{ message: string; count: number }> {
   return request<{ message: string; count: number }>('/notifications/mark-all-read', {
     method: 'PATCH',
   });
 }
 
-/**
- * Deleta uma notificação
- */
 export async function deleteNotification(notificationId: string): Promise<{ message: string }> {
   return request<{ message: string }>(`/notifications/${notificationId}`, {
     method: 'DELETE',
   });
 }
 
-/**
- * Limpa todas as notificações lidas
- */
 export async function clearReadNotifications(): Promise<{ message: string; count: number }> {
   return request<{ message: string; count: number }>('/notifications/clear-read', {
     method: 'DELETE',
@@ -737,16 +751,10 @@ export interface Activity {
   updatedAt: string;
 }
 
-/**
- * Busca as atividades de um lead específico
- */
 export async function fetchLeadActivities(leadId: string, limit = 20): Promise<Activity[]> {
   return request<Activity[]>(`/leads/${leadId}/activities?limit=${limit}`);
 }
 
-/**
- * Busca as atividades recentes (feed geral)
- */
 export async function fetchRecentActivities(limit = 50): Promise<Activity[]> {
   return request<Activity[]>(`/activities/recent?limit=${limit}`);
 }
@@ -777,30 +785,18 @@ export interface QualificationEvaluation {
   isQualified: boolean;
 }
 
-/**
- * Verifica o status de SLA de um lead
- */
 export async function checkLeadSLA(leadId: string): Promise<SLAStatus> {
   return request<SLAStatus>(`/sla/leads/${leadId}/sla`);
 }
 
-/**
- * Avalia a qualificação de um lead
- */
 export async function evaluateLeadQualification(leadId: string): Promise<QualificationEvaluation> {
   return request<QualificationEvaluation>(`/sla/leads/${leadId}/qualification`);
 }
 
-/**
- * Busca leads próximos do vencimento
- */
 export async function getLeadsDueSoon(hours: number = 24): Promise<any[]> {
   return request<any[]>(`/sla/due-soon?hours=${hours}`);
 }
 
-/**
- * Obtém estatísticas de SLA por pipeline
- */
 export async function getSLAStatsByPipeline(pipelineId: string): Promise<{
   total: number;
   onTime: number;
@@ -810,10 +806,6 @@ export async function getSLAStatsByPipeline(pipelineId: string): Promise<{
 }> {
   return request(`/sla/pipelines/${pipelineId}/stats`);
 }
-
-// ============================================
-// Observações (Notes)
-// ============================================
 
 // ==================== OBSERVAÇÕES (NOTAS) ====================
 
@@ -828,16 +820,10 @@ export interface Note {
   updatedAt: string;
 }
 
-/**
- * Busca as observações de um lead específico
- */
 export async function fetchLeadNotes(leadId: string): Promise<Note[]> {
   return request<Note[]>(`/leads/${leadId}/notes`);
 }
 
-/**
- * Cria uma nova observação para um lead
- */
 export async function createNote(leadId: string, conteudo: string, isPinned = false): Promise<Note> {
   return request<Note>(`/leads/${leadId}/notes`, {
     method: 'POST',
@@ -845,9 +831,6 @@ export async function createNote(leadId: string, conteudo: string, isPinned = fa
   });
 }
 
-/**
- * Atualiza uma observação existente
- */
 export async function updateNote(noteId: string, data: { conteudo?: string; isPinned?: boolean }): Promise<Note> {
   return request<Note>(`/notes/${noteId}`, {
     method: 'PUT',
@@ -855,9 +838,6 @@ export async function updateNote(noteId: string, data: { conteudo?: string; isPi
   });
 }
 
-/**
- * Deleta uma observação
- */
 export async function deleteNote(noteId: string): Promise<{ message: string }> {
   return request<{ message: string }>(`/notes/${noteId}`, {
     method: 'DELETE',
@@ -897,23 +877,14 @@ export interface Integration {
   updatedAt: string;
 }
 
-/**
- * Lista todas as integrações
- */
 export async function fetchIntegrations(): Promise<Integration[]> {
   return request<Integration[]>('/integrations/meta');
 }
 
-/**
- * Busca uma integração por ID
- */
 export async function fetchIntegration(id: string): Promise<Integration> {
   return request<Integration>(`/integrations/meta/${id}`);
 }
 
-/**
- * Cria uma nova integração
- */
 export async function createIntegrationApi(data: Partial<Integration>): Promise<Integration> {
   return request<Integration>('/integrations/meta', {
     method: 'POST',
@@ -921,9 +892,6 @@ export async function createIntegrationApi(data: Partial<Integration>): Promise<
   });
 }
 
-/**
- * Atualiza uma integração existente
- */
 export async function updateIntegrationApi(id: string, data: Partial<Integration>): Promise<Integration> {
   return request<Integration>(`/integrations/meta/${id}`, {
     method: 'PATCH',
@@ -931,21 +899,14 @@ export async function updateIntegrationApi(id: string, data: Partial<Integration
   });
 }
 
-/**
- * Deleta uma integração
- */
 export async function deleteIntegrationApi(id: string): Promise<{ message: string }> {
   return request<{ message: string }>(`/integrations/meta/${id}`, {
     method: 'DELETE',
   });
 }
 
-/**
- * Testa uma integração criando um lead de teste
- */
 export async function testIntegrationApi(id: string): Promise<{ success: boolean; lead?: any; error?: string }> {
   return request<{ success: boolean; lead?: any; error?: string }>(`/integrations/meta/${id}/test`, {
     method: 'POST',
   });
 }
-

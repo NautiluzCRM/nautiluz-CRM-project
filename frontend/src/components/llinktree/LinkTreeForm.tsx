@@ -8,6 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"; 
 import { Loader2, Plus, X, CheckCircle2 } from "lucide-react"; 
 
+// --- FUNÇÕES AUXILIARES ---
+
+// Formata (11) 99999-9999 e remove letras
+const maskPhone = (value: string) => {
+  return value
+    .replace(/\D/g, "") // Remove tudo que não é número
+    .replace(/^(\d{2})(\d)/g, "($1) $2") // Coloca parênteses
+    .replace(/(\d)(\d{4})$/, "$1-$2") // Coloca o traço
+    .slice(0, 15); // Limita tamanho
+};
+
+// Formata "são paulo" para "São Paulo"
+const formatCityName = (value: string) => {
+  return value.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+};
+
 const FAIXAS_ETARIAS = [
   "0 a 18", "19 a 23", "24 a 28", "29 a 33", "34 a 38",
   "39 a 43", "44 a 48", "49 a 53", "54 a 58", "59 ou mais"
@@ -44,7 +60,6 @@ export function LinktreeForm() {
   const [hospitalInput, setHospitalInput] = useState("");
   const [faixas, setFaixas] = useState<number[]>(Array(10).fill(0));
 
-
   const handleAddHospital = (e?: React.KeyboardEvent | React.MouseEvent) => {
     if (e && 'key' in e && e.key !== 'Enter') return;
     e?.preventDefault();
@@ -78,9 +93,47 @@ export function LinktreeForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // 1. VALIDAÇÃO DE VIDAS (Total deve bater)
     if (!isTotalValid) {
       alert(`A soma das idades (${totalFaixas}) deve ser igual ao total de vidas (${formData.quantidadeVidas})!`);
       return;
+    }
+
+    // 2. VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS (Nome e Cidade não podem ser só espaços) [NOVO]
+    if (!formData.nome.trim() || !formData.cidade.trim()) {
+      alert("Por favor, preencha o Nome e a Cidade corretamente.");
+      return;
+    }
+
+    // 3. VALIDAÇÃO DE TELEFONE (Mínimo 14 caracteres: (11) 91234-5678)
+    if (formData.celular.length < 14) {
+      alert("Por favor, digite um número de celular válido com DDD.");
+      return;
+    }
+
+    // 4. VALIDAÇÃO DE EMAIL (Formato básico) [NOVO]
+    if (formData.email && (!formData.email.includes("@") || !formData.email.includes("."))) {
+       alert("Por favor, digite um e-mail válido.");
+       return;
+    }
+
+    // 5. VALIDAÇÃO DE INVESTIMENTO (Positivo e Obrigatório)
+    const valorInvestimento = Number(formData.valorMedio);
+    if (!formData.valorMedio || valorInvestimento <= 0) {
+      alert("O valor de investimento previsto é obrigatório e deve ser um valor positivo.");
+      return;
+    }
+
+    // 6. VALIDAÇÃO DO TIPO DE CNPJ (Se marcou Sim, tem que escolher)
+    if (formData.possuiCnpj && !formData.tipoCnpj) {
+      alert("Por favor, selecione o Tipo de CNPJ.");
+      return;
+    }
+
+    // 7. TRUQUE DO HOSPITAL: Pega o input pendente mesmo sem clicar no "+"
+    const hospitaisFinais = [...hospitais];
+    if (hospitalInput.trim()) {
+      hospitaisFinais.push(hospitalInput.trim());
     }
 
     setIsLoading(true);
@@ -90,20 +143,27 @@ export function LinktreeForm() {
         name: formData.nome,
         phone: formData.celular,
         email: formData.email,
-        city: formData.cidade,
+        
+        // Formata a cidade
+        city: formatCityName(formData.cidade),
         state: formData.uf,
         
+        // Converte números
         livesCount: Number(formData.quantidadeVidas),
-        avgPrice: Number(formData.valorMedio) || 0,
+        avgPrice: Number(formData.valorMedio),
         
+        // Dados de CNPJ e Plano
         hasCnpj: formData.possuiCnpj,
-        cnpjType: formData.tipoCnpj,
+        cnpjType: formData.possuiCnpj ? formData.tipoCnpj : "",
         
         hasCurrentPlan: formData.possuiPlano,
-        currentPlan: formData.planoAtual,
+        currentPlan: formData.possuiPlano ? formData.planoAtual : "",
         
+        // Arrays
         ageBuckets: faixas,
-        preferredHospitals: hospitais
+        preferredHospitals: hospitaisFinais,
+
+        notes: formData.observacoes 
       };
 
       const response = await fetch('http://localhost:3000/public/linktree', {
@@ -172,7 +232,14 @@ export function LinktreeForm() {
               
               <div className="col-span-12 md:col-span-6 space-y-2">
                 <Label htmlFor="celular">Celular / WhatsApp *</Label>
-                <Input id="celular" required value={formData.celular} onChange={(e) => handleChange("celular", e.target.value)} placeholder="(11) 99999-9999" />
+                <Input 
+                  id="celular" 
+                  required 
+                  value={formData.celular} 
+                  onChange={(e) => handleChange("celular", maskPhone(e.target.value))} 
+                  placeholder="(11) 99999-9999" 
+                  maxLength={15} 
+                />
               </div>
               
               <div className="col-span-12 md:col-span-6 space-y-2">
@@ -182,7 +249,14 @@ export function LinktreeForm() {
               
               <div className="col-span-8 md:col-span-9 space-y-2">
                 <Label htmlFor="cidade">Cidade *</Label>
-                <Input id="cidade" required value={formData.cidade} onChange={(e) => handleChange("cidade", e.target.value)} placeholder="Ex: São Paulo" />
+                <Input 
+                  id="cidade" 
+                  required 
+                  value={formData.cidade} 
+                  onChange={(e) => handleChange("cidade", formatCityName(e.target.value))} 
+                  style={{ textTransform: 'capitalize' }}
+                  placeholder="Ex: São Paulo" 
+                />
               </div>
               
               <div className="col-span-4 md:col-span-3 space-y-2">
@@ -205,8 +279,20 @@ export function LinktreeForm() {
                 <Input id="qtdVidas" type="number" min="1" value={formData.quantidadeVidas} onChange={(e) => handleChange("quantidadeVidas", e.target.value)} />
               </div>
               <div className="space-y-2">
-                 <Label htmlFor="valorMedio">Investimento Previsto (R$)</Label>
-                 <Input id="valorMedio" type="number" placeholder="Ex: 1500" value={formData.valorMedio} onChange={(e) => handleChange("valorMedio", e.target.value)} />
+                 <Label htmlFor="valorMedio">Investimento Previsto (R$) *</Label>
+                 <Input 
+                    id="valorMedio" 
+                    type="number" 
+                    min="1"
+                    required
+                    placeholder="Ex: 1500" 
+                    value={formData.valorMedio} 
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (val < 0) return; // Impede números negativos
+                      handleChange("valorMedio", e.target.value);
+                    }} 
+                 />
               </div>
             </div>
 
@@ -241,8 +327,12 @@ export function LinktreeForm() {
                   </div>
                   {formData.possuiCnpj && (
                     <div className="animate-in slide-in-from-top-2 fade-in pt-2">
-                      <Select value={formData.tipoCnpj} onValueChange={(val) => handleChange("tipoCnpj", val)}>
-                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione o Tipo" /></SelectTrigger>
+                      <Select 
+                        value={formData.tipoCnpj} 
+                        onValueChange={(val) => handleChange("tipoCnpj", val)}
+                        required={formData.possuiCnpj} // Torna obrigatório se o switch estiver ligado
+                      >
+                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione o Tipo *" /></SelectTrigger>
                         <SelectContent>{TIPOS_CNPJ.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
@@ -292,7 +382,7 @@ export function LinktreeForm() {
             </div>
           </div>
 
-=          <Button type="submit" disabled={isLoading || !isTotalValid} className="w-full h-12 text-lg font-semibold bg-primary hover:bg-primary/90">
+          <Button type="submit" disabled={isLoading || !isTotalValid} className="w-full h-12 text-lg font-semibold bg-primary hover:bg-primary/90">
              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
              {isLoading ? "Enviando..." : "Solicitar Orçamento Grátis"}
           </Button>

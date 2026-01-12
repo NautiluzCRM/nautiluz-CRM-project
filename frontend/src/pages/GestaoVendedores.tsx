@@ -19,30 +19,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+// 👇 IMPORTANTE: ADICIONADO OS SELECTS AQUI
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Users, 
   TrendingUp, 
-  TrendingDown,
-  Trophy, 
   Target, 
   DollarSign, 
   Search,
   UserCheck,
   UserX,
-  Calendar,
-  Phone,
-  Mail,
-  ArrowUpRight,
-  ArrowDownRight,
   Loader2,
   BarChart3,
-  PieChart,
   Activity,
   Zap,
-  Star,
-  Clock,
-  Award,
-  Plus,
+  Trophy,
+  Settings,
   Edit,
   Trash2,
   UserPlus
@@ -51,6 +43,8 @@ import { fetchSellersStats, createUserApi, updateUserApi, deleteUserApi, getUser
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Navigate } from "react-router-dom";
+import { EditSellerModal } from "@/components/ui/EditSellerModal";
+import { useStats } from "@/contexts/StatsContext";
 
 interface VendedorStats {
   id: string;
@@ -59,6 +53,7 @@ interface VendedorStats {
   foto: string | null;
   ativo: boolean;
   perfil: string;
+  cargo?: string; // Adicionado
   ultimoAcesso: string;
   // Estatísticas
   totalLeads: number;
@@ -70,6 +65,7 @@ interface VendedorStats {
   ticketMedio: number;
   leadsUltimos30Dias: number;
   tendencia: 'up' | 'down' | 'stable';
+  distribution?: any; 
 }
 
 interface Totals {
@@ -85,56 +81,46 @@ interface Totals {
 const GestaoVendedores = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [vendedores, setVendedores] = useState<VendedorStats[]>([]);
-  const [totals, setTotals] = useState<Totals>({
-    totalVendedores: 0,
-    vendedoresAtivos: 0,
-    totalLeadsEquipe: 0,
-    totalConvertidos: 0,
-    valorTotalEquipe: 0,
-    valorConvertidoEquipe: 0,
-    mediaConversao: 0
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Usar o contexto de estatísticas ao invés de estado local
+  const { vendedores, totals, isLoading, refreshStats, lastUpdated } = useStats();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Estado do modal de CRUD
+  // Estado do modal de CRUD Básico
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVendedor, setEditingVendedor] = useState<VendedorStats | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [vendedorToDelete, setVendedorToDelete] = useState<VendedorStats | null>(null);
   
-  // Campos do formulário
+  // Estado do modal de Configuração (Robô)
+  const [configSeller, setConfigSeller] = useState<any>(null);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+  // Campos do formulário básico
   const [formNome, setFormNome] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formTelefone, setFormTelefone] = useState("");
-  const [formCargo, setFormCargo] = useState("");
+  const [formCargo, setFormCargo] = useState(""); // Já existia
+  const [formPerfil, setFormPerfil] = useState("Vendedor"); 
   const [isSaving, setIsSaving] = useState(false);
 
   const isAdmin = user?.role === 'admin';
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadData();
-    }
-  }, [isAdmin]);
+  // Não precisa mais do useEffect e loadData, o contexto já carrega automaticamente
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const handleConfigurarVendedor = async (vendedor: VendedorStats) => {
     try {
-      const data = await fetchSellersStats();
-      setVendedores(data.sellers);
-      setTotals(data.totals);
+      const fullUserData = await getUserApi(vendedor.id);
+      setConfigSeller(fullUserData);
+      setIsConfigOpen(true);
     } catch (error) {
-      console.error("Erro ao carregar dados", error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível carregar os dados dos vendedores."
+        description: "Erro ao carregar configurações do vendedor."
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -144,21 +130,36 @@ const GestaoVendedores = () => {
     setFormNome("");
     setFormEmail("");
     setFormTelefone("");
-    setFormCargo("");
+    setFormCargo(""); // Reseta cargo
+    setFormPerfil("Vendedor"); // Reseta perfil para padrão
     setIsModalOpen(true);
   };
 
-  // Abre modal para editar vendedor
+  // Abre modal para editar dados básicos
   const handleEditarVendedor = async (vendedor: VendedorStats) => {
     setEditingVendedor(vendedor);
     setFormNome(vendedor.nome);
     setFormEmail(vendedor.email);
     
-    // Buscar dados completos do usuário
+    // Mapeamento visual reverso (opcional, pois buscamos do userApi abaixo)
+    setFormPerfil(vendedor.perfil === "Administrador" ? "Administrador" : 
+                  vendedor.perfil === "Gerente" ? "Gerente" : "Vendedor");
+
     try {
       const userData = await getUserApi(vendedor.id) as any;
       setFormTelefone(userData.phone || "");
       setFormCargo(userData.jobTitle || "");
+      
+      // Garante que o perfil venha correto do backend (admin/vendedor -> Administrador/Vendedor)
+      if (userData.role) {
+         const roleMap: Record<string, string> = {
+            'admin': 'Administrador',
+            'financeiro': 'Financeiro',
+            'gerente': 'Gerente',
+            'vendedor': 'Vendedor'
+         };
+         setFormPerfil(roleMap[userData.role] || "Vendedor");
+      }
     } catch (error) {
       console.error("Erro ao buscar dados do usuário:", error);
       setFormTelefone("");
@@ -168,7 +169,6 @@ const GestaoVendedores = () => {
     setIsModalOpen(true);
   };
 
-  // Salva vendedor (criar ou editar)
   const handleSalvarVendedor = async () => {
     if (!formNome.trim() || !formEmail.trim()) {
       toast({
@@ -182,12 +182,13 @@ const GestaoVendedores = () => {
     setIsSaving(true);
     try {
       if (editingVendedor) {
-        // Editar vendedor existente
+        // EDITA
         await updateUserApi(editingVendedor.id, {
           nome: formNome,
           email: formEmail,
           telefone: formTelefone,
-          cargo: formCargo
+          cargo: formCargo,    // ✅ Envia Cargo
+          perfil: formPerfil   // ✅ Envia Perfil
         });
 
         toast({
@@ -195,14 +196,15 @@ const GestaoVendedores = () => {
           description: "As alterações foram salvas com sucesso."
         });
       } else {
-        // Criar novo vendedor
+        // CRIA
         await createUserApi({
           nome: formNome,
           email: formEmail,
-          senha: "senha123", // Senha temporária que será alterada pelo usuário
-          perfil: "vendedor",
+          senha: "senha123", // Senha temporária, sistema envia email de reset
+          perfil: formPerfil, // ✅ Usa o perfil selecionado
           telefone: formTelefone,
-          cargo: formCargo
+          cargo: formCargo,   // ✅ Usa o cargo digitado
+          enviarEmailSenha: true
         });
 
         toast({
@@ -212,7 +214,7 @@ const GestaoVendedores = () => {
       }
 
       setIsModalOpen(false);
-      loadData(); // Recarrega os dados
+      refreshStats(); 
     } catch (error: any) {
       console.error(error);
       toast({
@@ -225,7 +227,6 @@ const GestaoVendedores = () => {
     }
   };
 
-  // Confirma exclusão
   const handleConfirmarExclusao = async () => {
     if (!vendedorToDelete) return;
 
@@ -239,7 +240,7 @@ const GestaoVendedores = () => {
 
       setIsDeleting(false);
       setVendedorToDelete(null);
-      loadData();
+      refreshStats();
     } catch (error) {
       console.error(error);
       toast({
@@ -250,7 +251,6 @@ const GestaoVendedores = () => {
     }
   };
 
-  // Verificar se é admin - APÓS os hooks
   if (!isAdmin) {
     return <Navigate to="/" replace />;
   }
@@ -260,10 +260,7 @@ const GestaoVendedores = () => {
     v.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Métricas gerais (usando os totais do backend)
   const { totalVendedores, vendedoresAtivos, totalLeadsEquipe, valorTotalEquipe, mediaConversao } = totals;
-
-  // Top vendedores
   const topPorValor = [...vendedores].sort((a, b) => b.valorTotalPipeline - a.valorTotalPipeline).slice(0, 5);
   const topPorConversao = [...vendedores].sort((a, b) => b.taxaConversao - a.taxaConversao).slice(0, 5);
   const topPorLeads = [...vendedores].sort((a, b) => b.totalLeads - a.totalLeads).slice(0, 5);
@@ -288,6 +285,11 @@ const GestaoVendedores = () => {
             </h1>
             <p className="text-sm text-muted-foreground">
               Acompanhe o desempenho da sua equipe de vendas
+              {lastUpdated && (
+                <span className="ml-2 text-xs opacity-60">
+                  • Atualizado {new Date(lastUpdated).toLocaleTimeString('pt-BR')}
+                </span>
+              )}
             </p>
           </div>
 
@@ -311,6 +313,7 @@ const GestaoVendedores = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-6">
+        
         {/* Cards de Métricas */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 dark:from-primary/10 dark:to-primary/5 dark:border-primary/30">
@@ -376,265 +379,110 @@ const GestaoVendedores = () => {
           </Card>
         </div>
 
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="overview" className="flex items-center gap-1.5">
+            <TabsTrigger value="overview" className="flex items-center gap-1.5 text-sm">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Visão Geral</span>
             </TabsTrigger>
-            <TabsTrigger value="ranking" className="flex items-center gap-1.5">
+            <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-sm">
               <Trophy className="h-4 w-4" />
               <span className="hidden sm:inline">Ranking</span>
             </TabsTrigger>
-            <TabsTrigger value="detalhes" className="flex items-center gap-1.5">
+            <TabsTrigger value="detalhes" className="flex items-center gap-1.5 text-sm">
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">Detalhes</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab: Visão Geral */}
-          <TabsContent value="overview" className="space-y-6 mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Top por Valor */}
+          <TabsContent value="overview" className="mt-4 space-y-4">
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-success/80" />
-                    Top por Valor em Pipeline
+                    <DollarSign className="h-4 w-4 text-success/80" /> Top por Valor em Pipeline
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorValor.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                        ${index === 0 ? 'bg-yellow-100 text-yellow-700' : 
-                          index === 1 ? 'bg-gray-100 text-gray-700' : 
-                          index === 2 ? 'bg-orange-100 text-warning dark:text-warning-foreground' : 
-                          'bg-muted text-muted-foreground'}`}>
-                        {index + 1}
-                      </span>
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={v.foto || ''} />
-                        <AvatarFallback className="text-xs bg-primary/10">
-                          {v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{v.nome}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </p>
-                      </div>
-                      {v.tendencia === 'up' && <ArrowUpRight className="h-4 w-4 text-success/80" />}
-                      {v.tendencia === 'down' && <ArrowDownRight className="h-4 w-4 text-red-500" />}
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
-
-              {/* Top por Conversão */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-accent-foreground/80" />
-                    Top por Taxa de Conversão
+                    <Zap className="h-4 w-4 text-accent-foreground/80" /> Top por Taxa de Conversão
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorConversao.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                        ${index === 0 ? 'bg-yellow-500 text-white dark:bg-yellow-600' : 
-                          index === 1 ? 'bg-muted-foreground text-white dark:bg-muted' : 
-                          index === 2 ? 'bg-warning text-white dark:bg-warning/90' : 
-                          'bg-muted text-muted-foreground'}`}>
-                        {index + 1}
-                      </span>
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={v.foto || ''} />
-                        <AvatarFallback className="text-xs bg-primary/10">
-                          {v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{v.nome}</p>
-                        <div className="flex items-center gap-2">
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1">
+                        <p className="font-semibold">{v.nome}</p>
+                        <div className="flex items-center gap-2 mt-1">
                           <Progress value={v.taxaConversao} className="h-1.5 flex-1" />
-                          <span className="text-xs font-medium dark:text-foreground">{v.taxaConversao.toFixed(1)}%</span>
+                          <span className="text-sm font-medium text-muted-foreground">{v.taxaConversao.toFixed(1)}%</span>
                         </div>
                       </div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
-
-              {/* Top por Leads */}
-              <Card>
+               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary/80" />
-                    Top por Quantidade de Leads
+                    <Target className="h-4 w-4 text-primary/80" /> Top por Quantidade de Leads
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {topPorLeads.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                        ${index === 0 ? 'bg-yellow-500 text-white dark:bg-yellow-600' : 
-                          index === 1 ? 'bg-muted-foreground text-white dark:bg-muted' : 
-                          index === 2 ? 'bg-warning text-white dark:bg-warning/90' : 
-                          'bg-muted text-muted-foreground'}`}>
-                        {index + 1}
-                      </span>
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={v.foto || ''} />
-                        <AvatarFallback className="text-xs bg-primary/10">
-                          {v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{v.nome}</p>
-                        <p className="text-xs text-muted-foreground dark:text-foreground/70">
-                          {v.totalLeads} leads • {v.leadsQualificados} qualificados
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        +{v.leadsUltimos30Dias}
-                      </Badge>
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' : 
+                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
+                        index === 2 ? 'bg-orange-400 text-white' : 
+                        'bg-muted text-muted-foreground'
+                      }`}>{index + 1}</div>
+                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                      <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.totalLeads} leads</p></div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
             </div>
-
-            {/* Insights */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Star className="h-4 w-4 text-yellow-500" />
-                  Insights da Equipe
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 dark:bg-primary/5">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Award className="h-4 w-4 text-primary" />
-                      <span className="text-xs font-medium text-primary">Melhor Vendedor</span>
-                    </div>
-                    <p className="font-semibold text-primary dark:text-foreground">{topPorValor[0]?.nome || '-'}</p>
-                    <p className="text-xs text-primary dark:text-foreground">
-                      {topPorValor[0]?.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 dark:bg-success/5">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Zap className="h-4 w-4 text-success" />
-                      <span className="text-xs font-medium text-success">Maior Conversão</span>
-                    </div>
-                    <p className="font-semibold text-success dark:text-foreground">{topPorConversao[0]?.nome || '-'}</p>
-                    <p className="text-xs text-success dark:text-foreground">
-                      {topPorConversao[0]?.taxaConversao.toFixed(1)}% de conversão
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 dark:bg-accent/5">
-                    <div className="flex items-center gap-2 mb-1">
-                      <TrendingUp className="h-4 w-4 text-accent" />
-                      <span className="text-xs font-medium text-accent">Em Alta</span>
-                    </div>
-                    <p className="font-semibold text-accent dark:text-foreground">
-                      {vendedores.filter(v => v.tendencia === 'up').length} vendedor(es)
-                    </p>
-                    <p className="text-xs text-accent dark:text-foreground">com tendência de crescimento</p>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 dark:bg-warning/5">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Clock className="h-4 w-4 text-warning" />
-                      <span className="text-xs font-medium text-warning">Ticket Médio</span>
-                    </div>
-                    <p className="font-semibold text-warning dark:text-foreground">
-                      {(vendedores.reduce((acc, v) => acc + v.ticketMedio, 0) / vendedores.length || 0)
-                        .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </p>
-                    <p className="text-xs text-warning dark:text-foreground">média da equipe</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
-          {/* Tab: Ranking */}
-          <TabsContent value="ranking" className="mt-4">
-            <Card>
+          <TabsContent value="ranking" className="mt-4 space-y-4">
+             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                  Ranking de Vendedores
+                  <Trophy className="h-5 w-5 text-yellow-500" /> Ranking de Vendedores
                 </CardTitle>
-                <CardDescription>
-                  Classificação por valor total em pipeline
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {filteredVendedores.map((v, index) => (
-                    <div 
-                      key={v.id} 
-                      className={`flex items-center gap-4 p-3 rounded-lg border transition-colors
-                        ${index === 0 ? 'bg-yellow-500/10 border-yellow-500/30 dark:bg-yellow-500/5' : 
-                          index === 1 ? 'bg-muted border-border' : 
-                          index === 2 ? 'bg-warning/10 border-warning/30 dark:bg-warning/5' : 
-                          'bg-card'}`}
-                    >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold
-                        ${index === 0 ? 'bg-yellow-500 text-white dark:bg-yellow-600' : 
-                          index === 1 ? 'bg-muted-foreground text-white dark:bg-muted' : 
-                          index === 2 ? 'bg-warning text-white dark:bg-warning/90' : 
-                          'bg-muted text-muted-foreground'}`}>
-                        {index === 0 && <Trophy className="h-5 w-5" />}
-                        {index > 0 && (index + 1)}
-                      </div>
-
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={v.foto || ''} />
-                        <AvatarFallback className="bg-primary/10">
-                          {v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold truncate">{v.nome}</p>
-                          {!v.ativo && <Badge variant="secondary" className="text-xs">Inativo</Badge>}
-                          {v.tendencia === 'up' && (
-                            <Badge variant="outline" className="text-xs text-green-600 border-green-300">
-                              <ArrowUpRight className="h-3 w-3 mr-1" />
-                              Em alta
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{v.email}</p>
-                      </div>
-
-                      <div className="text-right hidden sm:block">
-                        <p className="text-sm font-medium dark:text-foreground">
-                          {v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {v.totalLeads} leads
-                        </p>
-                      </div>
-
-                      <div className="text-right hidden md:block">
-                        <p className="text-sm font-medium text-success dark:text-foreground">
-                          {v.taxaConversao.toFixed(1)}%
-                        </p>
-                        <p className="text-xs text-muted-foreground">conversão</p>
-                      </div>
+                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+                       <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold bg-muted">{index + 1}</div>
+                       <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
+                       <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
                     </div>
                   ))}
                 </div>
@@ -642,8 +490,7 @@ const GestaoVendedores = () => {
             </Card>
           </TabsContent>
 
-          {/* Tab: Detalhes */}
-          <TabsContent value="detalhes" className="mt-4">
+          <TabsContent value="detalhes" className="mt-4 space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Detalhes dos Vendedores</CardTitle>
@@ -662,28 +509,59 @@ const GestaoVendedores = () => {
                         <TableHead className="text-center">Qualificados</TableHead>
                         <TableHead className="text-center">Conversão</TableHead>
                         <TableHead className="text-right">Valor Pipeline</TableHead>
-                        <TableHead className="text-right">Ticket Médio</TableHead>
-                        <TableHead className="text-center">Últimos 30d</TableHead>
                         <TableHead className="text-center">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredVendedores.map((v) => (
                         <TableRow key={v.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={v.foto || ''} />
-                                <AvatarFallback className="text-xs bg-primary/10">
-                                  {v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-sm">{v.nome}</p>
-                                <p className="text-xs text-muted-foreground">{v.email}</p>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {/* Avatar (Mantido igual) */}
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={v.foto || ''} />
+                              <AvatarFallback className="text-xs bg-primary/10">
+                                {v.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+
+                            <div className="flex flex-col gap-0.5">
+                              {/* Nome */}
+                              <p className="font-medium text-sm text-foreground leading-none">{v.nome}</p>
+                              
+                              {/* 👇 MUDANÇA AQUI: Mostra CARGO • EMAIL */}
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                                {v.cargo && (
+                                  <>
+                                    <span className="font-medium text-foreground/80">{v.cargo}</span>
+                                    <span className="text-muted-foreground/40">•</span>
+                                  </>
+                                )}
+                                <span>{v.email}</span>
+                              </div>
+                              
+                              <div className="flex items-center gap-2 mt-1">
+                                {/* BADGE 1: O Perfil (Sistema) */}
+                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-medium border-primary/20 text-primary uppercase tracking-wide">
+                                  {v.perfil || "Vendedor"}
+                                </Badge>
+
+                                {/* BADGE 2: O Robô (Distribuição) */}
+                                {v.distribution?.active ? (
+                                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-normal text-gray-600 border-gray-200 bg-gray-50">
+                                    {v.distribution.minLives} a {v.distribution.maxLives} vidas
+                                    {v.distribution.cnpjRule === 'required' && ' (CNPJ)'}
+                                    {v.distribution.cnpjRule === 'forbidden' && ' (PF)'}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] h-4 px-1.5 text-gray-400 border-dashed border-gray-300">
+                                    Robô Off
+                                  </Badge>
+                                )}
                               </div>
                             </div>
-                          </TableCell>
+                          </div>
+                        </TableCell>
                           <TableCell className="text-center">
                             {v.ativo ? (
                               <Badge variant="outline" className="text-green-600 border-green-300">
@@ -708,21 +586,25 @@ const GestaoVendedores = () => {
                           <TableCell className="text-right font-medium">
                             {v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {v.ticketMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          </TableCell>
                           <TableCell className="text-center">
-                            <Badge variant={v.leadsUltimos30Dias > 5 ? "default" : "secondary"}>
-                              +{v.leadsUltimos30Dias}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-center justify-center gap-1">
+                              
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                                onClick={() => handleConfigurarVendedor(v)}
+                                title="Configurar Distribuição"
+                              >
+                                <Settings className="h-4 w-4" />
+                              </Button>
+
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => handleEditarVendedor(v)}
+                                title="Editar Dados"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -734,6 +616,7 @@ const GestaoVendedores = () => {
                                   setVendedorToDelete(v);
                                   setIsDeleting(true);
                                 }}
+                                title="Excluir"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -750,7 +633,7 @@ const GestaoVendedores = () => {
         </Tabs>
       </div>
 
-      {/* Modal de Criar/Editar Vendedor */}
+      {/* Modal de Criar/Editar Vendedor (Básico) */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -760,7 +643,7 @@ const GestaoVendedores = () => {
             <DialogDescription>
               {editingVendedor 
                 ? "Atualize as informações do vendedor."
-                : "Preencha os dados do novo vendedor. Um email de definição de senha será enviado automaticamente."}
+                : "Preencha os dados do novo vendedor."}
             </DialogDescription>
           </DialogHeader>
 
@@ -774,7 +657,6 @@ const GestaoVendedores = () => {
                 placeholder="Nome completo"
               />
             </div>
-
             <div>
               <Label htmlFor="email">E-mail *</Label>
               <Input
@@ -785,7 +667,6 @@ const GestaoVendedores = () => {
                 placeholder="email@exemplo.com"
               />
             </div>
-
             <div>
               <Label htmlFor="telefone">Telefone</Label>
               <Input
@@ -796,15 +677,8 @@ const GestaoVendedores = () => {
               />
             </div>
 
-            <div>
-              <Label htmlFor="cargo">Cargo</Label>
-              <Input
-                id="cargo"
-                value={formCargo}
-                onChange={(e) => setFormCargo(e.target.value)}
-                placeholder="Ex: Vendedor Sênior"
-              />
-            </div>
+            
+
           </div>
 
           <DialogFooter>
@@ -829,6 +703,16 @@ const GestaoVendedores = () => {
         </DialogContent>
       </Dialog>
 
+      {/* MODAL DE CONFIGURAÇÃO (O ROBÔ) */}
+      <EditSellerModal 
+        seller={configSeller}
+        isOpen={isConfigOpen}
+        onClose={() => setIsConfigOpen(false)}
+        onSuccess={() => {
+          refreshStats(); 
+        }}
+      />
+
       {/* Dialog de Confirmação de Exclusão */}
       <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>
         <AlertDialogContent>
@@ -836,7 +720,7 @@ const GestaoVendedores = () => {
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir o vendedor <strong>{vendedorToDelete?.nome}</strong>?
-              Esta ação não pode ser desfeita. Todos os leads associados a este vendedor permanecerão no sistema.
+              Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
