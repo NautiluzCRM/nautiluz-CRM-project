@@ -31,7 +31,7 @@ const createUserSchema = baseUserSchema.extend({
   password: z.string().min(6),
 });
 
-// Schema para ATUALIZAÇÃO (Senha Opcional + Atual)
+// chema para ATUALIZAÇÃO (Senha Opcional + Atual)
 const updateUserSchema = baseUserSchema.extend({
   password: z.string().min(6).optional(),
   currentPassword: z.string().optional(),
@@ -71,7 +71,7 @@ export const updateUserHandler = asyncHandler(async (req: Request, res: Response
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // 🔍 LOG ESPIÃO 1
+  // 🔍 LOG ESPIÃO 1: O que chegou na porta do Backend?
   console.log('---  DEBUG UPDATE ---');
   console.log('1. User Logado:', currentUser?.email, '| Role:', currentUser?.role);
   console.log('2. Body Bruto:', JSON.stringify(req.body.distribution, null, 2));
@@ -99,7 +99,7 @@ export const updateUserHandler = asyncHandler(async (req: Request, res: Response
   try {
     const user = await updateUser(id, body as any);
     
-    // 🔍 LOG ESPIÃO 3
+    // 🔍 LOG ESPIÃO 3: O que o Banco devolveu?
     console.log('4. Salvo no Banco:', JSON.stringify(user?.distribution, null, 2));
     console.log('---------------------');
 
@@ -125,14 +125,9 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // --- CORREÇÃO 1: Evitar Crash (TypeError) ---
-  // O payload JWT usa 'sub' para o ID, não '_id'.
-  const currentUserId = currentUser.sub || currentUser._id || currentUser.id;
-  
-  if (currentUserId !== id && currentUser.role !== 'admin') {
+  if (currentUser._id.toString() !== id && currentUser.role !== 'admin') {
     return res.status(403).json({ message: 'Você não tem permissão para alterar a foto deste usuário' });
   }
-  // --------------------------------------------
   
   const { photoBase64 } = req.body;
   
@@ -145,21 +140,12 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
     return res.status(400).json({ message: 'Formato de imagem inválido. Use JPEG, PNG, GIF ou WebP' });
   }
   
-  // --- CORREÇÃO 2: Validação de tamanho Segura ---
-  try {
-    const base64Content = photoBase64.split(',')[1];
-    if (base64Content) {
-        const sizeInBytes = (base64Content.length * 3) / 4;
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        
-        if (sizeInBytes > maxSize) {
-            return res.status(400).json({ message: 'A imagem é muito grande. O tamanho máximo permitido é 5MB.' });
-        }
-    }
-  } catch (e) {
-    console.warn("Aviso: Falha ao validar tamanho exato da imagem, continuando...");
+  const sizeInBytes = (photoBase64.length * 3) / 4;
+  const maxSize = 2 * 1024 * 1024; // 2MB
+  
+  if (sizeInBytes > maxSize) {
+    return res.status(400).json({ message: 'A imagem excede o tamanho máximo de 2MB' });
   }
-  // -----------------------------------------------
   
   try {
     const user = await updateUser(id, { photoBase64 });
@@ -167,8 +153,7 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
     res.json({ message: 'Foto atualizada com sucesso', photoBase64: user.photoBase64 });
   } catch (error: any) {
     console.error('Erro ao atualizar foto:', error);
-    // Retorna mensagem detalhada para debug
-    res.status(500).json({ message: `Erro ao atualizar foto: ${error.message}` });
+    res.status(500).json({ message: 'Erro ao atualizar foto de perfil' });
   }
 });
 
@@ -177,10 +162,7 @@ export const removePhotoHandler = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // --- CORREÇÃO 1 (Repetida para remoção) ---
-  const currentUserId = currentUser.sub || currentUser._id || currentUser.id;
-
-  if (currentUserId !== id && currentUser.role !== 'admin') {
+  if (currentUser._id.toString() !== id && currentUser.role !== 'admin') {
     return res.status(403).json({ message: 'Você não tem permissão para remover a foto deste usuário' });
   }
   
