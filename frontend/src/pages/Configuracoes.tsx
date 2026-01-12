@@ -898,7 +898,7 @@ const Configuracoes = () => {
               <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6 pt-0">
 
                 <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
-                  <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" className="object-cover" />
+                  <AvatarImage src={fotoPerfil ?? ""} alt="Foto do perfil" />
                   <AvatarFallback className="text-base sm:text-lg bg-primary text-primary-foreground">
                     {(user?.name || "N").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
@@ -1201,7 +1201,7 @@ const Configuracoes = () => {
                           {/* LADO ESQUERDO: Avatar + Infos */}
                           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                             <Avatar className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
-                              <AvatarImage src={usuario.foto} alt={usuario.nome} className="object-cover" />
+                              <AvatarImage src={usuario.foto} alt={usuario.nome} />
                               <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                                 {usuario.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
                               </AvatarFallback>

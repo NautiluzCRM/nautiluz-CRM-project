@@ -22,12 +22,8 @@ app.use(cors(corsOptions));
 // core middlewares
 app.use(helmet());
 app.use(rateLimiter);
-
-// --- CORREÇÃO: Aumentado para 50mb para evitar erro de Payload Too Large ---
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-// -------------------------------------------------------------------------
-
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 // Logs apenas em desenvolvimento
 if (env.NODE_ENV !== 'production') {
