@@ -83,7 +83,7 @@ const GestaoVendedores = () => {
   const { user } = useAuth();
   
   // Usar o contexto de estatísticas ao invés de estado local
-  const { vendedores, totals, isLoading, refreshStats } = useStats();
+  const { vendedores, totals, isLoading, refreshStats, lastUpdated } = useStats();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
@@ -103,7 +103,7 @@ const GestaoVendedores = () => {
   const [formEmail, setFormEmail] = useState("");
   const [formTelefone, setFormTelefone] = useState("");
   const [formCargo, setFormCargo] = useState(""); // Já existia
-  const [formPerfil, setFormPerfil] = useState("Vendedor"); // 👇 NOVO: Estado do Perfil
+  const [formPerfil, setFormPerfil] = useState("Vendedor"); 
   const [isSaving, setIsSaving] = useState(false);
 
   const isAdmin = user?.role === 'admin';
@@ -285,6 +285,11 @@ const GestaoVendedores = () => {
             </h1>
             <p className="text-sm text-muted-foreground">
               Acompanhe o desempenho da sua equipe de vendas
+              {lastUpdated && (
+                <span className="ml-2 text-xs opacity-60">
+                  • Atualizado {new Date(lastUpdated).toLocaleTimeString('pt-BR')}
+                </span>
+              )}
             </p>
           </div>
 
