@@ -33,20 +33,52 @@ import {
   Check,
   Pin,
   PinOff,
-  Loader2
+  Loader2,
+  Upload,
+  ImagePlus
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   fetchLeadActivities, 
   fetchLeadNotes, 
   createNote, 
   updateNote, 
   deleteNote,
+  searchOperadoraLogo,
+  uploadOperadoraLogo,
   type Activity as ApiActivity,
   type Note as ApiNote
 } from "@/lib/api";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+
+// Lista de logos locais disponíveis em /public/logos
+const LOGOS_LOCAIS = [
+  { id: 'alice', name: 'Alice', src: '/logos/alice.png' },
+  { id: 'allianz', name: 'Allianz', src: '/logos/allianz.png' },
+  { id: 'ameplan', name: 'Ameplan', src: '/logos/ameplan.png' },
+  { id: 'amil', name: 'Amil', src: '/logos/amil.png' },
+  { id: 'biovida', name: 'Biovida', src: '/logos/biovida.png' },
+  { id: 'blue', name: 'Blue Saúde', src: '/logos/blue.png' },
+  { id: 'bradesco', name: 'Bradesco', src: '/logos/bradesco.png' },
+  { id: 'careplus', name: 'Care Plus', src: '/logos/careplus.png' },
+  { id: 'cassi', name: 'Cassi', src: '/logos/cassi.png' },
+  { id: 'cruzazul', name: 'Cruz Azul', src: '/logos/cruzazul.png' },
+  { id: 'gndi', name: 'NotreDame / GNDI', src: '/logos/gndi.png' },
+  { id: 'gocare', name: 'Go Care', src: '/logos/gocare.png' },
+  { id: 'golden', name: 'Golden Cross', src: '/logos/golden.png' },
+  { id: 'hapvida', name: 'Hapvida', src: '/logos/hapvida.png' },
+  { id: 'medsenior', name: 'MedSênior', src: '/logos/medsenior.png' },
+  { id: 'omint', name: 'Omint', src: '/logos/omint.png' },
+  { id: 'porto', name: 'Porto Seguro', src: '/logos/porto.png' },
+  { id: 'prevent', name: 'Prevent Senior', src: '/logos/prevent.png' },
+  { id: 'saocristovao', name: 'São Cristóvão', src: '/logos/saocristovao.png' },
+  { id: 'sompo', name: 'Sompo', src: '/logos/sompo.png' },
+  { id: 'sulamerica', name: 'SulAmérica', src: '/logos/sulamerica.png' },
+  { id: 'trasmontano', name: 'Trasmontano', src: '/logos/trasmontano.png' },
+  { id: 'unimed', name: 'Unimed', src: '/logos/unimed.png' },
+];
 
 const FAIXAS_LABELS = [
   "0-18", "19-23", "24-28", "29-33", "34-38",
@@ -97,6 +129,8 @@ interface LeadDetailsModalProps {
 
 export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: LeadDetailsModalProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Estados para atividades e notas da API
   const [activities, setActivities] = useState<ApiActivity[]>([]);
@@ -108,6 +142,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteContent, setNoteContent] = useState("");
+
+  // Estado para logo customizada do Cloudinary
+  const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [showLogoSelector, setShowLogoSelector] = useState(false);
+  const [logoSearchTerm, setLogoSearchTerm] = useState("");
 
   // Dados derivados
   const leadData = lead as any;
@@ -121,6 +161,136 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
   const canEdit = isAdmin || isOwner || isLegacyOwner;
 
   const operadoraInfo = lead ? getOperadoraInfo(lead.planoAtual) : null;
+
+  // Buscar logo customizada do Cloudinary quando não houver local
+  useEffect(() => {
+    if (isOpen && lead?.planoAtual && !operadoraInfo) {
+      searchOperadoraLogo(lead.planoAtual).then((logo) => {
+        if (logo) {
+          setCustomLogoUrl(logo.logoUrl);
+        } else {
+          setCustomLogoUrl(null);
+        }
+      });
+    } else {
+      setCustomLogoUrl(null);
+    }
+  }, [isOpen, lead?.planoAtual, operadoraInfo]);
+
+  // Função para fazer upload de logo
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !lead?.planoAtual) return;
+
+    // Validar tamanho (500KB)
+    if (file.size > 500 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Imagem muito grande",
+        description: "O tamanho máximo é 500KB"
+      });
+      return;
+    }
+
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: "destructive",
+        title: "Formato inválido",
+        description: "Selecione uma imagem (PNG, JPG, etc)"
+      });
+      return;
+    }
+
+    setIsUploadingLogo(true);
+
+    try {
+      // Converter para base64
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        
+        try {
+          const result = await uploadOperadoraLogo(lead.planoAtual!, base64);
+          setCustomLogoUrl(result.logo.logoUrl);
+          toast({
+            title: "Logo salva!",
+            description: `Logo da operadora "${lead.planoAtual}" foi salva com sucesso.`
+          });
+        } catch (error: any) {
+          toast({
+            variant: "destructive",
+            title: "Erro ao salvar",
+            description: error.message || "Não foi possível salvar a logo"
+          });
+        } finally {
+          setIsUploadingLogo(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      setIsUploadingLogo(false);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao processar a imagem"
+      });
+    }
+
+    // Limpar input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Função para selecionar logo local pré-definida
+  const handleSelectLocalLogo = async (logoSrc: string) => {
+    if (!lead?.planoAtual) return;
+    
+    setIsUploadingLogo(true);
+    setShowLogoSelector(false);
+    
+    try {
+      // Buscar a imagem local e converter para base64
+      const response = await fetch(logoSrc);
+      const blob = await response.blob();
+      
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        
+        try {
+          const result = await uploadOperadoraLogo(lead.planoAtual!, base64);
+          setCustomLogoUrl(result.logo.logoUrl);
+          toast({
+            title: "Logo vinculada!",
+            description: `Logo vinculada ao plano "${lead.planoAtual}" com sucesso.`
+          });
+        } catch (error: any) {
+          toast({
+            variant: "destructive",
+            title: "Erro ao vincular",
+            description: error.message || "Não foi possível vincular a logo"
+          });
+        } finally {
+          setIsUploadingLogo(false);
+        }
+      };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      setIsUploadingLogo(false);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao carregar a logo"
+      });
+    }
+  };
+
+  // Filtrar logos locais pela busca
+  const filteredLogos = LOGOS_LOCAIS.filter(logo => 
+    logo.name.toLowerCase().includes(logoSearchTerm.toLowerCase())
+  );
 
   // Carregar atividades e notas quando o modal abrir
   useEffect(() => {
@@ -430,16 +600,52 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
               </div>
 
               {/* Card Grande: Logo + Plano + Valor */}
-              <div className="border rounded-lg p-4 bg-muted/30 flex items-center justify-between gap-4">
+              <div className="border rounded-lg p-4 bg-muted/30 flex items-center justify-between gap-4 relative">
                 <div className="flex items-center gap-4">
-                  <div className="h-20 w-28 rounded border bg-card flex items-center justify-center overflow-hidden shrink-0">
-                    {operadoraInfo ? (
+                  {/* Input oculto para upload customizado */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                  
+                  {/* Container da Logo - Clicável para abrir seletor */}
+                  <div 
+                    className={`h-20 w-28 rounded border bg-card flex items-center justify-center overflow-hidden shrink-0 relative group ${
+                      !operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual ? 'cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors' : ''
+                    }`}
+                    onClick={() => {
+                      // Só abre seletor se não tem logo e usuário pode editar
+                      if (!operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual && !isUploadingLogo) {
+                        setShowLogoSelector(true);
+                        setLogoSearchTerm("");
+                      }
+                    }}
+                    title={!operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual ? "Clique para adicionar logo" : undefined}
+                  >
+                    {isUploadingLogo ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    ) : operadoraInfo ? (
                       <img 
                         src={operadoraInfo.src} 
                         alt={operadoraInfo.name}
                         className="h-full w-full object-contain p-2"
                         onError={(e) => e.currentTarget.style.display = 'none'}
                       />
+                    ) : customLogoUrl ? (
+                      <img 
+                        src={customLogoUrl} 
+                        alt={lead?.planoAtual || 'Logo'}
+                        className="h-full w-full object-contain p-2"
+                        onError={(e) => e.currentTarget.style.display = 'none'}
+                      />
+                    ) : lead?.planoAtual && canEdit ? (
+                      <div className="flex flex-col items-center gap-1 text-muted-foreground group-hover:text-primary transition-colors">
+                        <ImagePlus className="h-6 w-6" />
+                        <span className="text-[9px] text-center">Adicionar logo</span>
+                      </div>
                     ) : (
                       <Shield className="h-8 w-8 text-muted-foreground" />
                     )}
@@ -460,6 +666,72 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                     </span>
                   </div>
                 </div>
+
+                {/* Modal/Popover de Seleção de Logo */}
+                {showLogoSelector && (
+                  <div className="absolute left-0 top-full mt-2 z-50 w-80 bg-card border rounded-lg shadow-lg p-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold">Selecionar Logo</h4>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0"
+                        onClick={() => setShowLogoSelector(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    {/* Campo de busca */}
+                    <input
+                      type="text"
+                      placeholder="Buscar operadora..."
+                      value={logoSearchTerm}
+                      onChange={(e) => setLogoSearchTerm(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border rounded-md mb-3 focus:outline-none focus:ring-2 focus:ring-primary"
+                      autoFocus
+                    />
+                    
+                    {/* Grid de logos */}
+                    <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto mb-3">
+                      {filteredLogos.map((logo) => (
+                        <div
+                          key={logo.id}
+                          className="h-14 w-14 rounded border bg-white flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors p-1"
+                          onClick={() => handleSelectLocalLogo(logo.src)}
+                          title={logo.name}
+                        >
+                          <img 
+                            src={logo.src} 
+                            alt={logo.name}
+                            className="h-full w-full object-contain"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {filteredLogos.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        Nenhuma operadora encontrada
+                      </p>
+                    )}
+                    
+                    {/* Opção de upload customizado */}
+                    <Separator className="my-2" />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs"
+                      onClick={() => {
+                        setShowLogoSelector(false);
+                        fileInputRef.current?.click();
+                      }}
+                    >
+                      <Upload className="h-3 w-3 mr-2" />
+                      Enviar imagem personalizada
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -640,7 +912,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Criado em:</p>
                   <p className="font-medium">
-                    {lead.dataCriacao ? new Date(lead.dataCriacao).toLocaleDateString('pt-BR') : '-'}
+                    {leadData.dataCriacao ? new Date(leadData.dataCriacao).toLocaleDateString('pt-BR') : '-'}
                   </p>
                 </div>
                 <Separator />

@@ -976,3 +976,40 @@ export async function testIntegrationApi(id: string): Promise<{ success: boolean
     method: 'POST',
   });
 }
+
+// --- Operadoras/Convênios Logos ---
+
+export interface OperadoraLogo {
+  _id: string;
+  nomeNormalizado: string;
+  nomeOriginal: string;
+  logoUrl: string;
+  logoPublicId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchOperadoraLogos(): Promise<OperadoraLogo[]> {
+  return request<OperadoraLogo[]>('/operadoras/logos');
+}
+
+export async function searchOperadoraLogo(plano: string): Promise<OperadoraLogo | null> {
+  try {
+    return await request<OperadoraLogo>(`/operadoras/logos/search?plano=${encodeURIComponent(plano)}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function uploadOperadoraLogo(nomeOperadora: string, imageBase64: string): Promise<{ message: string; logo: OperadoraLogo }> {
+  return request<{ message: string; logo: OperadoraLogo }>('/operadoras/logos', {
+    method: 'POST',
+    body: JSON.stringify({ nomeOperadora, imageBase64 }),
+  });
+}
+
+export async function deleteOperadoraLogo(id: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/operadoras/logos/${id}`, {
+    method: 'DELETE',
+  });
+}
