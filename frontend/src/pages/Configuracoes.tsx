@@ -1175,6 +1175,17 @@ const Configuracoes = () => {
                             />
                           </div>
 
+                          {/* Linha 4: Assinatura */}
+                          {/*<div className="space-y-2">
+                            <Label htmlFor="assinaturaUsuario">Assinatura de E-mail</Label>
+                            <Textarea
+                              id="assinaturaUsuario"
+                              placeholder="Assinatura padrão para e-mails..."
+                              value={novaAssinatura}
+                              onChange={(e) => setNovaAssinatura(e.target.value)}
+                            />
+                          </div>*/}
+
                           <div className="flex gap-2 justify-end pt-4">
                             {/* Botão de Excluir (Só aparece se estiver editando) */}
                             {usuarioEmEdicao && (
