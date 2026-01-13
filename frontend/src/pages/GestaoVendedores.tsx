@@ -290,16 +290,16 @@ const GestaoVendedores = () => {
                 className="pl-10"
               />
             </div>
-            <Button onClick={handleNovoVendedor} className="shrink-0">
+            {/*<Button onClick={handleNovoVendedor} className="shrink-0">
               <UserPlus className="h-4 w-4 mr-2" />
               Novo Vendedor
-            </Button>
+            </Button>*/}
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-6">
+      <div className="flex-1 overflow-hidden p-4 sm:p-6 flex flex-col gap-6">
         
         {/* Cards de Métricas */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -352,22 +352,21 @@ const GestaoVendedores = () => {
         </div>
 
         {/* Tabela de Detalhes */}
-        <Card>
-          <CardHeader>
+        <Card className="flex-1 flex flex-col overflow-hidden">
+          <CardHeader className="shrink-0">
             <CardTitle>Detalhes dos Vendedores</CardTitle>
             <CardDescription>
               Informações completas de cada membro da equipe
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent className="flex-1 overflow-hidden">
+            <div className="h-full overflow-y-auto">
               <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Vendedor</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                         <TableHead className="text-center">Leads</TableHead>
-                        <TableHead className="text-center">Qualificados</TableHead>
                         <TableHead className="text-right">Valor Pipeline</TableHead>
                         <TableHead className="text-center">Ações</TableHead>
                       </TableRow>
@@ -436,7 +435,6 @@ const GestaoVendedores = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center font-medium">{v.totalLeads}</TableCell>
-                          <TableCell className="text-center">{v.leadsQualificados}</TableCell>
                           <TableCell className="text-right font-medium">
                             {v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </TableCell>
@@ -453,7 +451,7 @@ const GestaoVendedores = () => {
                                 <Settings className="h-4 w-4" />
                               </Button>
 
-                              <Button
+                              {/*<Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
@@ -473,7 +471,7 @@ const GestaoVendedores = () => {
                                 title="Excluir"
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </Button>
+                              </Button>*/}
                             </div>
                           </TableCell>
                         </TableRow>

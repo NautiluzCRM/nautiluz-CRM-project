@@ -29,6 +29,7 @@ const navigationItems = [
 // Itens apenas para admin
 const adminItems = [
   { title: "Gestão de Vendedores", url: "/gestao-vendedores", icon: UsersRound },
+  { title: "Gerenciar Usuários", url: "/gerenciar-usuarios", icon: Users },
   { title: "Integrações", url: "/integracoes", icon: Plug },
 ];
 

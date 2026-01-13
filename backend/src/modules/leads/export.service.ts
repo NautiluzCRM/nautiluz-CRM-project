@@ -140,9 +140,23 @@ async function formatExportData(leads: any[], fields: ExportFields) {
       obj["Total de Vidas"] = Number(lead.livesCount) || 0;
       obj["Valor Médio (R$)"] = Number(lead.avgPrice) || 0;
       
-      const arrayIdades = Array.isArray(lead.ageBuckets) ? lead.ageBuckets : Array(10).fill(0);
+      // Mapeamento das chaves do objeto novo para bater com a ordem de LABELS_FAIXAS
+      const keysFaixas = [
+        'ate18', 'de19a23', 'de24a28', 'de29a33', 'de34a38',
+        'de39a43', 'de44a48', 'de49a53', 'de54a58', 'acima59'
+      ];
+
       LABELS_FAIXAS.forEach((label, index) => {
-        obj[label] = Number(arrayIdades[index]) || 0;
+        const key = keysFaixas[index];
+        
+        let valor = lead.faixasEtarias?.[key];
+
+        if (valor === undefined || valor === null) {
+           const legacyArray = Array.isArray(lead.ageBuckets) ? lead.ageBuckets : (Array.isArray(lead.idades) ? lead.idades : []);
+           valor = legacyArray[index];
+        }
+
+        obj[label] = Number(valor) || 0;
       });
     }
 
@@ -206,9 +220,9 @@ export async function exportToXLSX(
     { wch: 25 }, { wch: 30 }, { wch: 25 }, { wch: 30 }, { wch: 15 },
     { wch: 15 }, { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
     { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 18 }, { wch: 10 },
-    { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 12 }, { wch: 12 },
+    { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
     { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 20 },
+    { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 30 }, { wch: 20 },
     { wch: 15 }, { wch: 20 }, { wch: 50 }
   ];
   worksheet['!cols'] = wscols;
