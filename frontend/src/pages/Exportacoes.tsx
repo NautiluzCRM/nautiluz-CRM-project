@@ -350,7 +350,7 @@ const Exportacoes = () => {
                 </Card>
 
                 {/* Card CSV */}
-                <Card className="flex flex-col hover:shadow-lg transition-shadow">
+                <Card className="flex flex-col hover:shadow-lg transition-shadow opacity-75">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <FileText className="h-5 w-5 text-blue-600" />
@@ -363,18 +363,18 @@ const Exportacoes = () => {
                     </p>
                     <Button 
                       onClick={handleExportCSV}
-                      disabled={isExporting}
+                      disabled
                       className="w-full h-9 text-xs"
                       variant="outline"
                     >
                       <Download className="h-3.5 w-3.5 mr-2" />
-                      {isExporting ? "Exportando..." : "Exportar CSV"}
+                      {isExporting ? "Exportando..." : "Em breve"}
                     </Button>
                   </CardContent>
                 </Card>
 
                 {/* Card PDF */}
-                <Card className="flex flex-col hover:shadow-lg transition-shadow">
+                <Card className="flex flex-col hover:shadow-lg transition-shadow opacity-75">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <FileText className="h-5 w-5 text-red-600" />
@@ -387,12 +387,12 @@ const Exportacoes = () => {
                     </p>
                     <Button 
                       onClick={handleExportPDF}
-                      disabled={isExporting}
+                      disabled
                       className="w-full h-9 text-xs"
                       variant="outline"
                     >
                       <Download className="h-3.5 w-3.5 mr-2" />
-                      {isExporting ? "Exportando..." : "Exportar PDF"}
+                      {isExporting ? "Exportando..." : "Em breve"}
                     </Button>
                   </CardContent>
                 </Card>
