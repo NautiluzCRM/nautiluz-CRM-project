@@ -285,6 +285,7 @@ export function mapApiStageToColuna(stage: any): Coluna {
     ordem: stage.order,
     wipLimit: stage.wipLimit,
     sla: stage.sla,
+    columnTag: stage.columnTag || ''
   };
 }
 
@@ -298,11 +299,12 @@ export function mapApiLeadToLead(api: any): Lead {
   // Se o backend populou, 'u' é objeto. Se não, 'u' é string (ID).
   const normalizedOwners = rawOwners.map((u: any) => {
     if (typeof u === 'string') {
-        return { id: u, nome: "Carregando..." }; // Fallback caso não tenha populado
+        return { id: u, nome: "Carregando...", foto: null }; 
     }
     return { 
         id: u._id || u.id, 
-        nome: u.name || u.nome || "Sem Nome" 
+        nome: u.name || u.nome || "Sem Nome",
+        foto: u.photoUrl || u.photoBase64 || null 
     };
   });
 
@@ -613,7 +615,8 @@ export async function createStageApi(pipelineId: string, dados: {
   order: number; 
   key: string; 
   color: string; 
-  sla: number 
+  sla: number;
+  columnTag?: string;
 }) {
   return request(`/pipelines/${pipelineId}/stages`, {
     method: "POST",
@@ -625,7 +628,8 @@ export async function updateStageApi(stageId: string, dados: {
   name?: string; 
   order?: number; 
   color?: string; 
-  sla?: number 
+  sla?: number;
+  columnTag?: string;
 }) {
   return request(`/pipelines/stages/${stageId}`, {
     method: "PATCH",

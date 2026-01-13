@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../common/http.js';
 import { z } from 'zod';
-import { createUser, deleteUser, getUser, listUsers, updateUser } from './user.service.js';
+import { createUser, deleteUser, getUser, listUsers, updateUser, uploadPhoto, removePhoto } from './user.service.js';
 import { LeadModel } from '../leads/lead.model.js';
 
 // Schema de Distribuição
@@ -31,7 +31,7 @@ const createUserSchema = baseUserSchema.extend({
   password: z.string().min(6),
 });
 
-// chema para ATUALIZAÇÃO (Senha Opcional + Atual)
+// Schema para ATUALIZAÇÃO (Senha Opcional + Atual)
 const updateUserSchema = baseUserSchema.extend({
   password: z.string().min(6).optional(),
   currentPassword: z.string().optional(),
@@ -71,7 +71,7 @@ export const updateUserHandler = asyncHandler(async (req: Request, res: Response
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // 🔍 LOG ESPIÃO 1: O que chegou na porta do Backend?
+  // 🔍 LOG ESPIÃO 1
   console.log('---  DEBUG UPDATE ---');
   console.log('1. User Logado:', currentUser?.email, '| Role:', currentUser?.role);
   console.log('2. Body Bruto:', JSON.stringify(req.body.distribution, null, 2));
@@ -99,7 +99,7 @@ export const updateUserHandler = asyncHandler(async (req: Request, res: Response
   try {
     const user = await updateUser(id, body as any);
     
-    // 🔍 LOG ESPIÃO 3: O que o Banco devolveu?
+    // 🔍 LOG ESPIÃO 3
     console.log('4. Salvo no Banco:', JSON.stringify(user?.distribution, null, 2));
     console.log('---------------------');
 
@@ -125,7 +125,10 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  if (currentUser._id.toString() !== id && currentUser.role !== 'admin') {
+  // Verificação de ID segura
+  const currentUserId = currentUser.sub || currentUser._id || currentUser.id;
+  
+  if (currentUserId !== id && currentUser.role !== 'admin') {
     return res.status(403).json({ message: 'Você não tem permissão para alterar a foto deste usuário' });
   }
   
@@ -135,25 +138,40 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
     return res.status(400).json({ message: 'Foto em base64 é obrigatória' });
   }
   
-  const base64Regex = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
-  if (!base64Regex.test(photoBase64)) {
-    return res.status(400).json({ message: 'Formato de imagem inválido. Use JPEG, PNG, GIF ou WebP' });
+  // Validação simples de formato
+  if (!photoBase64.startsWith('data:image')) {
+    return res.status(400).json({ message: 'Formato de imagem inválido.' });
   }
-  
-  const sizeInBytes = (photoBase64.length * 3) / 4;
-  const maxSize = 2 * 1024 * 1024; // 2MB
-  
-  if (sizeInBytes > maxSize) {
-    return res.status(400).json({ message: 'A imagem excede o tamanho máximo de 2MB' });
+
+  // TRAVA DE SEGURANÇA (2MB)
+  try {
+    const content = photoBase64.split(',')[1] || photoBase64;
+    
+    const sizeInBytes = (content.length * 3) / 4;
+    const maxSize = 2 * 1024 * 1024; // 2MB em Bytes
+
+    if (sizeInBytes > maxSize) {
+      return res.status(400).json({ 
+        message: 'A imagem é muito grande. O tamanho máximo permitido é 2MB.' 
+      });
+    }
+  } catch (e) {
+    console.warn("Não foi possível calcular o tamanho da imagem, prosseguindo por segurança...");
   }
   
   try {
-    const user = await updateUser(id, { photoBase64 });
+    const user = await uploadPhoto(id, photoBase64);
+    
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
-    res.json({ message: 'Foto atualizada com sucesso', photoBase64: user.photoBase64 });
+    
+    res.json({ 
+      message: 'Foto atualizada com sucesso', 
+      photoUrl: user.photoUrl,
+      photoBase64: user.photoUrl // Mantém compatibilidade com frontend
+    });
   } catch (error: any) {
     console.error('Erro ao atualizar foto:', error);
-    res.status(500).json({ message: 'Erro ao atualizar foto de perfil' });
+    res.status(500).json({ message: `Erro ao atualizar foto: ${error.message}` });
   }
 });
 
@@ -162,12 +180,15 @@ export const removePhotoHandler = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  if (currentUser._id.toString() !== id && currentUser.role !== 'admin') {
+  const currentUserId = currentUser.sub || currentUser._id || currentUser.id;
+
+  if (currentUserId !== id && currentUser.role !== 'admin') {
     return res.status(403).json({ message: 'Você não tem permissão para remover a foto deste usuário' });
   }
   
   try {
-    const user = await updateUser(id, { photoBase64: null, photoUrl: null });
+    const user = await removePhoto(id);
+    
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
     res.json({ message: 'Foto removida com sucesso' });
   } catch (error: any) {

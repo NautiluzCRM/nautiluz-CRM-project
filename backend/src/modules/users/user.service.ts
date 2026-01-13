@@ -4,6 +4,7 @@ import { sendPasswordResetEmail } from '../../auth/email.service.js';
 import { PasswordResetModel } from '../../auth/password-reset.model.js';
 import { env } from '../../config/env.js';
 import crypto from 'crypto';
+import { uploadImage, deleteImage, getPublicIdFromUrl } from '../../services/cloudinary.service.js';
 
 export function listUsers() {
   return UserModel.find();
@@ -139,4 +140,62 @@ export async function updateUser(id: string, input: Partial<{
 
 export function deleteUser(id: string) {
   return UserModel.findByIdAndDelete(id);
+}
+
+export async function uploadPhoto(id: string, photoBase64: string) {
+  // Busca o usuário para pegar o publicId da foto antiga (se existir)
+  const user = await UserModel.findById(id);
+  if (!user) {
+    throw new Error('Usuário não encontrado');
+  }
+
+  // Deleta a foto antiga do Cloudinary se existir
+  if (user.photoPublicId) {
+    await deleteImage(user.photoPublicId);
+  } else if (user.photoUrl) {
+    // Tenta extrair publicId da URL antiga
+    const oldPublicId = getPublicIdFromUrl(user.photoUrl);
+    if (oldPublicId) {
+      await deleteImage(oldPublicId);
+    }
+  }
+
+  // Faz upload da nova foto para o Cloudinary
+  const { url, publicId } = await uploadImage(photoBase64, 'avatars');
+
+  // Atualiza o usuário com a nova URL e publicId
+  return UserModel.findByIdAndUpdate(
+    id,
+    { 
+      photoUrl: url, 
+      photoPublicId: publicId,
+      $unset: { photoBase64: 1 } // Remove o campo base64 para economizar espaço
+    },
+    { new: true }
+  );
+}
+
+export async function removePhoto(id: string) {
+  // Busca o usuário para pegar o publicId da foto
+  const user = await UserModel.findById(id);
+  if (!user) {
+    throw new Error('Usuário não encontrado');
+  }
+
+  // Deleta a foto do Cloudinary se existir
+  if (user.photoPublicId) {
+    await deleteImage(user.photoPublicId);
+  } else if (user.photoUrl) {
+    const publicId = getPublicIdFromUrl(user.photoUrl);
+    if (publicId) {
+      await deleteImage(publicId);
+    }
+  }
+
+  // Remove os campos de foto do documento
+  return UserModel.findByIdAndUpdate(
+    id,
+    { $unset: { photoBase64: 1, photoUrl: 1, photoPublicId: 1 } },
+    { new: true }
+  );
 }

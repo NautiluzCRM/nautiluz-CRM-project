@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -19,27 +18,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-// 👇 IMPORTANTE: ADICIONADO OS SELECTS AQUI
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Users, 
-  TrendingUp, 
   Target, 
   DollarSign, 
   Search,
   UserCheck,
   UserX,
   Loader2,
-  BarChart3,
-  Activity,
-  Zap,
-  Trophy,
   Settings,
   Edit,
   Trash2,
   UserPlus
 } from "lucide-react";
-import { fetchSellersStats, createUserApi, updateUserApi, deleteUserApi, getUserApi } from "@/lib/api";
+import { createUserApi, updateUserApi, deleteUserApi, getUserApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Navigate } from "react-router-dom";
@@ -86,7 +78,6 @@ const GestaoVendedores = () => {
   const { vendedores, totals, isLoading, refreshStats, lastUpdated } = useStats();
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
 
   // Estado do modal de CRUD Básico
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -260,10 +251,7 @@ const GestaoVendedores = () => {
     v.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const { totalVendedores, vendedoresAtivos, totalLeadsEquipe, valorTotalEquipe, mediaConversao } = totals;
-  const topPorValor = [...vendedores].sort((a, b) => b.valorTotalPipeline - a.valorTotalPipeline).slice(0, 5);
-  const topPorConversao = [...vendedores].sort((a, b) => b.taxaConversao - a.taxaConversao).slice(0, 5);
-  const topPorLeads = [...vendedores].sort((a, b) => b.totalLeads - a.totalLeads).slice(0, 5);
+  const { totalVendedores, vendedoresAtivos, totalLeadsEquipe, valorTotalEquipe } = totals;
 
   if (isLoading) {
     return (
@@ -315,7 +303,7 @@ const GestaoVendedores = () => {
       <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-6">
         
         {/* Cards de Métricas */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 dark:from-primary/10 dark:to-primary/5 dark:border-primary/30">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -362,145 +350,19 @@ const GestaoVendedores = () => {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20 dark:from-warning/10 dark:to-warning/5 dark:border-warning/30">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-warning font-medium">Taxa Conversão</p>
-                  <p className="text-2xl font-bold text-warning dark:text-foreground">{mediaConversao.toFixed(1)}%</p>
-                  <p className="text-xs text-warning/80 dark:text-foreground/80">média geral</p>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-warning/20 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-warning" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="overview" className="flex items-center gap-1.5 text-sm">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Visão Geral</span>
-            </TabsTrigger>
-            <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-sm">
-              <Trophy className="h-4 w-4" />
-              <span className="hidden sm:inline">Ranking</span>
-            </TabsTrigger>
-            <TabsTrigger value="detalhes" className="flex items-center gap-1.5 text-sm">
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">Detalhes</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="mt-4 space-y-4">
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-success/80" /> Top por Valor em Pipeline
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {topPorValor.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                        index === 0 ? 'bg-yellow-500 text-white' : 
-                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
-                        index === 2 ? 'bg-orange-400 text-white' : 
-                        'bg-muted text-muted-foreground'
-                      }`}>{index + 1}</div>
-                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
-                      <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-accent-foreground/80" /> Top por Taxa de Conversão
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {topPorConversao.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                        index === 0 ? 'bg-yellow-500 text-white' : 
-                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
-                        index === 2 ? 'bg-orange-400 text-white' : 
-                        'bg-muted text-muted-foreground'
-                      }`}>{index + 1}</div>
-                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
-                      <div className="flex-1">
-                        <p className="font-semibold">{v.nome}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Progress value={v.taxaConversao} className="h-1.5 flex-1" />
-                          <span className="text-sm font-medium text-muted-foreground">{v.taxaConversao.toFixed(1)}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary/80" /> Top por Quantidade de Leads
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {topPorLeads.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                        index === 0 ? 'bg-yellow-500 text-white' : 
-                        index === 1 ? 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100' : 
-                        index === 2 ? 'bg-orange-400 text-white' : 
-                        'bg-muted text-muted-foreground'
-                      }`}>{index + 1}</div>
-                      <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
-                      <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.totalLeads} leads</p></div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="ranking" className="mt-4 space-y-4">
-             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" /> Ranking de Vendedores
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {filteredVendedores.map((v, index) => (
-                    <div key={v.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card">
-                       <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold bg-muted">{index + 1}</div>
-                       <Avatar className="h-10 w-10"><AvatarImage src={v.foto || ''} /><AvatarFallback>{v.nome.substring(0,2)}</AvatarFallback></Avatar>
-                       <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-sm text-muted-foreground">{v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="detalhes" className="mt-4 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Detalhes dos Vendedores</CardTitle>
-                <CardDescription>
-                  Informações completas de cada membro da equipe
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
+        {/* Tabela de Detalhes */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Detalhes dos Vendedores</CardTitle>
+            <CardDescription>
+              Informações completas de cada membro da equipe
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Vendedor</TableHead>
@@ -629,8 +491,6 @@ const GestaoVendedores = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
       </div>
 
       {/* Modal de Criar/Editar Vendedor (Básico) */}

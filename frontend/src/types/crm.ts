@@ -1,6 +1,7 @@
 export interface LeadOwner {
   id: string;
   nome: string;
+  foto?: string | null; 
 }
 
 // ADICIONE ISTO: A interface que faltava
@@ -79,6 +80,7 @@ export interface Coluna {
   ordem: number;
   sla?: number; // em horas
   wipLimit?: number;
+  columnTag?: string;
 }
 
 export interface Usuario {

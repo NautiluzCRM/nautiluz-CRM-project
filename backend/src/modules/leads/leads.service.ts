@@ -79,14 +79,14 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
 
   return LeadModel.find(query)
     .sort({ createdAt: -1 })
-    .populate('owners', 'name email') 
-    .populate('owner', 'name email');
+    .populate('owners', 'name email photoUrl photoBase64') 
+    .populate('owner', 'name email photoUrl photoBase64');
 }
 
 export function getLead(id: string) {
   return LeadModel.findById(id)
-    .populate('owners', 'name email')
-    .populate('owner', 'name email')
+    .populate('owners', 'name email photoUrl photoBase64')
+    .populate('owner', 'name email photoUrl photoBase64')
     .lean();
 }
 
@@ -246,9 +246,9 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
       { ...input, updatedBy: updatedById }, 
       { new: true }
     )
-    .populate('owners', 'name email')
-    .populate('owner', 'name email');
-  
+    .populate('owners', 'name email photoUrl photoBase64')
+    .populate('owner', 'name email photoUrl photoBase64');
+
   const updatorId = user?.sub;
   const userDoc = updatorId ? await UserModel.findById(updatorId) : null;
   const userName = userDoc?.name || 'Sistema';
