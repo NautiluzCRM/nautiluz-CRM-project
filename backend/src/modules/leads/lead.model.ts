@@ -56,8 +56,10 @@ export type QualificationStatus = typeof qualificationStatuses[number];
  * Tipos de CNPJ
  * CORREÇÃO: Adicionado 'ME' que estava faltando e causando erro
  */
+
 export const cnpjTypes = ['MEI', 'EI', 'ME', 'EPP', 'SLU', 'LTDA', 'SS', 'SA', 'Média', 'Grande', 'Outro', 'Outros'] as const;
 export type CnpjType = typeof cnpjTypes[number];
+
 
 /**
  * Prioridades do lead
@@ -192,7 +194,7 @@ const leadSchema = new Schema<Lead>(
     // Dados da empresa
     hasCnpj: Boolean,
     cnpj: { type: String, index: true },
-    cnpjType: { type: String, enum: cnpjTypes },
+    cnpjType: { type: String },
     razaoSocial: String,
     nomeFantasia: String,
     
