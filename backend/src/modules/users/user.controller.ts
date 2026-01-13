@@ -196,7 +196,7 @@ export const removePhotoHandler = asyncHandler(async (req: Request, res: Respons
 // Estatísticas de vendedores
 export const getSellersStatsHandler = asyncHandler(async (_req: Request, res: Response) => {
   const users = await listUsers();
-  const sellers = users.filter((u: any) => u.role === 'vendedor');
+  const sellers = users;
   const leads = await LeadModel.find().lean();
   
   const hoje = new Date();
