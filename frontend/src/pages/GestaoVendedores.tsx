@@ -274,7 +274,7 @@ const GestaoVendedores = () => {
               Acompanhe o desempenho da sua equipe de vendas
               {lastUpdated && (
                 <span className="ml-2 text-xs opacity-60">
-                  • Atualizado {new Date(lastUpdated).toLocaleTimeString('pt-BR')}
+                  • Atualizado {new Date(lastUpdated).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                 </span>
               )}
             </p>

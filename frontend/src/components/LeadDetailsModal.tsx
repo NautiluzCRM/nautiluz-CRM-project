@@ -947,6 +947,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                             </Badge>
                             <span className="text-[10px] text-muted-foreground">
                               {new Date(atividade.createdAt).toLocaleDateString('pt-BR', { 
+                                timeZone: 'America/Sao_Paulo',
                                 day: '2-digit', 
                                 month: 'short',
                                 hour: '2-digit',
@@ -970,7 +971,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                             Detalhes da Atividade
                           </DialogTitle>
                           <DialogDescription>
-                            Registrado por <span className="font-semibold text-foreground">{atividade.userName || 'Sistema'}</span> em {new Date(atividade.createdAt).toLocaleString('pt-BR')}
+                            Registrado por <span className="font-semibold text-foreground">{atividade.userName || 'Sistema'}</span> em {new Date(atividade.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                           </DialogDescription>
                         </DialogHeader>
 

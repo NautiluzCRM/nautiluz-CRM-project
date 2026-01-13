@@ -408,9 +408,11 @@ const Calendario = () => {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {evento.dataHora.toLocaleDateString('pt-BR', { 
+                              timeZone: 'America/Sao_Paulo',
                               day: '2-digit', 
                               month: '2-digit' 
                             })} às {evento.dataHora.toLocaleTimeString('pt-BR', { 
+                              timeZone: 'America/Sao_Paulo',
                               hour: '2-digit', 
                               minute: '2-digit' 
                             })}
