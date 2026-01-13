@@ -231,14 +231,6 @@ const Login = () => {
                   )}
                 </Button>
               </form>
-
-              {/* Credenciais de teste */}
-              <div className="mt-4 p-3 bg-muted/50 rounded-lg text-xs space-y-1 text-center">
-                <p className="text-muted-foreground font-medium mb-2">Credenciais de teste:</p>
-                <p className="font-mono">admin@nautiluz.com / demo123</p>
-                <p className="font-mono">vendas@nautiluz.com / demo123</p>
-                <p className="font-mono">financeiro@nautiluz.com / demo123</p>
-              </div>
             </CardContent>
           </Card>
 
