@@ -290,10 +290,10 @@ const GestaoVendedores = () => {
                 className="pl-10"
               />
             </div>
-            <Button onClick={handleNovoVendedor} className="shrink-0">
+            {/*<Button onClick={handleNovoVendedor} className="shrink-0">
               <UserPlus className="h-4 w-4 mr-2" />
               Novo Vendedor
-            </Button>
+            </Button>*/}
           </div>
         </div>
       </div>
@@ -451,7 +451,7 @@ const GestaoVendedores = () => {
                                 <Settings className="h-4 w-4" />
                               </Button>
 
-                              <Button
+                              {/*<Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
@@ -471,7 +471,7 @@ const GestaoVendedores = () => {
                                 title="Excluir"
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </Button>
+                              </Button>*/}
                             </div>
                           </TableCell>
                         </TableRow>
