@@ -299,11 +299,12 @@ export function mapApiLeadToLead(api: any): Lead {
   // Se o backend populou, 'u' é objeto. Se não, 'u' é string (ID).
   const normalizedOwners = rawOwners.map((u: any) => {
     if (typeof u === 'string') {
-        return { id: u, nome: "Carregando..." }; // Fallback caso não tenha populado
+        return { id: u, nome: "Carregando...", foto: null }; 
     }
     return { 
         id: u._id || u.id, 
-        nome: u.name || u.nome || "Sem Nome" 
+        nome: u.name || u.nome || "Sem Nome",
+        foto: u.photoUrl || u.photoBase64 || null 
     };
   });
 

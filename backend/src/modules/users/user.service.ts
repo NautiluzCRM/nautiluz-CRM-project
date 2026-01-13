@@ -140,3 +140,21 @@ export async function updateUser(id: string, input: Partial<{
 export function deleteUser(id: string) {
   return UserModel.findByIdAndDelete(id);
 }
+
+export async function uploadPhoto(id: string, photoBase64: string) {
+  // Atualiza tanto photoUrl quanto photoBase64 para garantir compatibilidade
+  return UserModel.findByIdAndUpdate(
+    id,
+    { photoBase64: photoBase64, photoUrl: photoBase64 },
+    { new: true }
+  );
+}
+
+export async function removePhoto(id: string) {
+  // Usa $unset para remover fisicamente os campos do documento
+  return UserModel.findByIdAndUpdate(
+    id,
+    { $unset: { photoBase64: 1, photoUrl: 1 } },
+    { new: true }
+  );
+}

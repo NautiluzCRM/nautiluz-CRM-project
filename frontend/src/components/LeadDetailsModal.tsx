@@ -596,7 +596,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                   {sortedOwners.map((owner: any) => (
                     <div key={owner.id} className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                       <Avatar className="h-9 w-9 border-2">
-                        <AvatarImage src="" alt={owner.nome} />
+                        {/* Usamos owner.foto que vem do backend */}
+                        <AvatarImage 
+                          src={owner.foto || ""} 
+                          alt={owner.nome} 
+                          className="object-cover"
+                        />
                         <AvatarFallback className="bg-primary text-white text-xs font-semibold">
                           {owner.nome.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
@@ -611,6 +616,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
               ) : (
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                   <Avatar className="h-9 w-9 border-2">
+                    {/* Fallback para lead antigo sem array de owners (apenas string nome) */}
                     <AvatarImage src="" alt={lead.responsavel || "Vendedor"} />
                     <AvatarFallback className="bg-primary text-white text-xs font-semibold">
                       {(lead.responsavel || "VD").substring(0, 2).toUpperCase()}

@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge"; 
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { createLeadApi, fetchPipelines, fetchStages, fetchUsers } from "@/lib/api";
 import { Loader2, CheckCircle2, X, Plus, User, Users, ArrowRight, ArrowLeft, Check } from "lucide-react";
@@ -511,10 +512,22 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                       <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedOwners.includes(user.id) ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
                         {selectedOwners.includes(user.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
                       </div>
+
                       <div className="flex items-center gap-2 overflow-hidden">
-                        <div className="bg-slate-200 p-1 rounded-full"><User className="h-3 w-3 text-slate-500" /></div>
+                        <Avatar className="h-6 w-6">
+                          {/* Tenta pegar foto (do map) ou photoUrl (bruto) */}
+                          <AvatarImage
+                            src={user.foto || user.photoUrl || ""}
+                            alt={user.nome}
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="text-[10px] bg-slate-200 text-slate-600 font-bold">
+                            {user.nome ? user.nome.substring(0, 2).toUpperCase() : "US"}
+                          </AvatarFallback>
+                        </Avatar>
                         <span className="text-sm truncate select-none">{user.nome}</span>
                       </div>
+
                     </div>
                   ))}
                 </div>
