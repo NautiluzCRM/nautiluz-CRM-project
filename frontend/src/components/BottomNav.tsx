@@ -104,6 +104,11 @@ export function BottomNav() {
                   <Plug className="h-4 w-4" />
                   Integrações
                 </DropdownMenuItem>
+              </Link><Link to="/gerenciar-usuarios">
+                <DropdownMenuItem className="gap-2 cursor-pointer">
+                  <Users className="h-4 w-4" />
+                  Gerenciar Usuários
+                </DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator />
             </>
