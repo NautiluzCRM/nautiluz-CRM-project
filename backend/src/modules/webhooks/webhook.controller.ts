@@ -10,7 +10,6 @@ import { Note } from '../../models/Note.model.js';
 
 const SYSTEM_ID = process.env.SYSTEM_USER_ID || '000000000000000000000000';
 
-// Lista de tipos aceitos pelo Enum do Mongoose (conforme seu LeadModel)
 const TIPOS_CNPJ_VALIDOS = [
   "MEI", "ME", "EI", "EPP", "SLU", "LTDA", "SS", "SA", 
   "Média", "Grande", "Outro", "Outros"
@@ -28,6 +27,18 @@ const textoParaBooleano = (texto: any): boolean => {
   if (!texto) return false;
   const t = String(texto).toLowerCase().trim();
   return t === 'sim' || t === 'yes' || t === 'true' || t === 's' || t === '1';
+};
+
+const formatarFaixasEtarias = (buckets: number[]): string => {
+  if (!buckets || buckets.length === 0) return '-';
+  const labels = [
+    '0 a 18', '19 a 23', '24 a 28', '29 a 33', '34 a 38',
+    '39 a 43', '44 a 48', '49 a 53', '54 a 58', '59 ou mais'
+  ];
+  return buckets.map((qtd, index) => {
+    const label = labels[index] || `Faixa ${index + 1}`;
+    return `${label} = ${qtd}`;
+  }).join('\n');
 };
 
 const processarFaixasEtarias = (textoInput: string) => {
@@ -64,15 +75,19 @@ const processarFaixasEtarias = (textoInput: string) => {
 };
 
 const gerarResumoTecnicoWebhook = (dados: any) => {
-  const { investimento, hospitalPreferencia, temCnpj, temPlano, cidade, estado, tipoCNPJ, operadora } = dados;
+  const { temCnpj, tipoCNPJ, temPlano, operadora, hospitalPreferencia, textoFaixas } = dados;
+  
+  const detalheCnpj = temCnpj && tipoCNPJ ? `(${tipoCNPJ})` : '';
+  const detalhePlano = temPlano && operadora ? `(${operadora})` : '';
+
   return `
-DADOS TÉCNICOS (WEBHOOK):
----------------------------
-Investimento: R$ ${investimento || '0,00'}
-Hospital: ${hospitalPreferencia || '-'}
-CNPJ: ${temCnpj ? 'SIM' : 'NÃO'} ${tipoCNPJ ? `(${tipoCNPJ})` : ''}
-Plano Atual: ${temPlano ? 'SIM' : 'NÃO'} ${operadora ? `(${operadora})` : ''}
-Local: ${cidade || '-'} / ${estado || '-'}
+DADOS TÉCNICOS DO FORMULÁRIO:
+
+ CNPJ: ${temCnpj ? 'SIM' : 'NÃO'} ${detalheCnpj}
+ Plano Atual: ${temPlano ? 'SIM' : 'NÃO'} ${detalhePlano}
+ Hospitais: ${hospitalPreferencia && hospitalPreferencia.length ? hospitalPreferencia : 'Não informado'}
+ Faixas Etárias:
+${textoFaixas}
 `.trim();
 };
 
@@ -109,24 +124,32 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
      emailClean = ''; 
   }
 
-  // 1. Tratamento do Tipo de CNPJ (CORREÇÃO DE BUG DO FACEBOOK TEST DATA)
   let cnpjTypeFinal = '';
-  // Se o Facebook mandar "<test lead...>" ou algo fora da lista, virará vazio.
   if (tipoCNPJ && TIPOS_CNPJ_VALIDOS.includes(tipoCNPJ)) {
     cnpjTypeFinal = tipoCNPJ;
   }
 
-  // 2. Cidade Inteligente
   const cidadeFinal = [cidade, city, City].find(val => val && val.trim().length > 0) || 'A verificar';
   const estadoFinal = [estado, state, State].find(val => val && val.trim().length > 0) || 'SP';
 
-  // 3. Vidas
+  // --- NOVA LÓGICA DE VIDAS (MAIOR VALOR VENCE) ---
   const { faixas, idadesArray } = processarFaixasEtarias(distribuicaoVidas);
-  let lives = Number(quantidadeVidas);
-  if (!lives || isNaN(lives) || lives === 0) {
-    const somaVidas = idadesArray.reduce((acc, curr) => acc + curr, 0);
-    lives = somaVidas > 0 ? somaVidas : 1;
-  }
+  
+  // 1. Calcula soma das faixas
+  const somaFaixas = idadesArray.reduce((acc, curr) => acc + curr, 0);
+
+  // 2. Pega o valor do campo quantidade
+  const livesDeclaradas = Number(quantidadeVidas);
+  const livesFromField = (!isNaN(livesDeclaradas) && livesDeclaradas > 0) ? livesDeclaradas : 0;
+
+  // 3. Usa o maior valor encontrado
+  let lives = Math.max(somaFaixas, livesFromField);
+
+  // 4. Fallback se tudo for zero
+  if (lives === 0) lives = 1;
+  // ------------------------------------------------
+
+  const textoFaixas = formatarFaixasEtarias(idadesArray);
 
   const temCnpj = textoParaBooleano(possuiCNPJ);
   const temPlano = textoParaBooleano(jaTemPlano);
@@ -135,13 +158,14 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
 
   const dadosFormatados = { 
     investimento: valorEstimado, 
-    hospitalPreferencia, 
+    hospitalPreferencia: listaHospitais.join(', '), 
     temCnpj, 
     temPlano, 
     cidade: cidadeFinal, 
     estado: estadoFinal, 
-    tipoCNPJ: cnpjTypeFinal, // Usa o valor tratado  
-    operadora  
+    tipoCNPJ: cnpjTypeFinal,   
+    operadora,
+    textoFaixas
   };
 
   const searchConditions: any[] = [{ phone: phoneClean }];
@@ -152,19 +176,17 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   const existingLead = await LeadModel.findOne({ $or: searchConditions });
 
   // ===============================================================
-  // CASO 1: ATUALIZAÇÃO (LEAD EXISTENTE)
+  // CASO 1: ATUALIZAÇÃO
   // ===============================================================
   if (existingLead) {
     console.log(`[WEBHOOK] Atualizando Lead: ${existingLead.name}`);
 
-    // 👇 IMPORTANTE: Busca a etapa inicial (Novo) para resetar o lead
     const pipelineDefault = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
     const stageNovo = await StageModel.findOne({ pipelineId: pipelineDefault?._id, key: 'novo' });
 
     let novoDono = existingLead.owners || [];
     let houveRedistribuicao = false;
     
-    // ... Lógica de Sticky Routing ...
     const donoAtualId = (existingLead.owners && existingLead.owners.length > 0) ? existingLead.owners[0] : null;
     let manterDonoAtual = false;
     if (donoAtualId) {
@@ -199,12 +221,12 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
 
     const resumoTecnico = gerarResumoTecnicoWebhook(dadosFormatados);
     const logUnificado = houveRedistribuicao 
-      ? `🔄 Lead RE-CONVERTIDO e REDISTRIBUÍDO\n${resumoTecnico}` 
-      : `🔄 Lead RE-CONVERTIDO (Mantido)\n${resumoTecnico}`;
+      ? `Lead atualizado via Webhook (REDISTRIBUÍDO).\n\n${resumoTecnico}` 
+      : `Lead atualizado via Webhook.\n\n${resumoTecnico}`;
 
     const leadAny = existingLead as any;
 
-    const updatedLead = await updateLead(existingLead._id.toString(), {
+    await updateLead(existingLead._id.toString(), {
       name: nome,
       phone: phoneClean,
       email: (emailClean && emailClean !== '') ? emailClean : existingLead.email,
@@ -218,15 +240,10 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
       owners: novoDono,
       faixasEtarias: faixas,
       ageBuckets: idadesArray,
-      
-      // 👇 CAMPOS IMPORTANTES: Usando a variável tratada
       cnpjType: cnpjTypeFinal, 
       currentPlan: operadora || '', 
-      
-      // 👇 A MÁGICA: FORÇA A VOLTA PARA A ETAPA "NOVO"
       pipelineId: pipelineDefault?._id.toString(),
       stageId: stageNovo ? stageNovo._id.toString() : existingLead.stageId,
-
       lastActivity: new Date(),
       customUpdateLog: logUnificado 
     });
@@ -244,7 +261,8 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
 
   const donoInicial = await findNextResponsible(lives, temCnpj);
   const ownersList = donoInicial ? [donoInicial] : []; 
-  const logTecnicoUnificado = `Lead criado via Webhook.\n\n${gerarResumoTecnicoWebhook(dadosFormatados)}`;
+  
+  const logTecnicoUnificado = `Lead criado via Site.\n\n${gerarResumoTecnicoWebhook(dadosFormatados)}`;
 
   const resultLead = await createLead({
     name: nome,
@@ -265,11 +283,8 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     preferredHospitals: listaHospitais,
     faixasEtarias: faixas,
     ageBuckets: idadesArray,
-
-    // 👇 Usando a variável tratada
     cnpjType: cnpjTypeFinal,
     currentPlan: operadora || '', 
-
     customCreationLog: logTecnicoUnificado
   });
 
