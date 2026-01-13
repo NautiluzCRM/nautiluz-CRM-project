@@ -21,7 +21,11 @@ const envSchema = z.object({
   EXPORT_SIGNED_URL_TTL_SECONDS: z.string().default('3600').transform(Number),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Nautiluz CRM <noreply@nautiluz.com>'),
-  RESEND_FROM_EMAIL: z.string().default('onboarding@resend.dev')
+  RESEND_FROM_EMAIL: z.string().default('onboarding@resend.dev'),
+  // Cloudinary - Serviço gratuito para armazenamento de imagens
+  CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
+  CLOUDINARY_API_KEY: z.string().optional().default(''),
+  CLOUDINARY_API_SECRET: z.string().optional().default('')
 });
 
 export const env = envSchema.parse(process.env);

@@ -43,7 +43,8 @@ const userSchema = new mongoose.Schema(
     jobTitle: { type: String },
     emailSignature: { type: String },
     photoUrl: { type: String },
-    photoBase64: { type: String },
+    photoBase64: { type: String }, // Mantido para compatibilidade, mas não mais usado
+    photoPublicId: { type: String }, // ID da imagem no Cloudinary para deletar
     lastLoginAt: { type: Date },
     
     // Preferências

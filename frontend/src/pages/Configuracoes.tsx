@@ -696,22 +696,32 @@ const Configuracoes = () => {
 
       // Atualizar foto se mudou
       const fotoAtual = (user as any).photoBase64 || user.photoUrl || null;
+      let novaPhotoUrl = fotoAtual;
+      
       if (fotoPerfil !== fotoAtual) {
         if (fotoPerfil && fotoPerfil.startsWith('data:image/')) {
-          // Upload de nova foto
-          await uploadUserPhotoApi(userId, fotoPerfil);
+          // Upload de nova foto - retorna a URL do Cloudinary
+          const result = await uploadUserPhotoApi(userId, fotoPerfil);
+          novaPhotoUrl = result.photoUrl || result.photoBase64 || fotoPerfil;
         } else if (fotoPerfil === null) {
           // Remover foto
           await removeUserPhotoApi(userId);
+          novaPhotoUrl = undefined;
         }
       }
 
       updateUserLocal({
         name: perfilNome,
         email: perfilEmail,
-        photoBase64: fotoPerfil || undefined,
+        photoUrl: novaPhotoUrl || undefined,
+        photoBase64: undefined, // Não usamos mais base64 local
         ...({ phone: perfilTelefone, jobTitle: perfilCargo, emailSignature: perfilAssinatura } as any)
       });
+
+      // Atualiza o estado local da foto com a URL do Cloudinary
+      if (novaPhotoUrl && novaPhotoUrl !== fotoPerfil) {
+        setFotoPerfil(novaPhotoUrl);
+      }
 
       toast({
         title: "Perfil Atualizado",

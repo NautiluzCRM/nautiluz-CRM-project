@@ -164,7 +164,11 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
     
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
     
-    res.json({ message: 'Foto atualizada com sucesso', photoBase64: user.photoBase64 });
+    res.json({ 
+      message: 'Foto atualizada com sucesso', 
+      photoUrl: user.photoUrl,
+      photoBase64: user.photoUrl // Mantém compatibilidade com frontend
+    });
   } catch (error: any) {
     console.error('Erro ao atualizar foto:', error);
     res.status(500).json({ message: `Erro ao atualizar foto: ${error.message}` });
