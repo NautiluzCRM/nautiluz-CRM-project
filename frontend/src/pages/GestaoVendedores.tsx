@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { 
@@ -369,7 +368,6 @@ const GestaoVendedores = () => {
                         <TableHead className="text-center">Status</TableHead>
                         <TableHead className="text-center">Leads</TableHead>
                         <TableHead className="text-center">Qualificados</TableHead>
-                        <TableHead className="text-center">Conversão</TableHead>
                         <TableHead className="text-right">Valor Pipeline</TableHead>
                         <TableHead className="text-center">Ações</TableHead>
                       </TableRow>
@@ -439,12 +437,6 @@ const GestaoVendedores = () => {
                           </TableCell>
                           <TableCell className="text-center font-medium">{v.totalLeads}</TableCell>
                           <TableCell className="text-center">{v.leadsQualificados}</TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <Progress value={v.taxaConversao} className="w-16 h-1.5" />
-                              <span className="text-xs font-medium">{v.taxaConversao.toFixed(1)}%</span>
-                            </div>
-                          </TableCell>
                           <TableCell className="text-right font-medium">
                             {v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </TableCell>
