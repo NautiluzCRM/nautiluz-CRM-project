@@ -290,10 +290,10 @@ const GestaoVendedores = () => {
                 className="pl-10"
               />
             </div>
-            <Button onClick={handleNovoVendedor} className="shrink-0">
+            {/*<Button onClick={handleNovoVendedor} className="shrink-0">
               <UserPlus className="h-4 w-4 mr-2" />
               Novo Vendedor
-            </Button>
+            </Button>*/}
           </div>
         </div>
       </div>
