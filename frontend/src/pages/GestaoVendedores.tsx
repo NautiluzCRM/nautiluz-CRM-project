@@ -367,7 +367,6 @@ const GestaoVendedores = () => {
                         <TableHead>Vendedor</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                         <TableHead className="text-center">Leads</TableHead>
-                        <TableHead className="text-center">Qualificados</TableHead>
                         <TableHead className="text-right">Valor Pipeline</TableHead>
                         <TableHead className="text-center">Ações</TableHead>
                       </TableRow>
@@ -436,7 +435,6 @@ const GestaoVendedores = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center font-medium">{v.totalLeads}</TableCell>
-                          <TableCell className="text-center">{v.leadsQualificados}</TableCell>
                           <TableCell className="text-right font-medium">
                             {v.valorTotalPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </TableCell>

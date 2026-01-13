@@ -1148,8 +1148,7 @@ const Configuracoes = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="Vendedor">Vendedor</SelectItem>
-                                  <SelectItem value="Financeiro">Financeiro</SelectItem>
-                                  <SelectItem value="Administrador">Administrador</SelectItem>
+                                  <SelectItem value="Administrador">Admin</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -1173,17 +1172,6 @@ const Configuracoes = () => {
                               value={novoTelefone}
                               onChange={(e) => setNovoTelefone(formatPhone(e.target.value))}
                               maxLength={15}
-                            />
-                          </div>
-
-                          {/* Linha 4: Assinatura */}
-                          <div className="space-y-2">
-                            <Label htmlFor="assinaturaUsuario">Assinatura de E-mail</Label>
-                            <Textarea
-                              id="assinaturaUsuario"
-                              placeholder="Assinatura padrão para e-mails..."
-                              value={novaAssinatura}
-                              onChange={(e) => setNovaAssinatura(e.target.value)}
                             />
                           </div>
 
@@ -1214,7 +1202,7 @@ const Configuracoes = () => {
                     </Dialog>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
                       {usuarios.map((usuario) => (
                         <div key={usuario.id} className="grid grid-cols-[1fr_auto] items-center gap-2 sm:gap-4 p-3 sm:p-4 border border-border rounded-lg">
 
