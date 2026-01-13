@@ -316,7 +316,7 @@ const Index = () => {
                     </div>
 
                     {/* Filtro por Status */}
-                    <div className="space-y-2">
+                    {/*<div className="space-y-2">
                       <Label htmlFor="filter-status">Status de Qualificação</Label>
                       <Select value={filters.status} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v }))}>
                         <SelectTrigger id="filter-status">
@@ -330,7 +330,7 @@ const Index = () => {
                           <SelectItem value="Sem interesse">Sem interesse</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
+                    </div>*/}
 
                     {/* Filtro por Quantidade de Vidas */}
                     <div className="space-y-2">
