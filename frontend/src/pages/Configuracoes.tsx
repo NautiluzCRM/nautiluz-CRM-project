@@ -696,22 +696,32 @@ const Configuracoes = () => {
 
       // Atualizar foto se mudou
       const fotoAtual = (user as any).photoBase64 || user.photoUrl || null;
+      let novaPhotoUrl = fotoAtual;
+      
       if (fotoPerfil !== fotoAtual) {
         if (fotoPerfil && fotoPerfil.startsWith('data:image/')) {
-          // Upload de nova foto
-          await uploadUserPhotoApi(userId, fotoPerfil);
+          // Upload de nova foto - retorna a URL do Cloudinary
+          const result = await uploadUserPhotoApi(userId, fotoPerfil) as { photoUrl?: string; photoBase64?: string };
+          novaPhotoUrl = result.photoUrl || result.photoBase64 || fotoPerfil;
         } else if (fotoPerfil === null) {
           // Remover foto
           await removeUserPhotoApi(userId);
+          novaPhotoUrl = undefined;
         }
       }
 
       updateUserLocal({
         name: perfilNome,
         email: perfilEmail,
-        photoBase64: fotoPerfil || undefined,
+        photoUrl: novaPhotoUrl || undefined,
+        photoBase64: undefined, // Não usamos mais base64 local
         ...({ phone: perfilTelefone, jobTitle: perfilCargo, emailSignature: perfilAssinatura } as any)
       });
+
+      // Atualiza o estado local da foto com a URL do Cloudinary
+      if (novaPhotoUrl && novaPhotoUrl !== fotoPerfil) {
+        setFotoPerfil(novaPhotoUrl);
+      }
 
       toast({
         title: "Perfil Atualizado",
@@ -1006,7 +1016,7 @@ const Configuracoes = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                {/*<div className="space-y-2">
                   <Label htmlFor="assinatura">Assinatura de E-mail</Label>
                   <Textarea
                     id="assinatura"
@@ -1015,6 +1025,7 @@ const Configuracoes = () => {
                     placeholder="Sua assinatura..."
                   />
                 </div>
+                */}
                 <div className="flex justify-begin">
                   <Button
                     onClick={handleSalvarDados}
@@ -1137,8 +1148,7 @@ const Configuracoes = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="Vendedor">Vendedor</SelectItem>
-                                  <SelectItem value="Financeiro">Financeiro</SelectItem>
-                                  <SelectItem value="Administrador">Administrador</SelectItem>
+                                  <SelectItem value="Administrador">Admin</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -1162,17 +1172,6 @@ const Configuracoes = () => {
                               value={novoTelefone}
                               onChange={(e) => setNovoTelefone(formatPhone(e.target.value))}
                               maxLength={15}
-                            />
-                          </div>
-
-                          {/* Linha 4: Assinatura */}
-                          <div className="space-y-2">
-                            <Label htmlFor="assinaturaUsuario">Assinatura de E-mail</Label>
-                            <Textarea
-                              id="assinaturaUsuario"
-                              placeholder="Assinatura padrão para e-mails..."
-                              value={novaAssinatura}
-                              onChange={(e) => setNovaAssinatura(e.target.value)}
                             />
                           </div>
 
@@ -1203,7 +1202,7 @@ const Configuracoes = () => {
                     </Dialog>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
                       {usuarios.map((usuario) => (
                         <div key={usuario.id} className="grid grid-cols-[1fr_auto] items-center gap-2 sm:gap-4 p-3 sm:p-4 border border-border rounded-lg">
 

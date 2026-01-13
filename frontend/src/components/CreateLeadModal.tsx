@@ -34,7 +34,8 @@ interface CreateLeadModalProps {
   onSuccess: () => void;
 }
 
-const STEPS = [
+// Steps base - Responsáveis só aparece para admin
+const STEPS_WITH_OWNERS = [
   { id: 1, title: "Contato", icon: User },
   { id: 2, title: "Seguro", icon: CheckCircle2 },
   { id: 3, title: "Vidas ANS", icon: Users },
@@ -42,11 +43,22 @@ const STEPS = [
   { id: 5, title: "Finalizar", icon: Check }
 ];
 
+const STEPS_WITHOUT_OWNERS = [
+  { id: 1, title: "Contato", icon: User },
+  { id: 2, title: "Seguro", icon: CheckCircle2 },
+  { id: 3, title: "Vidas ANS", icon: Users },
+  { id: 4, title: "Finalizar", icon: Check }
+];
+
 export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  
+  // Admin vê a etapa de responsáveis, outros usuários não
+  const isAdmin = user?.role === 'admin' || user?.role === 'administrador';
+  const STEPS = isAdmin ? STEPS_WITH_OWNERS : STEPS_WITHOUT_OWNERS;
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -72,6 +84,42 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
   const [faixas, setFaixas] = useState<number[]>(Array(10).fill(0));
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
+  
+  // Cidades do IBGE
+  const [cidades, setCidades] = useState<string[]>([]);
+  const [loadingCidades, setLoadingCidades] = useState(false);
+
+  // Buscar cidades do IBGE quando UF mudar
+  useEffect(() => {
+    async function fetchCidadesIBGE() {
+      if (!formData.uf) {
+        setCidades([]);
+        return;
+      }
+      
+      setLoadingCidades(true);
+      try {
+        const response = await fetch(
+          `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${formData.uf}/municipios?orderBy=nome`
+        );
+        const data = await response.json();
+        const nomeCidades = data.map((cidade: any) => cidade.nome);
+        setCidades(nomeCidades);
+        
+        // Se a cidade atual não existe na nova lista, limpa
+        if (formData.cidade && !nomeCidades.includes(formData.cidade)) {
+          handleChange("cidade", "");
+        }
+      } catch (error) {
+        console.error("Erro ao buscar cidades do IBGE:", error);
+        setCidades([]);
+      } finally {
+        setLoadingCidades(false);
+      }
+    }
+    
+    fetchCidadesIBGE();
+  }, [formData.uf]);
 
   useEffect(() => {
     async function loadUsers() {
@@ -81,27 +129,27 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
         
         // Filtra apenas os ativos
         const activeUsers = users.filter((u: any) => u.ativo);
+        const userIsAdmin = user?.role === 'admin' || user?.role === 'administrador';
 
-        // SE O USUÁRIO FOR VENDEDOR, mostra apenas ele mesmo
-        // SE FOR ADMIN, mostra todos os vendedores
-        let usersToShow = activeUsers;
-        if (user?.role === 'vendedor') {
-          usersToShow = activeUsers.filter((u: any) => u._id === user.id);
-          // Auto-seleciona o próprio usuário para vendedores
-          if (usersToShow.length > 0) {
-            setSelectedOwners([usersToShow[0]._id]);
-          }
+        // SE NÃO FOR ADMIN, auto-seleciona o próprio usuário como owner
+        // SE FOR ADMIN, mostra todos os vendedores para escolha
+        if (!userIsAdmin && user?.id) {
+          // Não-admin: auto-seleciona a si mesmo, não precisa mostrar lista
+          setSelectedOwners([user.id]);
+          setAvailableUsers([]);
+        } else {
+          // Admin: pode escolher qualquer vendedor
+          const usersToShow = activeUsers.sort((a: any, b: any) => 
+            (a.nome || "").localeCompare(b.nome || "")
+          );
+          setAvailableUsers(usersToShow);
         }
-        // Admin não tem restrição e não é auto-selecionado
-
-        // Ordena alfabeticamente pelo nome
-        usersToShow.sort((a: any, b: any) => 
-          (a.nome || "").localeCompare(b.nome || "")
-        );
-
-        setAvailableUsers(usersToShow); 
       } catch (err) {
         console.error("Erro ao buscar usuários", err);
+        // Fallback: auto-seleciona o próprio usuário se houver erro
+        if (user?.id) {
+          setSelectedOwners([user.id]);
+        }
         toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar a lista de vendedores." });
       }
     }
@@ -120,7 +168,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
       setHospitais([]);
       setConvenios([]);
       setFaixas(Array(10).fill(0));
-      setSelectedOwners([]); 
+      // Não limpa selectedOwners aqui pois será preenchido pelo useEffect de loadUsers
     }
   }, [isOpen]);
 
@@ -399,15 +447,28 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-8 md:col-span-9 space-y-2">
-                <Label htmlFor="cidade">Cidade *</Label>
-                <Input id="cidade" value={formData.cidade} onChange={(e) => handleChange("cidade", e.target.value)} placeholder="Ex: São Paulo" />
-              </div>
               <div className="col-span-4 md:col-span-3 space-y-2">
                 <Label htmlFor="uf">UF *</Label>
                 <Select value={formData.uf} onValueChange={(val) => handleChange("uf", val)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>{UFS.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-8 md:col-span-9 space-y-2">
+                <Label htmlFor="cidade">Cidade *</Label>
+                <Select 
+                  value={formData.cidade} 
+                  onValueChange={(val) => handleChange("cidade", val)}
+                  disabled={!formData.uf || loadingCidades}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingCidades ? "Carregando..." : formData.uf ? "Selecione a cidade" : "Selecione o estado primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {cidades.map(cidade => (
+                      <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
@@ -488,8 +549,8 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
           </div>
           )}
 
-          {/* STEP 4 */}
-          {currentStep === 4 && (
+          {/* STEP 4 - Responsáveis (apenas para Admin) */}
+          {currentStep === 4 && isAdmin && (
           <div className="space-y-4 animate-in fade-in-50 duration-300">
             <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <Users className="h-4 w-4" /> Responsáveis pelo Lead
@@ -503,29 +564,28 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
             <div className="border rounded-md p-2 max-h-64 overflow-y-auto bg-muted/10">
               {availableUsers.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2">
-                  {availableUsers.map((user) => (
+                  {availableUsers.map((u) => (
                     <div 
-                      key={user.id} 
-                      className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors border ${selectedOwners.includes(user.id) ? 'bg-primary/10 border-primary/30' : 'bg-card border-transparent hover:bg-muted'}`}
-                      onClick={() => toggleOwner(user.id)}
+                      key={u._id || u.id} 
+                      className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors border ${selectedOwners.includes(u._id || u.id) ? 'bg-primary/10 border-primary/30' : 'bg-card border-transparent hover:bg-muted'}`}
+                      onClick={() => toggleOwner(u._id || u.id)}
                     >
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedOwners.includes(user.id) ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                        {selectedOwners.includes(user.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedOwners.includes(u._id || u.id) ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
+                        {selectedOwners.includes(u._id || u.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
                       </div>
 
                       <div className="flex items-center gap-2 overflow-hidden">
                         <Avatar className="h-6 w-6">
-                          {/* Tenta pegar foto (do map) ou photoUrl (bruto) */}
                           <AvatarImage
-                            src={user.foto || user.photoUrl || ""}
-                            alt={user.nome}
+                            src={u.foto || u.photoUrl || ""}
+                            alt={u.nome}
                             className="object-cover"
                           />
                           <AvatarFallback className="text-[10px] bg-slate-200 text-slate-600 font-bold">
-                            {user.nome ? user.nome.substring(0, 2).toUpperCase() : "US"}
+                            {u.nome ? u.nome.substring(0, 2).toUpperCase() : "US"}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-sm truncate select-none">{user.nome}</span>
+                        <span className="text-sm truncate select-none">{u.nome}</span>
                       </div>
 
                     </div>
@@ -538,8 +598,8 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
           </div>
           )}
 
-          {/* STEP 5 */}
-          {currentStep === 5 && (
+          {/* STEP Final (5 para admin, 4 para outros) */}
+          {currentStep === STEPS.length && (
           <div className="space-y-4 animate-in fade-in-50 duration-300">
             <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <Check className="h-4 w-4" /> Informações Adicionais

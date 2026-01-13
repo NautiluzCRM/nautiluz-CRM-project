@@ -13,6 +13,7 @@ import emailsRoutes from './modules/emails/emails.routes.js';
 import alertsRoutes from './modules/alerts/alerts.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import slaRoutes from './modules/leads/sla.routes.js';
+import operadoraLogosRoutes from './modules/operadoras/operadora-logo.routes.js';
 import { webhookHandler } from './modules/webhooks/webhook.controller.js';
 import { ActivityController } from './controllers/Activity.controller.js';
 import { NoteController } from './controllers/Note.controller.js';
@@ -43,6 +44,7 @@ router.use('/apolices', apolicesRoutes);
 router.use('/emails', emailsRoutes);
 router.use('/alerts', alertsRoutes);
 router.use('/notifications', notificationsRoutes);
+router.use('/operadoras/logos', operadoraLogosRoutes);
 
 // Filtros e visualizações
 router.use('/filters', filterRoutes);
