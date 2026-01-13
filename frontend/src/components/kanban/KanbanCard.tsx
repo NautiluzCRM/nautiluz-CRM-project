@@ -54,7 +54,6 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
     transition,
   };
 
-  // Combina se está sendo arrastado "agora" ou se é o "clone"
   const isBeingDragged = isSortableDragging || isDragging;
 
   const getOrigemColor = (origem: string) => {
@@ -81,6 +80,22 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
   const diasSemAtividade = Math.floor(
     (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60 * 24)
   );
+
+  // --- LÓGICA DE EXIBIÇÃO DE DONOS (AVATARES) ---
+  // Se owners estiver vazio, cria um array fake com o lead.responsavel (string) para manter compatibilidade
+  const ownersList = (lead.owners && lead.owners.length > 0) 
+    ? lead.owners 
+    : [{ id: 'legacy', nome: lead.responsavel || 'Vendedor', foto: null }];
+
+  const MAX_DISPLAY = 3;
+  const totalOwners = ownersList.length;
+  // Se tiver mais que o limite, mostramos (MAX - 1) avatares e 1 bolinha de contador
+  const shouldShowCounter = totalOwners > MAX_DISPLAY;
+  const displayCount = shouldShowCounter ? MAX_DISPLAY - 1 : MAX_DISPLAY;
+  
+  const visibleOwners = ownersList.slice(0, displayCount);
+  const remainingCount = totalOwners - displayCount;
+  // ------------------------------------------------
 
   return (
     <Card
@@ -159,7 +174,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
           )}
         </div>
 
-        {/* Ações rápidas */}
+        {/* Ações rápidas e Avatares */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <div className="flex gap-1">
             <Button
@@ -197,19 +212,35 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {diasSemAtividade > 0 && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 <span>{diasSemAtividade}d</span>
               </div>
             )}
-            <Avatar className="h-6 w-6">
-              <AvatarImage src="" alt={lead.responsavel} />
-              <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                {(lead.responsavel || "U").split(' ').map(n => n[0]).join('').substring(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+            
+            {/* GRUPO DE AVATARES */}
+            <div className="flex items-center -space-x-2">
+              {visibleOwners.map((owner: any) => (
+                <Avatar key={owner.id} className="h-6 w-6 border-2 border-background ring-0">
+                  <AvatarImage 
+                    src={owner.foto || ""} 
+                    alt={owner.nome} 
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="text-[9px] bg-primary text-primary-foreground font-bold">
+                    {(owner.nome || "U").substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+
+              {shouldShowCounter && (
+                <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground">
+                  +{remainingCount}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

@@ -1,6 +1,7 @@
 export interface LeadOwner {
   id: string;
   nome: string;
+  foto?: string | null; 
 }
 
 // ADICIONE ISTO: A interface que faltava
