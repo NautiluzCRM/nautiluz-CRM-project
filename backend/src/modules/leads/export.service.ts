@@ -111,10 +111,10 @@ async function formatExportData(leads: any[], fields: ExportFields) {
       obj["Empresa"] = lead.company || "";
       obj["Origem"] = lead.origin || "";
       obj["Data de Entrada"] = lead.createdAt 
-        ? new Date(lead.createdAt).toLocaleDateString('pt-BR') 
+        ? new Date(lead.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) 
         : "";
       obj["Última Atualização"] = lead.updatedAt
-        ? new Date(lead.updatedAt).toLocaleDateString('pt-BR')
+        ? new Date(lead.updatedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
         : "";
     }
 
@@ -284,8 +284,8 @@ export async function exportToPDF(
     doc.on('error', reject);
 
     try {
-      const dataHoje = new Date().toLocaleDateString('pt-BR');
-      const horaHoje = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const dataHoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const horaHoje = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
       const pageWidth = doc.page.width;
       const pageHeight = doc.page.height;
 

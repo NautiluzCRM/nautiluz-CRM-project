@@ -433,7 +433,7 @@ const Leads = () => {
                       
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : '-'}
+                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
                       </span>
                     </div>
                   </CardContent>
@@ -507,7 +507,7 @@ const Leads = () => {
                           }
                         </TableCell>
                         <TableCell className="hidden sm:table-cell text-right text-xs text-muted-foreground">
-                          {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : '-'}
+                          {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
                         </TableCell>
                       </TableRow>
                     ))}

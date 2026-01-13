@@ -718,7 +718,7 @@ const Integracoes = () => {
                     <div className="text-center p-3 bg-accent/10 rounded-lg border border-accent/20 dark:bg-accent/5">
                       <Clock className="h-4 w-4 text-purple-600 mx-auto mb-1" />
                       <p className="text-sm font-medium text-purple-600">
-                        {integration.stats.lastLeadAt ? new Date(integration.stats.lastLeadAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '--'}
+                        {integration.stats.lastLeadAt ? new Date(integration.stats.lastLeadAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' }) : '--'}
                       </p>
                       <p className="text-[10px] text-muted-foreground">Último</p>
                     </div>

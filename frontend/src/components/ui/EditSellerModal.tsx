@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Settings2, UserCog, Briefcase } from "lucide-react";
+import { Loader2, Settings2, UserCog, Briefcase, Info, CheckCircle2 } from "lucide-react";
 import { updateUserApi } from "@/lib/api";
 
 interface EditSellerModalProps {
@@ -33,6 +33,37 @@ export function EditSellerModal({ seller, isOpen, onClose, onSuccess }: EditSell
   const [minLives, setMinLives] = useState(0);
   const [maxLives, setMaxLives] = useState(9999);
   const [cnpjRule, setCnpjRule] = useState("both");
+
+  // Gera a descrição visual do filtro configurado
+  const filterDescription = useMemo(() => {
+    if (!distActive) return "Não está recebendo leads automáticos";
+    
+    const parts: string[] = [];
+    
+    // Descrição das vidas
+    if (minLives === 0 && maxLives >= 9999) {
+      parts.push("Qualquer quantidade de vidas");
+    } else if (minLives === maxLives) {
+      parts.push(`Exatamente ${minLives} vida${minLives !== 1 ? 's' : ''}`);
+    } else if (minLives === 0) {
+      parts.push(`Até ${maxLives} vidas`);
+    } else if (maxLives >= 9999) {
+      parts.push(`${minLives}+ vidas`);
+    } else {
+      parts.push(`Entre ${minLives} e ${maxLives} vidas`);
+    }
+    
+    // Descrição do CNPJ
+    if (cnpjRule === 'both') {
+      parts.push("com e sem CNPJ");
+    } else if (cnpjRule === 'required') {
+      parts.push("apenas COM CNPJ");
+    } else {
+      parts.push("apenas SEM CNPJ");
+    }
+    
+    return parts.join(' ');
+  }, [distActive, minLives, maxLives, cnpjRule]);
 
   // Carrega dados ao abrir
   useEffect(() => {
@@ -153,8 +184,30 @@ export function EditSellerModal({ seller, isOpen, onClose, onSuccess }: EditSell
               <h4 className="font-semibold text-sm uppercase tracking-wide">Distribuição de Leads</h4>
             </div>
 
-            <div className="flex items-center justify-between">
-              <Label>Receber Leads Automáticos?</Label>
+            {/* Prévia do Filtro */}
+            <div className={`p-3 rounded-lg border ${distActive ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' : 'bg-muted/30 border-muted'}`}>
+              <div className="flex items-start gap-2">
+                {distActive ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                ) : (
+                  <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                )}
+                <div>
+                  <p className={`text-sm font-medium ${distActive ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
+                    {distActive ? 'Recebendo leads:' : 'Distribuição desativada'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {filterDescription}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="space-y-0.5">
+                <Label>Receber Leads Automáticos</Label>
+                <p className="text-xs text-muted-foreground">Ativar/desativar distribuição para este vendedor</p>
+              </div>
               <Switch checked={distActive} onCheckedChange={setDistActive} />
             </div>
 
@@ -162,11 +215,25 @@ export function EditSellerModal({ seller, isOpen, onClose, onSuccess }: EditSell
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Mínimo de Vidas</Label>
-                  <Input type="number" min="0" value={minLives} onChange={(e) => setMinLives(Number(e.target.value))} />
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    value={minLives} 
+                    onChange={(e) => setMinLives(Number(e.target.value))} 
+                    placeholder="0"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Use 0 para sem limite mínimo</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Máximo de Vidas</Label>
-                  <Input type="number" min="0" value={maxLives} onChange={(e) => setMaxLives(Number(e.target.value))} />
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    value={maxLives} 
+                    onChange={(e) => setMaxLives(Number(e.target.value))} 
+                    placeholder="9999"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Use 9999 para sem limite máximo</p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -174,11 +241,22 @@ export function EditSellerModal({ seller, isOpen, onClose, onSuccess }: EditSell
                 <Select value={cnpjRule} onValueChange={setCnpjRule}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="both">Aceitar Ambos</SelectItem>
-                    <SelectItem value="required">Só COM CNPJ</SelectItem>
-                    <SelectItem value="forbidden">Só SEM CNPJ</SelectItem>
+                    <SelectItem value="both">Com e Sem CNPJ</SelectItem>
+                    <SelectItem value="required">Apenas COM CNPJ</SelectItem>
+                    <SelectItem value="forbidden">Apenas SEM CNPJ</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Nota sobre fallback */}
+              <div className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                <p className="text-[11px] text-blue-700 dark:text-blue-400 flex items-start gap-1.5">
+                  <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span>
+                    <strong>Rotação inteligente:</strong> Se nenhum vendedor atender aos critérios exatos do lead, 
+                    o sistema distribui automaticamente para o próximo vendedor disponível, garantindo que ninguém fique sem leads.
+                  </span>
+                </p>
               </div>
             </div>
           </div>
