@@ -90,14 +90,39 @@ export function getLead(id: string) {
     .lean();
 }
 
+/**
+ * Sistema de Distribuição de Leads - Round Robin com Fallback
+ * 
+ * Garante que nenhum vendedor fique sem lead seguindo a ordem:
+ * 1. Busca vendedor que atende TODOS os critérios (vidas + CNPJ)
+ * 2. Fallback 1: Busca vendedor que atende apenas o critério de CNPJ (ignora vidas)
+ * 3. Fallback 2: Busca vendedor que atende apenas o critério de vidas (ignora CNPJ)
+ * 4. Fallback 3: Busca qualquer vendedor ativo com distribuição ativa
+ * 
+ * Em todos os casos, usa round-robin baseado em lastLeadReceivedAt
+ */
 export async function findNextResponsible(lives: any, hasCnpj: boolean) {
-  const livesNumber = Number(lives);
+  const livesNumber = Number(lives) || 0;
 
   const cnpjFilter = hasCnpj 
     ? { $in: ['required', 'both'] } 
     : { $in: ['forbidden', 'both'] };
 
-  const bestSeller = await UserModel.findOne({
+  // Função auxiliar para atualizar o timestamp e retornar o ID
+  const assignToSeller = async (seller: any, matchType: string) => {
+    console.log(`[DISTRIBUIÇÃO] [${matchType}] Lead (${livesNumber} vidas, CNPJ: ${hasCnpj}) → ${seller.name}`);
+    console.log(`    Última vez que recebeu: ${seller.distribution?.lastLeadReceivedAt || 'NUNCA'}`);
+
+    await UserModel.updateOne(
+      { _id: seller._id },
+      { $set: { 'distribution.lastLeadReceivedAt': new Date() } }
+    );
+    
+    return seller._id.toString();
+  };
+
+  // ========== TENTATIVA 1: MATCH PERFEITO (Vidas + CNPJ) ==========
+  const perfectMatch = await UserModel.findOne({
     active: true,                       
     'distribution.active': true,        
     'distribution.minLives': { $lte: livesNumber }, 
@@ -107,19 +132,69 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
   .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
   .select('_id name distribution');
 
-  if (bestSeller) {
-    console.log(`[DISTRIBUIÇÃO]  Lead (${livesNumber} vidas) entregue para: ${bestSeller.name}`);
-    console.log(`    Última vez que ele recebeu antes de agora: ${bestSeller.distribution?.lastLeadReceivedAt || 'NUNCA'}`);
-
-    await UserModel.updateOne(
-      { _id: bestSeller._id },
-      { $set: { 'distribution.lastLeadReceivedAt': new Date() } }
-    );
-    
-    return bestSeller._id.toString();
+  if (perfectMatch) {
+    return assignToSeller(perfectMatch, 'MATCH PERFEITO');
   }
 
-  console.warn(`[DISTRIBUIÇÃO]  Ninguém atende o perfil: ${livesNumber} vidas | CNPJ: ${hasCnpj}`);
+  console.log(`[DISTRIBUIÇÃO] Nenhum match perfeito para: ${livesNumber} vidas | CNPJ: ${hasCnpj}. Tentando fallbacks...`);
+
+  // ========== FALLBACK 1: Apenas CNPJ (ignora vidas) ==========
+  const cnpjOnlyMatch = await UserModel.findOne({
+    active: true,                       
+    'distribution.active': true,        
+    'distribution.cnpjRule': cnpjFilter       
+  })
+  .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
+  .select('_id name distribution');
+
+  if (cnpjOnlyMatch) {
+    return assignToSeller(cnpjOnlyMatch, 'FALLBACK CNPJ');
+  }
+
+  // ========== FALLBACK 2: Apenas Vidas (ignora CNPJ) ==========
+  const livesOnlyMatch = await UserModel.findOne({
+    active: true,                       
+    'distribution.active': true,        
+    'distribution.minLives': { $lte: livesNumber }, 
+    'distribution.maxLives': { $gte: livesNumber }
+  })
+  .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
+  .select('_id name distribution');
+
+  if (livesOnlyMatch) {
+    return assignToSeller(livesOnlyMatch, 'FALLBACK VIDAS');
+  }
+
+  // ========== FALLBACK 3: Qualquer vendedor ativo ==========
+  const anyActiveSeller = await UserModel.findOne({
+    active: true,                       
+    'distribution.active': true
+  })
+  .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
+  .select('_id name distribution');
+
+  if (anyActiveSeller) {
+    return assignToSeller(anyActiveSeller, 'FALLBACK GERAL');
+  }
+
+  // ========== ÚLTIMO RECURSO: Qualquer vendedor/admin ativo ==========
+  const anyActiveUser = await UserModel.findOne({
+    active: true,
+    role: { $in: ['vendedor', 'admin', 'gerente'] }
+  })
+  .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
+  .select('_id name distribution');
+
+  if (anyActiveUser) {
+    console.warn(`[DISTRIBUIÇÃO] [ÚLTIMO RECURSO] Nenhum vendedor com distribuição ativa. Usando: ${anyActiveUser.name}`);
+    await UserModel.updateOne(
+      { _id: anyActiveUser._id },
+      { $set: { 'distribution.lastLeadReceivedAt': new Date() } }
+    );
+    return anyActiveUser._id.toString();
+  }
+
+  console.error(`[DISTRIBUIÇÃO] CRÍTICO: Nenhum usuário disponível no sistema!`);
   return null; 
 }
 
