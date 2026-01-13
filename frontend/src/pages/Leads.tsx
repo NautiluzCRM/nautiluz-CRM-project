@@ -207,6 +207,7 @@ const Leads = () => {
               {!isPrivileged && <span className="text-[9px] bg-black/20 px-1 rounded">FIXO</span>}
             </Button>
 
+            {/*
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs shrink-0">
                 <SelectValue placeholder="Status" />
@@ -219,6 +220,7 @@ const Leads = () => {
                 <SelectItem value="Sem interesse">Sem interesse</SelectItem>
               </SelectContent>
             </Select>
+            */}
 
             <Select value={origemFilter} onValueChange={setOrigemFilter}>
               <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs shrink-0">
