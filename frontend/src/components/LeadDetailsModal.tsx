@@ -839,7 +839,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {note.userName} • {new Date(note.createdAt).toLocaleDateString('pt-BR')}
+                            {note.userName} • {new Date(note.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                           </p>
                         </>
                       )}
@@ -912,14 +912,14 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Criado em:</p>
                   <p className="font-medium">
-                    {leadData.dataCriacao ? new Date(leadData.dataCriacao).toLocaleDateString('pt-BR') : '-'}
+                    {leadData.dataCriacao ? new Date(leadData.dataCriacao).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
                   </p>
                 </div>
                 <Separator />
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Última atividade:</p>
                   <p className="font-medium">
-                    {lead.ultimaAtividade ? new Date(lead.ultimaAtividade).toLocaleDateString('pt-BR') : '-'}
+                    {lead.ultimaAtividade ? new Date(lead.ultimaAtividade).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
                   </p>
                 </div>
               </div>
