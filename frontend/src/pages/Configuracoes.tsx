@@ -701,7 +701,7 @@ const Configuracoes = () => {
       if (fotoPerfil !== fotoAtual) {
         if (fotoPerfil && fotoPerfil.startsWith('data:image/')) {
           // Upload de nova foto - retorna a URL do Cloudinary
-          const result = await uploadUserPhotoApi(userId, fotoPerfil);
+          const result = await uploadUserPhotoApi(userId, fotoPerfil) as { photoUrl?: string; photoBase64?: string };
           novaPhotoUrl = result.photoUrl || result.photoBase64 || fotoPerfil;
         } else if (fotoPerfil === null) {
           // Remover foto
