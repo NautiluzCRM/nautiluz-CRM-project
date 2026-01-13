@@ -421,7 +421,6 @@ const Index = () => {
             <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-hide pb-1">
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <Badge variant="outline" className="text-[10px] sm:text-xs whitespace-nowrap">{totalLeads} Total</Badge>
-                <Badge variant="success" className="text-[10px] sm:text-xs whitespace-nowrap">{leadsQualificados} Qualificados</Badge>
                 <Badge variant="outline" className="text-[10px] sm:text-xs whitespace-nowrap">
                   {valorTotalEstimado.toLocaleString('pt-BR', { 
                     style: 'currency', 
