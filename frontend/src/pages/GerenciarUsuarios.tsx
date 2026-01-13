@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +27,10 @@ import {
   Save,
   XCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  UserCheck,
+  UserX,
+  Shield
 } from "lucide-react";
 import { fetchUsers, createUserApi, updateUserApi, deleteUserApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -263,6 +268,12 @@ const GerenciarUsuarios = () => {
     u.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Estatísticas dos usuários
+  const totalUsuarios = usuarios.length;
+  const usuariosAtivos = usuarios.filter(u => u.ativo).length;
+  const usuariosInativos = usuarios.filter(u => !u.ativo).length;
+  const totalAdmins = usuarios.filter(u => u.perfil === 'Administrador').length;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -394,83 +405,149 @@ const GerenciarUsuarios = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4 sm:p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {filteredUsuarios.length} usuário{filteredUsuarios.length !== 1 ? 's' : ''} encontrado{filteredUsuarios.length !== 1 ? 's' : ''}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {filteredUsuarios.map((usuario) => (
-                <div key={usuario.id} className="grid grid-cols-[1fr_auto] items-center gap-2 sm:gap-4 p-3 sm:p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
-                  
-                  {/* LADO ESQUERDO: Avatar + Infos */}
-                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0">
-                      <AvatarImage src={usuario.foto} alt={usuario.nome} className="object-cover" />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
-                        {usuario.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
-                      <h4 className="font-medium text-sm sm:text-base truncate" title={usuario.nome}>
-                        {usuario.nome}
-                      </h4>
-
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate" title={usuario.email}>
-                        {usuario.email}
-                      </p>
-
-                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1">
-                        <span className="text-[10px] sm:text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/50 whitespace-nowrap">
-                          {usuario.perfil}
-                        </span>
-                        {usuario.jobTitle && (
-                          <span className="text-[10px] sm:text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-border/30 whitespace-nowrap">
-                            {usuario.jobTitle}
-                          </span>
-                        )}
-                        <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full border whitespace-nowrap ${usuario.ativo
-                          ? 'bg-success/10 text-success border-success/20 dark:bg-success/5'
-                          : 'bg-gray-100 text-gray-500 border-gray-200'
-                          }`}>
-                          {usuario.ativo ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* LADO DIREITO: Botões */}
-                  <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-primary"
-                      onClick={() => handleEditarUsuario(usuario)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn("h-8 w-8", usuario.ativo ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-green-600 hover:text-green-700 hover:bg-success/10 dark:hover:bg-success/5")}
-                      onClick={() => handleClickStatus(usuario)}
-                      title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
-                    >
-                      {usuario.ativo ? (
-                        <XCircle className="h-4 w-4" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
+      <div className="flex-1 overflow-hidden p-4 sm:p-6 flex flex-col gap-6">
+        
+        {/* Cards de Métricas */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 dark:from-primary/10 dark:to-primary/5 dark:border-primary/30">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-primary font-medium">Usuários</p>
+                  <p className="text-2xl font-bold text-primary dark:text-foreground">{totalUsuarios}</p>
+                  <p className="text-xs text-primary/80 dark:text-foreground/80">{usuariosAtivos} ativos</p>
                 </div>
-              ))}
+                <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
+          <Card className="bg-gradient-to-br from-success/5 to-success/10 border-success/20 dark:from-success/10 dark:to-success/5 dark:border-success/30">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-success font-medium">Administradores</p>
+                  <p className="text-2xl font-bold text-success dark:text-foreground">{totalAdmins}</p>
+                  <p className="text-xs text-success/80 dark:text-foreground/80">com acesso total</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-success/20 flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-success" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-accent/5 to-accent/10 border-accent/20 dark:from-accent/10 dark:to-accent/5 dark:border-accent/30">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-accent-foreground font-medium">Inativos</p>
+                  <p className="text-2xl font-bold text-accent-foreground dark:text-foreground">{usuariosInativos}</p>
+                  <p className="text-xs text-accent-foreground/80 dark:text-foreground/80">sem acesso</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
+                  <UserX className="h-5 w-5 text-accent-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabela de Detalhes */}
+        <Card className="flex-1 flex flex-col overflow-hidden">
+          <CardHeader className="shrink-0">
+            <CardTitle>Detalhes dos Usuários</CardTitle>
+            <CardDescription>
+              Informações completas de cada usuário do sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden">
+            <div className="h-full overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Usuário</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-center">Perfil</TableHead>
+                    <TableHead className="text-center">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsuarios.map((usuario) => (
+                    <TableRow key={usuario.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={usuario.foto || ''} className="object-cover" />
+                            <AvatarFallback className="text-xs bg-primary/10">
+                              {usuario.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+
+                          <div className="flex flex-col gap-0.5">
+                            <p className="font-medium text-sm text-foreground leading-none">{usuario.nome}</p>
+                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                              {usuario.jobTitle && (
+                                <>
+                                  <span className="font-medium text-foreground/80">{usuario.jobTitle}</span>
+                                  <span className="text-muted-foreground/40">•</span>
+                                </>
+                              )}
+                              <span>{usuario.email}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {usuario.ativo ? (
+                          <Badge variant="outline" className="text-green-600 border-green-300">
+                            <UserCheck className="h-3 w-3 mr-1" />
+                            Ativo
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-gray-500 border-gray-300">
+                            <UserX className="h-3 w-3 mr-1" />
+                            Inativo
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-medium border-primary/20 text-primary uppercase tracking-wide">
+                          {usuario.perfil || "Vendedor"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            onClick={() => handleEditarUsuario(usuario)}
+                            title="Editar Dados"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-8 w-8", usuario.ativo ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-green-600 hover:text-green-700 hover:bg-success/10 dark:hover:bg-success/5")}
+                            onClick={() => handleClickStatus(usuario)}
+                            title={usuario.ativo ? "Inativar Usuário" : "Reativar Usuário"}
+                          >
+                            {usuario.ativo ? (
+                              <XCircle className="h-4 w-4" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
               {filteredUsuarios.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
