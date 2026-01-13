@@ -242,19 +242,47 @@ export async function createLead(input: any, user?: UserAuth) {
 
   const rank = input.rank || '0|hzzzzz:';
   
-  let ownerId = user?.sub; 
-  if (!ownerId && input.livesCount) {
-    const distributedOwner = await findNextResponsible(input.livesCount, input.hasCnpj || false);
-    if (distributedOwner) ownerId = distributedOwner;
-  }
-
-  let ownersList = input.owners;
-  if (!ownersList || ownersList.length === 0) {
-    ownersList = ownerId ? [ownerId] : [];
-  }
+  // ========== LÓGICA DE ATRIBUIÇÃO DE RESPONSÁVEL ==========
+  // 
+  // LEAD MANUAL (user existe): 
+  //   - Se o usuário selecionou responsáveis (input.owners), usa eles
+  //   - Se não selecionou, atribui para o próprio usuário criador
+  //   - Vendedores sempre ficam como responsáveis do próprio lead
+  //
+  // LEAD AUTOMÁTICO (user não existe - webhook/integração):
+  //   - Usa o sistema de distribuição com fallback inteligente
+  //   - Garante que sempre haverá um responsável
+  // =========================================================
   
-  if (user && user.role === 'vendedor') {
-    ownersList = [user.sub];
+  let ownersList: string[] = [];
+  
+  if (user) {
+    // === LEAD MANUAL ===
+    if (user.role === 'vendedor') {
+      // Vendedor sempre fica como responsável do lead que ele cria
+      ownersList = [user.sub];
+    } else if (input.owners && input.owners.length > 0) {
+      // Admin/Gerente selecionou responsáveis manualmente
+      ownersList = input.owners;
+    } else {
+      // Admin/Gerente não selecionou ninguém, fica como responsável
+      ownersList = [user.sub];
+    }
+    console.log(`[LEAD MANUAL] Criado por ${user.role}. Responsáveis: ${ownersList.length}`);
+  } else {
+    // === LEAD AUTOMÁTICO (Webhook/Integração) ===
+    if (input.owners && input.owners.length > 0) {
+      // Já veio com responsável definido (raro, mas possível)
+      ownersList = input.owners;
+      console.log(`[LEAD AUTOMÁTICO] Responsável pré-definido: ${ownersList.length}`);
+    } else {
+      // Usa o sistema de distribuição com fallback
+      const distributedOwner = await findNextResponsible(input.livesCount || 0, input.hasCnpj || false);
+      if (distributedOwner) {
+        ownersList = [distributedOwner];
+      }
+      console.log(`[LEAD AUTOMÁTICO] Distribuído para: ${distributedOwner || 'NINGUÉM'}`);
+    }
   }
 
   
