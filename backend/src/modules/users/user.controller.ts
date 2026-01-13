@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../common/http.js';
 import { z } from 'zod';
-import { createUser, deleteUser, getUser, listUsers, updateUser } from './user.service.js';
+import { createUser, deleteUser, getUser, listUsers, updateUser, uploadPhoto, removePhoto } from './user.service.js';
 import { LeadModel } from '../leads/lead.model.js';
 
 // Schema de Distribuição
@@ -125,14 +125,12 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // --- CORREÇÃO 1: Evitar Crash (TypeError) ---
-  // O payload JWT usa 'sub' para o ID, não '_id'.
+  // Verificação de ID segura
   const currentUserId = currentUser.sub || currentUser._id || currentUser.id;
   
   if (currentUserId !== id && currentUser.role !== 'admin') {
     return res.status(403).json({ message: 'Você não tem permissão para alterar a foto deste usuário' });
   }
-  // --------------------------------------------
   
   const { photoBase64 } = req.body;
   
@@ -140,34 +138,20 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
     return res.status(400).json({ message: 'Foto em base64 é obrigatória' });
   }
   
-  const base64Regex = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
-  if (!base64Regex.test(photoBase64)) {
-    return res.status(400).json({ message: 'Formato de imagem inválido. Use JPEG, PNG, GIF ou WebP' });
+  // Validação simples de formato (o app.ts já cuida do tamanho de 50mb)
+  if (!photoBase64.startsWith('data:image')) {
+    return res.status(400).json({ message: 'Formato de imagem inválido.' });
   }
   
-  // --- CORREÇÃO 2: Validação de tamanho Segura ---
   try {
-    const base64Content = photoBase64.split(',')[1];
-    if (base64Content) {
-        const sizeInBytes = (base64Content.length * 3) / 4;
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        
-        if (sizeInBytes > maxSize) {
-            return res.status(400).json({ message: 'A imagem é muito grande. O tamanho máximo permitido é 5MB.' });
-        }
-    }
-  } catch (e) {
-    console.warn("Aviso: Falha ao validar tamanho exato da imagem, continuando...");
-  }
-  // -----------------------------------------------
-  
-  try {
-    const user = await updateUser(id, { photoBase64 });
+    const user = await uploadPhoto(id, photoBase64);
+    
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+    
+    // Retorna o base64 para o frontend atualizar a tela imediatamente
     res.json({ message: 'Foto atualizada com sucesso', photoBase64: user.photoBase64 });
   } catch (error: any) {
     console.error('Erro ao atualizar foto:', error);
-    // Retorna mensagem detalhada para debug
     res.status(500).json({ message: `Erro ao atualizar foto: ${error.message}` });
   }
 });
@@ -177,7 +161,6 @@ export const removePhotoHandler = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const currentUser = (req as any).user;
   
-  // --- CORREÇÃO 1 (Repetida para remoção) ---
   const currentUserId = currentUser.sub || currentUser._id || currentUser.id;
 
   if (currentUserId !== id && currentUser.role !== 'admin') {
@@ -185,7 +168,8 @@ export const removePhotoHandler = asyncHandler(async (req: Request, res: Respons
   }
   
   try {
-    const user = await updateUser(id, { photoBase64: null, photoUrl: null });
+    const user = await removePhoto(id);
+    
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
     res.json({ message: 'Foto removida com sucesso' });
   } catch (error: any) {
