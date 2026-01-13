@@ -570,14 +570,22 @@ const Configuracoes = () => {
     });
   };
 
-
-
-
-
   // Alterar foto de perfil
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // VALIDAÇÃO DE TAMANHO (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Arquivo muito grande",
+        description: "A imagem deve ter no máximo 2MB.",
+      });
+      e.target.value = ""; 
+      return;
+    }
+    // ----------------------------------
 
     setArquivoTemporario(file);
 
