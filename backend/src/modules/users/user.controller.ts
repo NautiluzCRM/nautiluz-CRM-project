@@ -138,9 +138,25 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
     return res.status(400).json({ message: 'Foto em base64 é obrigatória' });
   }
   
-  // Validação simples de formato (o app.ts já cuida do tamanho de 50mb)
+  // Validação simples de formato
   if (!photoBase64.startsWith('data:image')) {
     return res.status(400).json({ message: 'Formato de imagem inválido.' });
+  }
+
+  // TRAVA DE SEGURANÇA (2MB)
+  try {
+    const content = photoBase64.split(',')[1] || photoBase64;
+    
+    const sizeInBytes = (content.length * 3) / 4;
+    const maxSize = 2 * 1024 * 1024; // 2MB em Bytes
+
+    if (sizeInBytes > maxSize) {
+      return res.status(400).json({ 
+        message: 'A imagem é muito grande. O tamanho máximo permitido é 2MB.' 
+      });
+    }
+  } catch (e) {
+    console.warn("Não foi possível calcular o tamanho da imagem, prosseguindo por segurança...");
   }
   
   try {
@@ -148,7 +164,6 @@ export const uploadPhotoHandler = asyncHandler(async (req: Request, res: Respons
     
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
     
-    // Retorna o base64 para o frontend atualizar a tela imediatamente
     res.json({ message: 'Foto atualizada com sucesso', photoBase64: user.photoBase64 });
   } catch (error: any) {
     console.error('Erro ao atualizar foto:', error);
