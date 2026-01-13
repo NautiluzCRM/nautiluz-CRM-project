@@ -1016,7 +1016,7 @@ const Configuracoes = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                {/*<div className="space-y-2">
                   <Label htmlFor="assinatura">Assinatura de E-mail</Label>
                   <Textarea
                     id="assinatura"
@@ -1025,6 +1025,7 @@ const Configuracoes = () => {
                     placeholder="Sua assinatura..."
                   />
                 </div>
+                */}
                 <div className="flex justify-begin">
                   <Button
                     onClick={handleSalvarDados}
