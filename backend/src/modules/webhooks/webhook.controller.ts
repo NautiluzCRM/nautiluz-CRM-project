@@ -8,7 +8,13 @@ import { LeadModel } from '../leads/lead.model.js';
 import { UserModel } from '../users/user.model.js';
 import { Note } from '../../models/Note.model.js'; 
 
-const SYSTEM_ID = '000000000000000000000000';
+const SYSTEM_ID = process.env.SYSTEM_USER_ID || '000000000000000000000000';
+
+// Lista de tipos aceitos pelo Enum do Mongoose (conforme seu LeadModel)
+const TIPOS_CNPJ_VALIDOS = [
+  "MEI", "ME", "EI", "EPP", "SLU", "LTDA", "SS", "SA", 
+  "Média", "Grande", "Outro", "Outros"
+];
 
 const normalizarTelefone = (phone: string): string => {
   if (!phone) return '';
@@ -76,13 +82,14 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   const requestToken = req.headers['x-webhook-token'] || req.query.token;
 
   if (requestToken !== webhookSecret) {
-    console.log(`[ALERTA] Bloqueio de Segurança Webhook.`);
     return res.status(403).json({ error: 'Acesso negado.' });
   }
 
   const { 
     nome, email, telefone, origem, quantidadeVidas, observacoes,
-    cidade, estado, investimento, possuiCNPJ, jaTemPlano, hospitalPreferencia,
+    cidade, city, City, 
+    estado, state, State, 
+    investimento, possuiCNPJ, jaTemPlano, hospitalPreferencia,
     distribuicaoVidas, tipoCNPJ, operadora
   } = req.body;
 
@@ -94,7 +101,7 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     });
   }
 
-  // --- 1. PROCESSAMENTOS ---
+  // --- TRATAMENTO ---
   const phoneClean = normalizarTelefone(telefone);
   
   let emailClean = email ? email.trim().toLowerCase() : '';
@@ -102,14 +109,23 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
      emailClean = ''; 
   }
 
-  // Processa as faixas etárias PRIMEIRO
-  const { faixas, idadesArray } = processarFaixasEtarias(distribuicaoVidas);
+  // 1. Tratamento do Tipo de CNPJ (CORREÇÃO DE BUG DO FACEBOOK TEST DATA)
+  let cnpjTypeFinal = '';
+  // Se o Facebook mandar "<test lead...>" ou algo fora da lista, virará vazio.
+  if (tipoCNPJ && TIPOS_CNPJ_VALIDOS.includes(tipoCNPJ)) {
+    cnpjTypeFinal = tipoCNPJ;
+  }
 
+  // 2. Cidade Inteligente
+  const cidadeFinal = [cidade, city, City].find(val => val && val.trim().length > 0) || 'A verificar';
+  const estadoFinal = [estado, state, State].find(val => val && val.trim().length > 0) || 'SP';
+
+  // 3. Vidas
+  const { faixas, idadesArray } = processarFaixasEtarias(distribuicaoVidas);
   let lives = Number(quantidadeVidas);
   if (!lives || isNaN(lives) || lives === 0) {
     const somaVidas = idadesArray.reduce((acc, curr) => acc + curr, 0);
     lives = somaVidas > 0 ? somaVidas : 1;
-    console.log(`[WEBHOOK] Vidas calculadas via distribuição: ${lives}`);
   }
 
   const temCnpj = textoParaBooleano(possuiCNPJ);
@@ -122,9 +138,9 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     hospitalPreferencia, 
     temCnpj, 
     temPlano, 
-    cidade, 
-    estado,
-    tipoCNPJ,   
+    cidade: cidadeFinal, 
+    estado: estadoFinal, 
+    tipoCNPJ: cnpjTypeFinal, // Usa o valor tratado  
     operadora  
   };
 
@@ -133,22 +149,24 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     searchConditions.push({ email: emailClean });
   }
 
-  const existingLead = await LeadModel.findOne({
-    $or: searchConditions
-  });
+  const existingLead = await LeadModel.findOne({ $or: searchConditions });
 
   // ===============================================================
-  // CASO 1: ATUALIZAÇÃO
+  // CASO 1: ATUALIZAÇÃO (LEAD EXISTENTE)
   // ===============================================================
   if (existingLead) {
     console.log(`[WEBHOOK] Atualizando Lead: ${existingLead.name}`);
 
+    // 👇 IMPORTANTE: Busca a etapa inicial (Novo) para resetar o lead
+    const pipelineDefault = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
+    const stageNovo = await StageModel.findOne({ pipelineId: pipelineDefault?._id, key: 'novo' });
+
     let novoDono = existingLead.owners || [];
     let houveRedistribuicao = false;
     
+    // ... Lógica de Sticky Routing ...
     const donoAtualId = (existingLead.owners && existingLead.owners.length > 0) ? existingLead.owners[0] : null;
     let manterDonoAtual = false;
-
     if (donoAtualId) {
       const regraCnpj = temCnpj ? { $in: ['required', 'both'] } : { $in: ['forbidden', 'both'] };
       const donoQualificado = await UserModel.findOne({
@@ -159,10 +177,8 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
         'distribution.maxLives': { $gte: lives },
         'distribution.cnpjRule': regraCnpj
       });
-
       if (donoQualificado) manterDonoAtual = true;
     }
-
     if (!manterDonoAtual) {
       const donoDistribuido = await findNextResponsible(lives, temCnpj);
       if (donoDistribuido) {
@@ -182,11 +198,9 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     }
 
     const resumoTecnico = gerarResumoTecnicoWebhook(dadosFormatados);
-    const tituloAtividade = houveRedistribuicao 
-      ? ' Lead RE-CONVERTIDO e REDISTRIBUÍDO' 
-      : ' Lead RE-CONVERTIDO (Mantido)';
-      
-    const logUnificado = `${tituloAtividade}\n----------------------------------------\n Dados Anteriores: ${existingLead.livesCount} vidas\n----------------------------------------\n${resumoTecnico}`;
+    const logUnificado = houveRedistribuicao 
+      ? `🔄 Lead RE-CONVERTIDO e REDISTRIBUÍDO\n${resumoTecnico}` 
+      : `🔄 Lead RE-CONVERTIDO (Mantido)\n${resumoTecnico}`;
 
     const leadAny = existingLead as any;
 
@@ -199,23 +213,25 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
       hasCnpj: temCnpj,
       hasCurrentPlan: temPlano,
       preferredHospitals: listaHospitais.length ? listaHospitais : leadAny.preferredHospitals,
-      city: cidade || existingLead.city,
-      state: estado || existingLead.state,
+      city: (cidadeFinal !== 'A verificar' || !existingLead.city) ? cidadeFinal : existingLead.city,
+      state: estadoFinal || existingLead.state,
       owners: novoDono,
-      
       faixasEtarias: faixas,
       ageBuckets: idadesArray,
+      
+      // 👇 CAMPOS IMPORTANTES: Usando a variável tratada
+      cnpjType: cnpjTypeFinal, 
+      currentPlan: operadora || '', 
+      
+      // 👇 A MÁGICA: FORÇA A VOLTA PARA A ETAPA "NOVO"
+      pipelineId: pipelineDefault?._id.toString(),
+      stageId: stageNovo ? stageNovo._id.toString() : existingLead.stageId,
 
       lastActivity: new Date(),
       customUpdateLog: logUnificado 
     });
 
-    return res.status(StatusCodes.CREATED).json({
-      success: true,
-      action: 'updated',
-      leadId: updatedLead?._id,
-      message: 'Lead Atualizado com sucesso.'
-    });
+    return res.status(StatusCodes.CREATED).json({ success: true, action: 'updated' });
   }
 
   // ===============================================================
@@ -224,13 +240,10 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   const pipeline = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
   const stage = await StageModel.findOne({ pipelineId: pipeline?._id, key: 'novo' }) || await StageModel.findOne({ pipelineId: pipeline?._id });
 
-  if (!pipeline || !stage) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Configuração de Funil ausente.' });
-  }
+  if (!pipeline || !stage) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Configuração de Funil ausente.' });
 
   const donoInicial = await findNextResponsible(lives, temCnpj);
   const ownersList = donoInicial ? [donoInicial] : []; 
-
   const logTecnicoUnificado = `Lead criado via Webhook.\n\n${gerarResumoTecnicoWebhook(dadosFormatados)}`;
 
   const resultLead = await createLead({
@@ -244,22 +257,23 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     hasCnpj: temCnpj,
     avgPrice: valorEstimado,
     notes: '', 
-    city: cidade || 'A verificar',
-    state: estado || 'SP',
+    city: cidadeFinal, 
+    state: estadoFinal, 
     owners: ownersList,
     rank: 'c' + Date.now(),
     hasCurrentPlan: temPlano,
     preferredHospitals: listaHospitais,
-    
     faixasEtarias: faixas,
     ageBuckets: idadesArray,
+
+    // 👇 Usando a variável tratada
+    cnpjType: cnpjTypeFinal,
+    currentPlan: operadora || '', 
 
     customCreationLog: logTecnicoUnificado
   });
 
-  if (!resultLead) {
-    throw new AppError('Erro ao processar o Lead no sistema.', StatusCodes.INTERNAL_SERVER_ERROR);
-  }
+  if (!resultLead) throw new AppError('Erro ao processar o Lead.', StatusCodes.INTERNAL_SERVER_ERROR);
 
   if (observacoes && observacoes.trim() !== '') {
     await Note.create({
@@ -271,10 +285,5 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     });
   }
 
-  return res.status(StatusCodes.CREATED).json({
-    success: true,
-    action: 'created',
-    leadId: resultLead._id,
-    message: 'Lead Criado com sucesso'
-  });
+  return res.status(StatusCodes.CREATED).json({ success: true, action: 'created', leadId: resultLead._id });
 });
