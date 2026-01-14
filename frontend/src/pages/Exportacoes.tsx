@@ -7,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Download, FileSpreadsheet, FileText, BarChart3, Filter, RotateCcw, Loader2 } from "lucide-react";
-
 import { exportToXLSX, exportToCSV, exportToPDF, fetchUsers, fetchPipelines, fetchStages } from "@/lib/api"; 
 import { useToast } from "@/hooks/use-toast"; 
 
@@ -428,12 +427,12 @@ const Exportacoes = () => {
                     </p>
                     <Button 
                       onClick={handleExportCSV}
-                      disabled={isExporting}
+                      disabled
                       className="w-full h-9 text-xs"
                       variant="outline"
                     >
                       <Download className="h-3.5 w-3.5 mr-2" />
-                      {isExporting ? "Exportando..." : "Exportar"}
+                      {isExporting ? "Exportando..." : "Em breve"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -452,12 +451,12 @@ const Exportacoes = () => {
                     </p>
                     <Button 
                       onClick={handleExportPDF}
-                      disabled={isExporting}
+                      disabled
                       className="w-full h-9 text-xs"
                       variant="outline"
                     >
                       <Download className="h-3.5 w-3.5 mr-2" />
-                      {isExporting ? "Exportando..." : "Exportar"}
+                      {isExporting ? "Exportando..." : "Em breve"}
                     </Button>
                   </CardContent>
                 </Card>
