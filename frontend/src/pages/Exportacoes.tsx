@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,30 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Download, FileSpreadsheet, FileText, BarChart3, Filter, RotateCcw, Loader2 } from "lucide-react";
-
-import { exportToXLSX, exportToCSV, exportToPDF, fetchUsers, fetchPipelines, fetchStages } from "@/lib/api"; 
+import { Download, FileSpreadsheet, FileText, BarChart3, Filter, RotateCcw } from "lucide-react";
+import { exportToXLSX, exportToCSV, exportToPDF } from "@/lib/api"; 
 import { useToast } from "@/hooks/use-toast"; 
-
-// Lista de origens padrão do sistema
-const ORIGENS_DISPONIVEIS = [
-  "Google Ads",
-  "Indicação",
-  "Instagram",
-  "Meta Ads",
-  "Site",
-  "WhatsApp",
-  "Outros"
-];
 
 const Exportacoes = () => {
   const [isExporting, setIsExporting] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
   const { toast } = useToast();
-
-  // Estados de Dados do Sistema
-  const [listaEtapas, setListaEtapas] = useState<any[]>([]);
-  const [listaUsuarios, setListaUsuarios] = useState<any[]>([]);
 
   // Estados dos Filtros
   const [filtroEtapa, setFiltroEtapa] = useState<string>("");
@@ -50,47 +33,10 @@ const Exportacoes = () => {
     observacoes: true,
   });
 
-  useEffect(() => {
-    async function loadSystemData() {
-      try {
-        setIsLoadingData(true);
-
-        // Carrega Usuários
-        const users = await fetchUsers();
-        
-        // Filtra ativos e ordena alfabeticamente
-        const activeUsers = users
-          .filter((u: any) => u.ativo)
-          .sort((a: any, b: any) => {
-            const nomeA = a.nome || "";
-            const nomeB = b.nome || "";
-            return nomeA.localeCompare(nomeB);
-          });
-
-        setListaUsuarios(activeUsers);
-
-        // Carrega Etapas
-        const pipelines = await fetchPipelines();
-        if (pipelines && pipelines.length > 0) {
-          const pipelineId = pipelines[0]._id || pipelines[0].id;
-          const stages = await fetchStages(pipelineId);
-          setListaEtapas(stages);
-        }
-
-      } catch (error) {
-        console.error("Erro ao carregar dados para filtros:", error);
-        toast({
-          variant: "destructive",
-          title: "Erro ao carregar filtros",
-          description: "Não foi possível carregar as listas de usuários e etapas."
-        });
-      } finally {
-        setIsLoadingData(false);
-      }
-    }
-
-    loadSystemData();
-  }, []);
+  const LABELS_FAIXAS = [
+    "Vidas 0 a 18", "Vidas 19 a 23", "Vidas 24 a 28", "Vidas 29 a 33", "Vidas 34 a 38",
+    "Vidas 39 a 43", "Vidas 44 a 48", "Vidas 49 a 53", "Vidas 54 a 58", "Vidas 59 ou mais"
+  ];
 
   const handleExportXlsx = async () => {
     setIsExporting(true);
@@ -210,89 +156,78 @@ const Exportacoes = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {isLoadingData ? (
-                   <div className="flex items-center justify-center py-4 text-muted-foreground text-sm">
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Carregando opções de filtro...
-                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    {/* Filtro Etapa */}
-                    <div className="space-y-2">
-                      <Label htmlFor="filtro-etapa" className="text-xs">Etapa</Label>
-                      <Select value={filtroEtapa} onValueChange={setFiltroEtapa}>
-                        <SelectTrigger id="filtro-etapa" className="h-9 text-xs">
-                          <SelectValue placeholder="Todas as etapas" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {listaEtapas.map((etapa) => (
-                            <SelectItem key={etapa._id || etapa.id} value={etapa._id || etapa.id}>
-                              {etapa.name || etapa.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Filtro Origem */}
-                    <div className="space-y-2">
-                      <Label htmlFor="filtro-origem" className="text-xs">Origem</Label>
-                      <Select value={filtroOrigem} onValueChange={setFiltroOrigem}>
-                        <SelectTrigger id="filtro-origem" className="h-9 text-xs">
-                          <SelectValue placeholder="Todas" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ORIGENS_DISPONIVEIS.map((origem) => (
-                            <SelectItem key={origem} value={origem}>
-                              {origem}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Data Início */}
-                    <div className="space-y-2">
-                      <Label htmlFor="data-inicio" className="text-xs">De (Data)</Label>
-                      <Input
-                        id="data-inicio"
-                        type="date"
-                        value={dataInicio}
-                        onChange={(e) => setDataInicio(e.target.value)}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-
-                    {/* Data Fim */}
-                    <div className="space-y-2">
-                      <Label htmlFor="data-fim" className="text-xs">Até (Data)</Label>
-                      <Input
-                        id="data-fim"
-                        type="date"
-                        value={dataFim}
-                        onChange={(e) => setDataFim(e.target.value)}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-
-                    {/* Filtro Responsável */}
-                    <div className="space-y-2">
-                      <Label htmlFor="filtro-responsavel" className="text-xs">Responsável</Label>
-                      <Select value={filtroResponsavel} onValueChange={setFiltroResponsavel}>
-                        <SelectTrigger id="filtro-responsavel" className="h-9 text-xs">
-                          <SelectValue placeholder="Todos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {listaUsuarios.map((usuario) => (
-                            <SelectItem key={usuario.id} value={usuario.id}>
-                              {usuario.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {/* Filtro Etapa */}
+                  <div className="space-y-2">
+                    <Label htmlFor="filtro-etapa" className="text-xs">Etapa</Label>
+                    <Select value={filtroEtapa} onValueChange={setFiltroEtapa}>
+                      <SelectTrigger id="filtro-etapa" className="h-9 text-xs">
+                        <SelectValue placeholder="Todas as etapas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="qualificacao">Qualificação</SelectItem>
+                        <SelectItem value="proposta">Proposta</SelectItem>
+                        <SelectItem value="negociacao">Negociação</SelectItem>
+                        <SelectItem value="fechado">Fechado</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
+
+                  {/* Filtro Origem */}
+                  <div className="space-y-2">
+                    <Label htmlFor="filtro-origem" className="text-xs">Origem</Label>
+                    <Select value={filtroOrigem} onValueChange={setFiltroOrigem}>
+                      <SelectTrigger id="filtro-origem" className="h-9 text-xs">
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="telefone">Telefone</SelectItem>
+                        <SelectItem value="indicacao">Indicação</SelectItem>
+                        <SelectItem value="website">Website</SelectItem>
+                        <SelectItem value="eventos">Eventos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Data Início */}
+                  <div className="space-y-2">
+                    <Label htmlFor="data-inicio" className="text-xs">De (Data)</Label>
+                    <Input
+                      id="data-inicio"
+                      type="date"
+                      value={dataInicio}
+                      onChange={(e) => setDataInicio(e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+
+                  {/* Data Fim */}
+                  <div className="space-y-2">
+                    <Label htmlFor="data-fim" className="text-xs">Até (Data)</Label>
+                    <Input
+                      id="data-fim"
+                      type="date"
+                      value={dataFim}
+                      onChange={(e) => setDataFim(e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+
+                  {/* Filtro Responsável */}
+                  <div className="space-y-2">
+                    <Label htmlFor="filtro-responsavel" className="text-xs">Responsável</Label>
+                    <Select value={filtroResponsavel} onValueChange={setFiltroResponsavel}>
+                      <SelectTrigger id="filtro-responsavel" className="h-9 text-xs">
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="resp1">João Silva</SelectItem>
+                        <SelectItem value="resp2">Maria Santos</SelectItem>
+                        <SelectItem value="resp3">Carlos Costa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -428,12 +363,12 @@ const Exportacoes = () => {
                     </p>
                     <Button 
                       onClick={handleExportCSV}
-                      disabled={isExporting}
+                      disabled
                       className="w-full h-9 text-xs"
                       variant="outline"
                     >
                       <Download className="h-3.5 w-3.5 mr-2" />
-                      {isExporting ? "Exportando..." : "Exportar"}
+                      {isExporting ? "Exportando..." : "Em breve"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -452,12 +387,12 @@ const Exportacoes = () => {
                     </p>
                     <Button 
                       onClick={handleExportPDF}
-                      disabled={isExporting}
+                      disabled
                       className="w-full h-9 text-xs"
                       variant="outline"
                     >
                       <Download className="h-3.5 w-3.5 mr-2" />
-                      {isExporting ? "Exportando..." : "Exportar"}
+                      {isExporting ? "Exportando..." : "Em breve"}
                     </Button>
                   </CardContent>
                 </Card>
