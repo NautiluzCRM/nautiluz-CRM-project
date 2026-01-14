@@ -338,7 +338,7 @@ const Metas = () => {
                             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                               <span>Responsável: {meta.responsavel}</span>
                               <Badge variant="outline">
-                                {meta.dataFim.toLocaleDateString('pt-BR')}
+                                {meta.dataFim.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                               </Badge>
                             </div>
                           </div>

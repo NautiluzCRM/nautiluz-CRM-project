@@ -111,10 +111,10 @@ async function formatExportData(leads: any[], fields: ExportFields) {
       obj["Empresa"] = lead.company || "";
       obj["Origem"] = lead.origin || "";
       obj["Data de Entrada"] = lead.createdAt 
-        ? new Date(lead.createdAt).toLocaleDateString('pt-BR') 
+        ? new Date(lead.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) 
         : "";
       obj["Última Atualização"] = lead.updatedAt
-        ? new Date(lead.updatedAt).toLocaleDateString('pt-BR')
+        ? new Date(lead.updatedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
         : "";
     }
 
@@ -140,9 +140,23 @@ async function formatExportData(leads: any[], fields: ExportFields) {
       obj["Total de Vidas"] = Number(lead.livesCount) || 0;
       obj["Valor Médio (R$)"] = Number(lead.avgPrice) || 0;
       
-      const arrayIdades = Array.isArray(lead.ageBuckets) ? lead.ageBuckets : Array(10).fill(0);
+      // Mapeamento das chaves do objeto novo para bater com a ordem de LABELS_FAIXAS
+      const keysFaixas = [
+        'ate18', 'de19a23', 'de24a28', 'de29a33', 'de34a38',
+        'de39a43', 'de44a48', 'de49a53', 'de54a58', 'acima59'
+      ];
+
       LABELS_FAIXAS.forEach((label, index) => {
-        obj[label] = Number(arrayIdades[index]) || 0;
+        const key = keysFaixas[index];
+        
+        let valor = lead.faixasEtarias?.[key];
+
+        if (valor === undefined || valor === null) {
+           const legacyArray = Array.isArray(lead.ageBuckets) ? lead.ageBuckets : (Array.isArray(lead.idades) ? lead.idades : []);
+           valor = legacyArray[index];
+        }
+
+        obj[label] = Number(valor) || 0;
       });
     }
 
@@ -206,9 +220,9 @@ export async function exportToXLSX(
     { wch: 25 }, { wch: 30 }, { wch: 25 }, { wch: 30 }, { wch: 15 },
     { wch: 15 }, { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
     { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 18 }, { wch: 10 },
-    { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 12 }, { wch: 12 },
+    { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
     { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 20 },
+    { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 30 }, { wch: 20 },
     { wch: 15 }, { wch: 20 }, { wch: 50 }
   ];
   worksheet['!cols'] = wscols;
@@ -270,8 +284,8 @@ export async function exportToPDF(
     doc.on('error', reject);
 
     try {
-      const dataHoje = new Date().toLocaleDateString('pt-BR');
-      const horaHoje = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const dataHoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const horaHoje = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
       const pageWidth = doc.page.width;
       const pageHeight = doc.page.height;
 

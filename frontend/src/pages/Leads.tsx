@@ -207,6 +207,7 @@ const Leads = () => {
               {!isPrivileged && <span className="text-[9px] bg-black/20 px-1 rounded">FIXO</span>}
             </Button>
 
+            {/*
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs shrink-0">
                 <SelectValue placeholder="Status" />
@@ -219,6 +220,7 @@ const Leads = () => {
                 <SelectItem value="Sem interesse">Sem interesse</SelectItem>
               </SelectContent>
             </Select>
+            */}
 
             <Select value={origemFilter} onValueChange={setOrigemFilter}>
               <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs shrink-0">
@@ -433,7 +435,7 @@ const Leads = () => {
                       
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : '-'}
+                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
                       </span>
                     </div>
                   </CardContent>
@@ -507,7 +509,7 @@ const Leads = () => {
                           }
                         </TableCell>
                         <TableCell className="hidden sm:table-cell text-right text-xs text-muted-foreground">
-                          {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : '-'}
+                          {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
                         </TableCell>
                       </TableRow>
                     ))}
