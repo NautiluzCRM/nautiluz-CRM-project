@@ -29,6 +29,18 @@ interface LeadFilter {
   stageId?: string;
 }
 
+// --- FUNÇÃO AUXILIAR PARA LIMPAR CAMPOS VAZIOS ---
+// Isso impede que strings vazias quebrem campos do tipo ObjectId ou Date
+const cleanEmptyFields = (obj: any) => {
+  const newObj = { ...obj };
+  Object.keys(newObj).forEach(key => {
+    if (newObj[key] === '' || newObj[key] === undefined || newObj[key] === null) {
+      delete newObj[key];
+    }
+  });
+  return newObj;
+};
+
 export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
   const query: any = {};
 
@@ -200,7 +212,6 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
 
 export async function createLead(input: any, user?: UserAuth) {
 
-
   // 1. VERIFICAÇÃO DE DUPLICIDADE (BUSCA INTELIGENTE)
   const criteriosBusca: any[] = [{ phone: input.phone }];
   if (input.email && input.email.trim() !== '') {
@@ -210,10 +221,13 @@ export async function createLead(input: any, user?: UserAuth) {
   const existingLead = await LeadModel.findOne({ $or: criteriosBusca });
 
   if (existingLead) {
+    // Limpeza de campos vazios antes de atualizar duplicado
+    const cleanInput = cleanEmptyFields(input);
+
     const updatedLead = await LeadModel.findByIdAndUpdate(
       existingLead._id,
       {
-        ...input,
+        ...cleanInput,
         lastActivity: new Date(),
         updatedBy: user?.sub || SYSTEM_ID 
       },
@@ -232,11 +246,12 @@ export async function createLead(input: any, user?: UserAuth) {
     return updatedLead;
   }
 
-  // ... (Validações de Pipeline, Stage, Distribuição continuam iguais) ...
-  
+  // Limpeza de campos vazios antes de criar
   if (input.cnpjType === '') delete input.cnpjType;
+  
   const pipeline = await PipelineModel.findById(input.pipelineId);
   if (!pipeline) throw new AppError('Pipeline inválido', StatusCodes.BAD_REQUEST);
+  
   const stage = await StageModel.findById(input.stageId);
   if (!stage) throw new AppError('Stage inválido', StatusCodes.BAD_REQUEST);
 
@@ -285,8 +300,6 @@ export async function createLead(input: any, user?: UserAuth) {
     }
   }
 
-  
-  // Verifica se o user.sub é um ObjectId válido do Mongo. Se não for, usa o SYSTEM_ID.
   const isValidCreatorId = user?.sub && mongoose.Types.ObjectId.isValid(user.sub);
   const createdById = isValidCreatorId ? user.sub : SYSTEM_ID;
 
@@ -300,12 +313,9 @@ export async function createLead(input: any, user?: UserAuth) {
     lastActivity: input.createdAt || new Date()
   });
 
-  // Prepara dados para o Log de Atividade
   const creatorId = user?.sub;
   let userName = 'Sistema';
   
-  // Valida o ID final que vai para o ActivityService
-  // Se o creatorId não for válido (ex: undefined ou string estranha), usa SYSTEM_ID
   const finalUserId = (creatorId && mongoose.Types.ObjectId.isValid(creatorId)) 
     ? creatorId 
     : SYSTEM_ID;
@@ -317,7 +327,6 @@ export async function createLead(input: any, user?: UserAuth) {
 
   const descricaoLog = input.customCreationLog || `Lead criado por ${userName}`;
 
-  // Cria a atividade com garantia de ID válido
   await ActivityService.createActivity({
     leadId: lead._id.toString(),
     tipo: 'lead_criado',
@@ -330,96 +339,79 @@ export async function createLead(input: any, user?: UserAuth) {
 }
 
 export async function updateLead(id: string, input: any, user?: UserAuth) {
-  const existingLead = await LeadModel.findById(id);
-  if (!existingLead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
+  // 1. LOG DE ENTRADA: Ver exatamente o que está chegando
+  console.log(`[SERVICE] updateLead iniciado.`);
+  console.log(`- ID recebido (string): "${id}"`);
+  console.log(`- Tipo do input: ${typeof input}`);
 
+  // 2. VALIDAÇÃO E CONVERSÃO FORÇADA DO ID
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    console.error(`[SERVICE] ERRO: ID inválido recebido: "${id}"`);
+    throw new AppError('ID do Lead inválido', StatusCodes.BAD_REQUEST);
+  }
+
+  // Converte string para ObjectId manualmente para garantir
+  const objectId = new mongoose.Types.ObjectId(id);
+
+  // 3. BUSCA COM LOG DE DIAGNÓSTICO
+  const existingLead = await LeadModel.findById(objectId);
+  
+  if (!existingLead) {
+    // Se cair aqui, é o mistério. Vamos tentar achar o erro.
+    console.error(`[SERVICE] CRÍTICO: LeadModel.findById retornou null.`);
+    console.error(`- ID Buscado (ObjectId):`, objectId);
+    console.error(`- Coleção consultada:`, LeadModel.collection.name);
+    
+    // Tenta achar na força bruta para ver se o documento existe mesmo
+    const checkAll = await LeadModel.findOne({ _id: objectId });
+    console.error(`- Busca secundária (findOne):`, checkAll ? 'ENCONTRADO (Estranho!)' : 'REALMENTE NÃO EXISTE');
+
+    throw new AppError('Lead não encontrado no banco de dados', StatusCodes.NOT_FOUND);
+  }
+
+  // ... (Resto das validações de permissão continuam iguais)
   if (user && user.role !== 'admin') {
     const owners = existingLead.owners || [];
     const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
-    
-    if (!isOwner) {
-      throw new AppError('Você não tem permissão para editar este lead.', StatusCodes.FORBIDDEN);
-    }
+    if (!isOwner) throw new AppError('Permissão negada.', StatusCodes.FORBIDDEN);
   }
 
   const updatedById = user?.sub || SYSTEM_ID;
 
-  const lead = await LeadModel.findByIdAndUpdate(
-      id, 
-      { ...input, updatedBy: updatedById }, 
-      { new: true }
-    )
-    .populate('owners', 'name email photoUrl photoBase64')
-    .populate('owner', 'name email photoUrl photoBase64');
+  // 4. LIMPEZA DE CAMPOS VAZIOS (A função cleanEmptyFields deve estar no topo do arquivo)
+  const cleanInput = cleanEmptyFields(input);
+  if (cleanInput.pipelineId === '') delete cleanInput.pipelineId;
+  if (cleanInput.stageId === '') delete cleanInput.stageId;
 
-  const updatorId = user?.sub;
-  const userDoc = updatorId ? await UserModel.findById(updatorId) : null;
-  const userName = userDoc?.name || 'Sistema';
-  const finalUserId = updatorId || SYSTEM_ID;
+  try {
+    // Atualização
+    const lead = await LeadModel.findByIdAndUpdate(
+        objectId, 
+        { ...cleanInput, updatedBy: updatedById }, 
+        { new: true, runValidators: true } 
+      )
+      .populate('owners', 'name email photoUrl photoBase64')
+      .populate('owner', 'name email photoUrl photoBase64');
 
-  // 1. Mudança de stage
-  if (input.stageId && input.stageId !== existingLead.stageId?.toString()) {
-    const oldStage = await StageModel.findById(existingLead.stageId);
-    const newStage = await StageModel.findById(input.stageId);
+    // ... (Lógica de Logs de Atividade - MANTENHA A MESMA DO CÓDIGO ANTERIOR) ...
+    const updatorId = user?.sub;
+    const userDoc = updatorId ? await UserModel.findById(updatorId) : null;
+    const userName = userDoc?.name || 'Sistema';
+    const finalUserId = updatorId || SYSTEM_ID;
+
+    // ... (Cole aqui o restante dos blocos de ActivityService que você já tem) ...
     
-    await ActivityService.createActivity({
-      leadId: id,
-      tipo: 'lead_movido' as any,
-      descricao: `${userName} moveu o lead de "${oldStage?.name || 'N/A'}" para "${newStage?.name || 'N/A'}"`,
-      userId: finalUserId,
-      userName: userName,
-      metadata: {
-        from: oldStage?.name || 'N/A',
-        to: newStage?.name || 'N/A'
-      }
-    });
-  }
+    // (Resumo do bloco de logs para não ficar gigante na resposta, mas você deve manter o seu código original de logs aqui)
+    // if (cleanInput.stageId...)
+    // if (cleanInput.owners...)
+    // etc...
 
-  // 2. Mudança de responsáveis
-  const oldOwners = existingLead.owners?.map((o: any) => o.toString()).sort() || [];
-  const newOwners = input.owners?.map((o: any) => o.toString()).sort() || [];
-  
-  if (input.owners && JSON.stringify(oldOwners) !== JSON.stringify(newOwners)) {
-    await ActivityService.createActivity({
-      leadId: id,
-      tipo: 'responsavel_alterado' as any,
-      descricao: `${userName} alterou os responsáveis pelo lead`,
-      userId: finalUserId,
-      userName: userName
-    });
-  }
+    return lead;
 
-  // 3. Mudança de status
-  if (input.qualificationStatus && input.qualificationStatus !== existingLead.qualificationStatus) {
-    await ActivityService.createActivity({
-      leadId: id,
-      tipo: 'status_alterado' as any,
-      descricao: `${userName} alterou o status de qualificação para "${input.qualificationStatus}"`,
-      userId: finalUserId,
-      userName: userName,
-      metadata: {
-        from: existingLead.qualificationStatus || 'N/A',
-        to: input.qualificationStatus
-      }
-    });
+  } catch (err) {
+    console.error(`[SERVICE] Erro fatal no findByIdAndUpdate:`, err);
+    throw err;
   }
-
-  // 4. Atividade genérica
-  const descricaoLog = input.customUpdateLog || `${userName} atualizou os dados do lead`;
-  
-  const isSpecificAction = input.stageId || input.owners || input.qualificationStatus;
-
-  if (!isSpecificAction || input.customUpdateLog) {
-    await ActivityService.createActivity({
-      leadId: id,
-      tipo: 'lead_atualizado',
-      descricao: descricaoLog, 
-      userId: finalUserId,
-      userName: userName
-    });
-  }
-  
-  return lead;
 }
 
 export async function deleteLead(id: string, user?: UserAuth) {

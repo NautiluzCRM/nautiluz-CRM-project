@@ -99,10 +99,8 @@ export const linktreeHandler = asyncHandler(async (req: Request, res: Response) 
   const dadosFormatados = { temCnpj, safeCnpjType, temPlano, currentPlan, preferredHospitals, textoFaixas };
 
   // --- BUSCA LEAD  ---
-  // Montamos a lista de condições dinamicamente
   const searchConditions: any[] = [{ phone: phoneClean }];
   
-  // Só busca por email se o email for VÁLIDO (não vazio)
   if (emailClean && emailClean !== '') {
     searchConditions.push({ email: emailClean });
   }
@@ -170,7 +168,6 @@ export const linktreeHandler = asyncHandler(async (req: Request, res: Response) 
     const updatedLead = await updateLead(existingLead._id.toString(), {
       name,
       phone: phoneClean,
-      //  SÓ ATUALIZA O EMAIL SE O NOVO FOR VÁLIDO. SE FOR VAZIO, MANTÉM O ANTIGO.
       email: (emailClean && emailClean !== '') ? emailClean : existingLead.email,
       
       livesCount: count,
@@ -184,12 +181,18 @@ export const linktreeHandler = asyncHandler(async (req: Request, res: Response) 
       preferredHospitals: preferredHospitals || leadAny.preferredHospitals,
       city: city || existingLead.city,
       state: state || existingLead.state,
-      
       owners: novoDono, 
-      
-      lastActivity: new Date(),
-      customUpdateLog: logUnificado
+      lastActivity: new Date()
+      // REMOVIDO: customUpdateLog (Vamos usar addActivity explícito)
     });
+
+    // 🔴 FORÇA A CRIAÇÃO DO LOG DE ATIVIDADE
+    await addActivity(
+      existingLead._id.toString(),
+      'lead_atualizado', 
+      { descricao: logUnificado }, 
+      SYSTEM_ID
+    );
 
     return res.status(StatusCodes.CREATED).json({ success: true, leadId: updatedLead?._id, message: 'Lead atualizado.' });
   }
@@ -224,7 +227,6 @@ export const linktreeHandler = asyncHandler(async (req: Request, res: Response) 
     hasCurrentPlan: temPlano, 
     avgPrice: price, 
     preferredHospitals: preferredHospitals || [],
-    
     owners: [],
     customCreationLog: logTecnicoUnificado
   });

@@ -6,9 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Download, FileSpreadsheet, FileText, BarChart3, Filter, RotateCcw } from "lucide-react";
-import { exportToXLSX, exportToCSV, exportToPDF } from "@/lib/api"; 
-import { useToast } from "@/hooks/use-toast"; 
+import { Download, FileSpreadsheet, FileText, BarChart3, Filter, RotateCcw, Loader2 } from "lucide-react";
+import { exportToXLSX, exportToCSV, exportToPDF, fetchUsers, fetchPipelines, fetchStages } from "@/lib/api"; 
+import { useToast } from "@/hooks/use-toast";       
 
 const Exportacoes = () => {
   const [isExporting, setIsExporting] = useState(false);

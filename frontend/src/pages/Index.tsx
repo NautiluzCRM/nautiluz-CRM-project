@@ -392,6 +392,7 @@ const Index = () => {
                               {owner.nome}
                             </SelectItem>
                           ))}
+
                         </SelectContent>
                       </Select>
                     </div>
