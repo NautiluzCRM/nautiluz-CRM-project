@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { asyncHandler, AppError } from '../../common/http.js';
-import { createLead, updateLead, findNextResponsible } from '../leads/leads.service.js';
+import { createLead, updateLead, findNextResponsible, addActivity } from '../leads/leads.service.js';
 import { PipelineModel } from '../pipelines/pipeline.model.js';
 import { StageModel } from '../pipelines/stage.model.js';
 import { LeadModel } from '../leads/lead.model.js';
@@ -120,12 +120,10 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   let phoneClean = normalizarTelefone(telefone);
 
   // 🛡️ VACINA PARA LEAD DE TESTE 🛡️
-  // Verifica se é um teste do Facebook para evitar salvar dados vazios que bloqueiam a edição
   const isTestLead = nome.toLowerCase().includes('test lead') || 
                      nome.toLowerCase().includes('dummy data') ||
                      telefone.includes('dummy data');
 
-  // Se for teste e o telefone ficou inválido/vazio, injeta um número válido
   if (phoneClean.length < 5 && isTestLead) {
       console.log('[WEBHOOK] Lead de Teste detectado: Injetando telefone fictício válido.');
       phoneClean = '+5511999999999'; 
@@ -135,7 +133,6 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   if (emailClean === '-' || emailClean === 'nao' || emailClean.length < 5 || !emailClean.includes('@')) {
      emailClean = ''; 
   }
-  // Garante email para teste também
   if (isTestLead && (!emailClean || emailClean === '')) {
       emailClean = 'teste_facebook@exemplo.com';
   }
@@ -148,22 +145,13 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   const cidadeFinal = [cidade, city, City].find(val => val && val.trim().length > 0) || 'A verificar';
   const estadoFinal = [estado, state, State].find(val => val && val.trim().length > 0) || 'SP';
 
-  // --- LÓGICA DE VIDAS (MAIOR VALOR VENCE) ---
+  // --- LÓGICA DE VIDAS ---
   const { faixas, idadesArray } = processarFaixasEtarias(distribuicaoVidas);
-  
-  // 1. Calcula soma das faixas
   const somaFaixas = idadesArray.reduce((acc, curr) => acc + curr, 0);
-
-  // 2. Pega o valor do campo quantidade
   const livesDeclaradas = Number(quantidadeVidas);
   const livesFromField = (!isNaN(livesDeclaradas) && livesDeclaradas > 0) ? livesDeclaradas : 0;
-
-  // 3. Usa o maior valor encontrado
   let lives = Math.max(somaFaixas, livesFromField);
-
-  // 4. Fallback se tudo for zero
   if (lives === 0) lives = 1;
-  // ------------------------------------------------
 
   const textoFaixas = formatarFaixasEtarias(idadesArray);
 
@@ -203,7 +191,7 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     let novoDono = existingLead.owners || [];
     let houveRedistribuicao = false;
     
-    // Sticky Routing (Manter dono atual se possível)
+    // Sticky Routing
     const donoAtualId = (existingLead.owners && existingLead.owners.length > 0) ? existingLead.owners[0] : null;
     let manterDonoAtual = false;
     if (donoAtualId) {
@@ -219,7 +207,6 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
       if (donoQualificado) manterDonoAtual = true;
     }
     
-    // Se o dono atual não serve mais (ou não existe), redistribui
     if (!manterDonoAtual) {
       const donoDistribuido = await findNextResponsible(lives, temCnpj);
       if (donoDistribuido) {
@@ -247,7 +234,7 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
 
     await updateLead(existingLead._id.toString(), {
       name: nome,
-      phone: phoneClean, // Agora garantido que não é vazio
+      phone: phoneClean,
       email: (emailClean && emailClean !== '') ? emailClean : existingLead.email,
       livesCount: lives,
       avgPrice: valorEstimado,
@@ -263,9 +250,17 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
       currentPlan: operadora || '', 
       pipelineId: pipelineDefault?._id.toString(),
       stageId: stageNovo ? stageNovo._id.toString() : existingLead.stageId,
-      lastActivity: new Date(),
-      customUpdateLog: logUnificado 
+      lastActivity: new Date()
+      // customUpdateLog REMOVIDO para usar addActivity
     });
+
+    // 🔴 FORÇA O REGISTRO DA ATIVIDADE 🔴
+    await addActivity(
+      existingLead._id.toString(),
+      'lead_atualizado', 
+      { descricao: logUnificado }, 
+      SYSTEM_ID
+    );
 
     return res.status(StatusCodes.CREATED).json({ success: true, action: 'updated' });
   }
@@ -285,7 +280,7 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
 
   const resultLead = await createLead({
     name: nome,
-    phone: phoneClean, // Agora garantido que não é vazio
+    phone: phoneClean,
     email: emailClean,
     origin: origem || 'Meta Ads', 
     pipelineId: pipeline._id.toString(),
