@@ -321,12 +321,9 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
                 <Select value={formData.origem} onValueChange={(val) => handleChange("origem", val)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Google Ads">Google Ads</SelectItem>
-                    <SelectItem value="Indicação">Indicação</SelectItem>
                     <SelectItem value="Instagram">Instagram</SelectItem>
-                    <SelectItem value="Meta Ads">Meta Ads</SelectItem>
                     <SelectItem value="Site">Site</SelectItem>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                    <SelectItem value="Indicação">Indicação</SelectItem>
                     <SelectItem value="Outros">Outros</SelectItem>
                   </SelectContent>
                 </Select>
