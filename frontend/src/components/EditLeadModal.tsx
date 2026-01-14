@@ -324,6 +324,9 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
                     <SelectItem value="Instagram">Instagram</SelectItem>
                     <SelectItem value="Site">Site</SelectItem>
                     <SelectItem value="Indicação">Indicação</SelectItem>
+                    <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                    <SelectItem value="Google Ads">Google Ads</SelectItem>
+                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                     <SelectItem value="Outros">Outros</SelectItem>
                   </SelectContent>
                 </Select>
