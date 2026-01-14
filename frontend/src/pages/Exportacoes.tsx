@@ -7,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Download, FileSpreadsheet, FileText, BarChart3, Filter, RotateCcw, Loader2 } from "lucide-react";
-// Importamos as funções de busca da API
 import { exportToXLSX, exportToCSV, exportToPDF, fetchUsers, fetchPipelines, fetchStages } from "@/lib/api"; 
 import { useToast } from "@/hooks/use-toast"; 
 
