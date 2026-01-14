@@ -13,11 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 
 // Lista de origens padrão do sistema
 const ORIGENS_DISPONIVEIS = [
-  "Instagram",
-  "Site",
-  "Indicação",
-  "Meta Ads",
   "Google Ads",
+  "Indicação",
+  "Instagram",
+  "Meta Ads",
+  "Site",
   "WhatsApp",
   "Outros"
 ];
