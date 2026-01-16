@@ -10,11 +10,6 @@ import { Note } from '../../models/Note.model.js';
 
 const SYSTEM_ID = process.env.SYSTEM_USER_ID || '000000000000000000000000';
 
-const TIPOS_CNPJ_VALIDOS = [
-  "MEI", "ME", "EI", "EPP", "SLU", "LTDA", "SS", "SA", 
-  "Média", "Grande", "Outro", "Outros"
-];
-
 const normalizarTelefone = (phone: string): string => {
   if (!phone) return '';
   let cleaned = phone.replace(/[^\d+]/g, '');
@@ -29,65 +24,52 @@ const textoParaBooleano = (texto: any): boolean => {
   return t === 'sim' || t === 'yes' || t === 'true' || t === 's' || t === '1';
 };
 
-const formatarFaixasEtarias = (buckets: number[]): string => {
-  if (!buckets || buckets.length === 0) return '-';
-  const labels = [
-    '0 a 18', '19 a 23', '24 a 28', '29 a 33', '34 a 38',
-    '39 a 43', '44 a 48', '49 a 53', '54 a 58', '59 ou mais'
-  ];
-  return buckets.map((qtd, index) => {
-    const label = labels[index] || `Faixa ${index + 1}`;
-    return `${label} = ${qtd}`;
-  }).join('\n');
-};
-
-const processarFaixasEtarias = (textoInput: string) => {
+// --- NOVA LÓGICA DE IDADES ---
+// Recebe: "10, 20, 30" ou "10 20 30"
+// Retorna: Objeto de Faixas + Array de Idades
+const calcularFaixasPorIdadesIndividuais = (textoInput: string) => {
   const faixas = {
     ate18: 0, de19a23: 0, de24a28: 0, de29a33: 0, de34a38: 0,
     de39a43: 0, de44a48: 0, de49a53: 0, de54a58: 0, acima59: 0
   };
-  const idadesArray = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
+  
   if (!textoInput || typeof textoInput !== 'string') {
-    return { faixas, idadesArray };
+    return { faixas, idadesArray: [] as number[] };
   }
 
-  const mapaDeChaves: Record<number, keyof typeof faixas> = {
-    1: 'ate18', 2: 'de19a23', 3: 'de24a28', 4: 'de29a33', 5: 'de34a38',
-    6: 'de39a43', 7: 'de44a48', 8: 'de49a53', 9: 'de54a58', 10: 'acima59'
-  };
+  // 1. Limpa tudo que não é número e separa
+  // Ex: "10, 20. 30" -> "10 20 30" -> [10, 20, 30]
+  const idadesArray = textoInput
+    .replace(/[^0-9]/g, ' ') // Troca virgulas, pontos e letras por espaço
+    .split(' ')
+    .map(n => parseInt(n.trim()))
+    .filter(n => !isNaN(n) && n > 0 && n < 120); // Filtra números válidos
 
-  const partes = textoInput.split(',');
-
-  partes.forEach(parte => {
-    const [codigoStr, qtdStr] = parte.trim().split(':');
-    const codigo = parseInt(codigoStr);
-    const qtd = parseInt(qtdStr);
-
-    if (!isNaN(codigo) && !isNaN(qtd) && codigo >= 1 && codigo <= 10) {
-      const chave = mapaDeChaves[codigo];
-      if (chave) faixas[chave] = qtd;
-      idadesArray[codigo - 1] = qtd;
-    }
+  // 2. Distribui nas caixinhas
+  idadesArray.forEach(idade => {
+    if (idade <= 18) faixas.ate18++;
+    else if (idade <= 23) faixas.de19a23++;
+    else if (idade <= 28) faixas.de24a28++;
+    else if (idade <= 33) faixas.de29a33++;
+    else if (idade <= 38) faixas.de34a38++;
+    else if (idade <= 43) faixas.de39a43++;
+    else if (idade <= 48) faixas.de44a48++;
+    else if (idade <= 53) faixas.de49a53++;
+    else if (idade <= 58) faixas.de54a58++;
+    else faixas.acima59++;
   });
 
   return { faixas, idadesArray };
 };
 
 const gerarResumoTecnicoWebhook = (dados: any) => {
-  const { temCnpj, tipoCNPJ, temPlano, operadora, hospitalPreferencia, textoFaixas } = dados;
+  const { temCnpj, formacao, idadesList } = dados;
   
-  const detalheCnpj = temCnpj && tipoCNPJ ? `(${tipoCNPJ})` : '';
-  const detalhePlano = temPlano && operadora ? `(${operadora})` : '';
-
   return `
-DADOS TÉCNICOS DO FORMULÁRIO:
-
- CNPJ: ${temCnpj ? 'SIM' : 'NÃO'} ${detalheCnpj}
- Plano Atual: ${temPlano ? 'SIM' : 'NÃO'} ${detalhePlano}
- Hospitais: ${hospitalPreferencia && hospitalPreferencia.length ? hospitalPreferencia : 'Não informado'}
- Faixas Etárias:
-${textoFaixas}
+DADOS TÉCNICOS (Facebook Ads):
+ CNPJ: ${temCnpj ? 'SIM' : 'NÃO'}
+ Formação/Estudando: ${formacao ? 'SIM' : 'NÃO'}
+ Idades informadas: ${idadesList.join(', ') || 'Nenhuma'}
 `.trim();
 };
 
@@ -100,219 +82,217 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     return res.status(403).json({ error: 'Acesso negado.' });
   }
 
-  const { 
-    nome, email, telefone, origem, quantidadeVidas, observacoes,
-    cidade, city, City, 
-    estado, state, State, 
-    investimento, possuiCNPJ, jaTemPlano, hospitalPreferencia,
-    distribuicaoVidas, tipoCNPJ, operadora
-  } = req.body;
-
   console.log('[WEBHOOK] Payload recebido:', req.body);
 
-  if (!nome || !telefone) {
+  // ==================================================================
+  // 1. MAPEAMENTO DOS CAMPOS (Tradução das perguntas)
+  // ==================================================================
+  // Ajuste as chaves ('tem_cnpj', etc) conforme o JSON real que chega do Facebook
+  const rawBody = req.body;
+
+  const input = {
+    nome: rawBody.nome_completo || rawBody.nome || rawBody.full_name,
+    email: rawBody.email,
+    telefone: rawBody.telefone || rawBody.phone_number,
+    
+    // Perguntas específicas
+    temCnpj: rawBody.tem_cnpj || rawBody.possui_cnpj,
+    temFormacao: rawBody.tem_formacao_academica || rawBody.formacao || rawBody.estudando,
+    qtdVidas: rawBody.quantidade_de_vidas || rawBody.vidas,
+    listaIdades: rawBody.quantos_anos_cada_pessoa_tem || rawBody.idades,
+    
+    // Campos que não vem na pergunta (Defaults)
+    origem: rawBody.origem || 'Meta Ads',
+    cidade: rawBody.cidade || rawBody.city || '-',
+    estado: rawBody.estado || rawBody.state || '-',
+  };
+
+  if (!input.nome || !input.telefone) {
     return res.status(StatusCodes.BAD_REQUEST).json({ 
       error: 'Nome e Telefone são obrigatórios.' 
     });
   }
 
-  // --- TRATAMENTO ---
-  let phoneClean = normalizarTelefone(telefone);
+  // ==================================================================
+  // 2. TRATAMENTO E HIGIENIZAÇÃO
+  // ==================================================================
+  let phoneClean = normalizarTelefone(input.telefone);
 
-  // 🛡️ VACINA PARA LEAD DE TESTE 🛡️
-  const isTestLead = nome.toLowerCase().includes('test lead') || 
-                     nome.toLowerCase().includes('dummy data') ||
-                     telefone.includes('dummy data');
+  // Tratamento de Email
+  let emailClean = input.email ? input.email.trim().toLowerCase() : '';
+  if (emailClean === '-' || !emailClean.includes('@')) emailClean = '';
 
-  if (phoneClean.length < 5 && isTestLead) {
-      console.log('[WEBHOOK] Lead de Teste detectado: Injetando telefone fictício válido.');
-      phoneClean = '+5511999999999'; 
-  }
+  // Tratamento Booleano
+  const hasCnpj = textoParaBooleano(input.temCnpj);
+  const hasFormacao = textoParaBooleano(input.temFormacao);
+
+  // Tratamento de Idades e Vidas
+  const { faixas, idadesArray } = calcularFaixasPorIdadesIndividuais(input.listaIdades);
   
-  let emailClean = email ? email.trim().toLowerCase() : '';
-  if (emailClean === '-' || emailClean === 'nao' || emailClean.length < 5 || !emailClean.includes('@')) {
-     emailClean = ''; 
+  // Se o usuário digitou qtdVidas, usa. Se não, conta as idades digitadas.
+  let livesCount = parseInt(String(input.qtdVidas).replace(/[^0-9]/g, ''));
+  if (isNaN(livesCount) || livesCount === 0) {
+    livesCount = idadesArray.length > 0 ? idadesArray.length : 1;
   }
-  if (isTestLead && (!emailClean || emailClean === '')) {
-      emailClean = 'teste_facebook@exemplo.com';
-  }
+  // Garante sincronia (ex: digitou 2 vidas mas colocou 3 idades -> usa o maior)
+  livesCount = Math.max(livesCount, idadesArray.length);
 
-  let cnpjTypeFinal = '';
-  if (tipoCNPJ && TIPOS_CNPJ_VALIDOS.includes(tipoCNPJ)) {
-    cnpjTypeFinal = tipoCNPJ;
-  }
-
-  const cidadeFinal = [cidade, city, City].find(val => val && val.trim().length > 0) || 'A verificar';
-  const estadoFinal = [estado, state, State].find(val => val && val.trim().length > 0) || 'SP';
-
-  // --- LÓGICA DE VIDAS ---
-  const { faixas, idadesArray } = processarFaixasEtarias(distribuicaoVidas);
-  const somaFaixas = idadesArray.reduce((acc, curr) => acc + curr, 0);
-  const livesDeclaradas = Number(quantidadeVidas);
-  const livesFromField = (!isNaN(livesDeclaradas) && livesDeclaradas > 0) ? livesDeclaradas : 0;
-  let lives = Math.max(somaFaixas, livesFromField);
-  if (lives === 0) lives = 1;
-
-  const textoFaixas = formatarFaixasEtarias(idadesArray);
-
-  const temCnpj = textoParaBooleano(possuiCNPJ);
-  const temPlano = textoParaBooleano(jaTemPlano);
-  const valorEstimado = Number(investimento) || 0;
-  const listaHospitais = hospitalPreferencia ? [hospitalPreferencia] : [];
-
-  const dadosFormatados = { 
-    investimento: valorEstimado, 
-    hospitalPreferencia: listaHospitais.join(', '), 
-    temCnpj, 
-    temPlano, 
-    cidade: cidadeFinal, 
-    estado: estadoFinal, 
-    tipoCNPJ: cnpjTypeFinal,   
-    operadora,
-    textoFaixas
-  };
-
+  // Preparar Observações (Junta Formação + Dados técnicos)
+  const infoFormacao = `Possui formação/estudando: ${hasFormacao ? 'SIM' : 'NÃO'}`;
+  const dadosFormatados = { temCnpj: hasCnpj, formacao: hasFormacao, idadesList: idadesArray };
+  const resumoTecnico = gerarResumoTecnicoWebhook(dadosFormatados);
+  
+  // ==================================================================
+  // 3. BUSCA POR DUPLICIDADE
+  // ==================================================================
   const searchConditions: any[] = [{ phone: phoneClean }];
-  if (emailClean && emailClean !== '') {
-    searchConditions.push({ email: emailClean });
-  }
+  if (emailClean) searchConditions.push({ email: emailClean });
 
   const existingLead = await LeadModel.findOne({ $or: searchConditions });
 
-  // ===============================================================
-  // CASO 1: ATUALIZAÇÃO
-  // ===============================================================
+  // ==================================================================
+  // CASO 1: ATUALIZAÇÃO (Lead já existe)
+  // ==================================================================
   if (existingLead) {
     console.log(`[WEBHOOK] Atualizando Lead: ${existingLead.name}`);
 
-    const pipelineDefault = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
-    const stageNovo = await StageModel.findOne({ pipelineId: pipelineDefault?._id, key: 'novo' });
-
+    // Sticky Routing (Tenta manter o dono atual se ele ainda puder atender)
     let novoDono = existingLead.owners || [];
     let houveRedistribuicao = false;
-    
-    // Sticky Routing
-    const donoAtualId = (existingLead.owners && existingLead.owners.length > 0) ? existingLead.owners[0] : null;
-    let manterDonoAtual = false;
+    const donoAtualId = novoDono.length > 0 ? novoDono[0] : null;
+
     if (donoAtualId) {
-      const regraCnpj = temCnpj ? { $in: ['required', 'both'] } : { $in: ['forbidden', 'both'] };
+      const regraCnpj = hasCnpj ? { $in: ['required', 'both'] } : { $in: ['forbidden', 'both'] };
+      // Verifica se o dono atual aceita a nova quantidade de vidas/cnpj
       const donoQualificado = await UserModel.findOne({
         _id: donoAtualId,
         active: true,
         'distribution.active': true,
-        'distribution.minLives': { $lte: lives },
-        'distribution.maxLives': { $gte: lives },
+        'distribution.minLives': { $lte: livesCount },
+        'distribution.maxLives': { $gte: livesCount },
         'distribution.cnpjRule': regraCnpj
       });
-      if (donoQualificado) manterDonoAtual = true;
-    }
-    
-    if (!manterDonoAtual) {
-      const donoDistribuido = await findNextResponsible(lives, temCnpj);
-      if (donoDistribuido) {
-        novoDono = [donoDistribuido as any];
-        houveRedistribuicao = true;
+      
+      // Se não qualificado, redistribui
+      if (!donoQualificado) {
+        const donoDistribuido = await findNextResponsible(livesCount, hasCnpj);
+        if (donoDistribuido) {
+          novoDono = [donoDistribuido as any];
+          houveRedistribuicao = true;
+        }
       }
+    } else {
+       // Se não tinha dono, distribui
+       const donoDistribuido = await findNextResponsible(livesCount, hasCnpj);
+       if (donoDistribuido) {
+         novoDono = [donoDistribuido as any];
+         houveRedistribuicao = true;
+       }
     }
 
-    if (observacoes && observacoes.trim() !== '') {
-      await Note.create({
-        leadId: existingLead._id,
-        conteudo: `[Observação do Formulário]: ${observacoes}`,
-        userId: SYSTEM_ID as any, 
-        userName: 'Webhook (Site)', 
-        isPinned: true            
-      });
-    }
-
-    const resumoTecnico = gerarResumoTecnicoWebhook(dadosFormatados);
-    const logUnificado = houveRedistribuicao 
-      ? `Lead atualizado via Webhook (REDISTRIBUÍDO).\n\n${resumoTecnico}` 
-      : `Lead atualizado via Webhook.\n\n${resumoTecnico}`;
+    // Cria Nota com a info extra (Formação)
+    await Note.create({
+      leadId: existingLead._id,
+      conteudo: `[Webhook Update] ${infoFormacao}`,
+      userId: SYSTEM_ID as any, 
+      userName: 'Facebook Ads', 
+      isPinned: false            
+    });
 
     const leadAny = existingLead as any;
 
     await updateLead(existingLead._id.toString(), {
-      name: nome,
+      name: input.nome,
       phone: phoneClean,
-      email: (emailClean && emailClean !== '') ? emailClean : existingLead.email,
-      livesCount: lives,
-      avgPrice: valorEstimado,
-      hasCnpj: temCnpj,
-      hasCurrentPlan: temPlano,
-      preferredHospitals: listaHospitais.length ? listaHospitais : leadAny.preferredHospitals,
-      city: (cidadeFinal !== 'A verificar' || !existingLead.city) ? cidadeFinal : existingLead.city,
-      state: estadoFinal || existingLead.state,
+      email: emailClean || existingLead.email,
+      livesCount: livesCount,
+      hasCnpj: hasCnpj,
+      
+      // Preenche com "-" se o lead atual não tiver dado e o form não mandou
+      city: input.cidade !== '-' ? input.cidade : (existingLead.city || '-'),
+      state: input.estado !== '-' ? input.estado : (existingLead.state || '-'),
+      
+      // Dados que não vieram na pergunta, resetamos para padrão ou mantemos
+      hasCurrentPlan: leadAny.hasCurrentPlan || false, // Mantem anterior ou false
+      currentPlan: leadAny.currentPlan || '-',
+      avgPrice: leadAny.avgPrice || 0,
+      
+      // Atualiza idades e faixas
+      faixasEtarias: faixas, // Objeto { ate18: 1, ... }
+      ageBuckets: idadesArray, // Array [10, 20, 30]
+      idades: idadesArray,     // Compatibilidade
+
       owners: novoDono,
-      faixasEtarias: faixas,
-      ageBuckets: idadesArray,
-      cnpjType: cnpjTypeFinal, 
-      currentPlan: operadora || '', 
-      pipelineId: pipelineDefault?._id.toString(),
-      stageId: stageNovo ? stageNovo._id.toString() : existingLead.stageId,
+      cnpjType: 'Outros', // Default pois a pergunta não especificou
+      
       lastActivity: new Date()
-      // customUpdateLog REMOVIDO para usar addActivity
     });
 
-    // 🔴 FORÇA O REGISTRO DA ATIVIDADE 🔴
+    // Log de atividade
     await addActivity(
       existingLead._id.toString(),
       'lead_atualizado', 
-      { descricao: logUnificado }, 
+      { descricao: houveRedistribuicao ? `Atualizado via Facebook (Redistribuído).\n${resumoTecnico}` : `Atualizado via Facebook.\n${resumoTecnico}` }, 
       SYSTEM_ID
     );
 
     return res.status(StatusCodes.CREATED).json({ success: true, action: 'updated' });
   }
 
-  // ===============================================================
-  // CASO 2: CRIAÇÃO
-  // ===============================================================
+  // ==================================================================
+  // CASO 2: CRIAÇÃO (Lead Novo)
+  // ==================================================================
   const pipeline = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
   const stage = await StageModel.findOne({ pipelineId: pipeline?._id, key: 'novo' }) || await StageModel.findOne({ pipelineId: pipeline?._id });
 
-  if (!pipeline || !stage) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Configuração de Funil ausente.' });
+  if (!pipeline || !stage) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Erro de configuração interna (Pipeline).' });
 
-  const donoInicial = await findNextResponsible(lives, temCnpj);
+  const donoInicial = await findNextResponsible(livesCount, hasCnpj);
   const ownersList = donoInicial ? [donoInicial] : []; 
   
-  const logTecnicoUnificado = `Lead criado via Site.\n\n${gerarResumoTecnicoWebhook(dadosFormatados)}`;
-
   const resultLead = await createLead({
-    name: nome,
+    name: input.nome,
     phone: phoneClean,
     email: emailClean,
-    origin: origem || 'Meta Ads', 
+    origin: input.origem, 
+    
     pipelineId: pipeline._id.toString(),
     stageId: stage._id.toString(),
-    livesCount: lives,
-    hasCnpj: temCnpj,
-    avgPrice: valorEstimado,
-    notes: '', 
-    city: cidadeFinal, 
-    state: estadoFinal, 
-    owners: ownersList,
-    rank: 'c' + Date.now(),
-    hasCurrentPlan: temPlano,
-    preferredHospitals: listaHospitais,
+    
+    livesCount: livesCount,
+    hasCnpj: hasCnpj,
+    cnpjType: 'Outros', // Campo obrigatório preenchido com default
+    
+    // Idades processadas
     faixasEtarias: faixas,
     ageBuckets: idadesArray,
-    cnpjType: cnpjTypeFinal,
-    currentPlan: operadora || '', 
-    customCreationLog: logTecnicoUnificado
+    idades: idadesArray,
+
+    // Campos Defaults (preenchidos com "-" ou 0)
+    city: input.cidade, 
+    state: input.estado,
+    avgPrice: 0,
+    hasCurrentPlan: false,
+    currentPlan: '-',
+    preferredHospitals: [],
+    
+    owners: ownersList,
+    rank: 'c' + Date.now(),
+    
+    // Observação vai no log de criação
+    customCreationLog: `Lead criado via Facebook Ads.\n\n${resumoTecnico}\n\n${infoFormacao}`
   });
 
-  if (!resultLead) throw new AppError('Erro ao processar o Lead.', StatusCodes.INTERNAL_SERVER_ERROR);
+  if (!resultLead) throw new AppError('Erro ao criar Lead.', StatusCodes.INTERNAL_SERVER_ERROR);
 
-  if (observacoes && observacoes.trim() !== '') {
-    await Note.create({
-      leadId: resultLead._id,
-      conteudo: `[Observação Inicial]: ${observacoes}`,
-      userId: SYSTEM_ID as any,
-      userName: 'Webhook (Site)',
-      isPinned: true
-    });
-  }
+  // Cria nota destacada com a info de Formação
+  await Note.create({
+    leadId: resultLead._id,
+    conteudo: `[Dados Iniciais] ${infoFormacao}`,
+    userId: SYSTEM_ID as any,
+    userName: 'Facebook Ads',
+    isPinned: true
+  });
 
   return res.status(StatusCodes.CREATED).json({ success: true, action: 'created', leadId: resultLead._id });
 });
