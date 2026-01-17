@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Lead } from "@/types/crm";
-import { Card } from "@/components/ui/card"; 
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -49,7 +49,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
     disabled: !canDrag,
   });
 
-  const dndStyle = {
+  const style = {
     transform: CSS.Translate.toString(transform),
     transition,
   };
@@ -77,60 +77,51 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
   };
 
   const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
-  
-  // CORREÇÃO: Parênteses fechados corretamente na conta matemática
   const diasSemAtividade = Math.floor(
     (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60 * 24)
   );
 
+  // --- LÓGICA DE EXIBIÇÃO DE DONOS (AVATARES) ---
+  // Se owners estiver vazio, cria um array fake com o lead.responsavel (string) para manter compatibilidade
   const ownersList = (lead.owners && lead.owners.length > 0) 
     ? lead.owners 
     : [{ id: 'legacy', nome: lead.responsavel || 'Vendedor', foto: null }];
 
   const MAX_DISPLAY = 3;
   const totalOwners = ownersList.length;
+  // Se tiver mais que o limite, mostramos (MAX - 1) avatares e 1 bolinha de contador
   const shouldShowCounter = totalOwners > MAX_DISPLAY;
   const displayCount = shouldShowCounter ? MAX_DISPLAY - 1 : MAX_DISPLAY;
   
   const visibleOwners = ownersList.slice(0, displayCount);
   const remainingCount = totalOwners - displayCount;
+  // ------------------------------------------------
 
   return (
     <Card
       ref={setNodeRef}
-      // ESTILO FORÇADO (Sem erros de sintaxe)
-      style={{
-        ...dndStyle, 
-        backgroundColor: isOverdue ? '#FEF2F2' : undefined, 
-        borderColor: isOverdue ? '#EF4444' : undefined,     
-      }}
+      style={style}
       {...attributes}
       {...(canDrag ? listeners : {})}
       onClick={() => {
         if (!isBeingDragged) onLeadClick?.(lead);
       }}
       className={`
-        transition-all duration-200 border-l-[6px] relative overflow-hidden
+        transition-all duration-200 border-l-4
         ${canDrag ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'cursor-pointer'}
-        
         ${isBeingDragged 
             ? 'opacity-30 ring-2 ring-primary ring-offset-2 z-50 bg-background/80 pointer-events-none'
             : 'shadow-sm opacity-100'
         }
-
-        /* CORREÇÃO: Strings fechadas corretamente */
-        ${isOverdue 
-            ? 'border-l-red-500' 
-            : 'bg-card border-l-primary'
-        }
-
+        ${isOverdue ? 'border-l-destructive bg-destructive/5' : 'border-l-primary'}
         ${!canDrag && isVendedor ? 'opacity-75' : ''}
       `}
     >
-      <div className="p-4 space-y-3">
+      <CardContent className="p-4 space-y-3">
+        {/* Header com nome e empresa */}
         <div className="space-y-1">
           <div className="flex items-start justify-between">
-            <h4 className={`font-medium text-sm line-clamp-1 ${isOverdue ? 'text-red-700 dark:text-red-400' : 'text-foreground'}`}>
+            <h4 className="font-medium text-foreground text-sm line-clamp-1">
               {lead.nome}
             </h4>
             <div className="flex items-center gap-1 ml-2 flex-shrink-0">
@@ -138,7 +129,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
                 <Lock className="h-3 w-3 text-muted-foreground" />
               )}
               {isOverdue && (
-                <AlertCircle className="h-4 w-4 text-red-500 animate-pulse" />
+                <AlertCircle className="h-4 w-4 text-destructive" />
               )}
             </div>
           </div>
@@ -150,32 +141,75 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
           )}
         </div>
 
+        {/* Badges de Status e Origem */}
         <div className="flex flex-wrap gap-1">
-          <Badge variant="outline" className={`text-xs ${getOrigemColor(lead.origem)}`}>
+          <Badge 
+            variant="outline" 
+            className={`text-xs ${getOrigemColor(lead.origem)}`}
+          >
             {lead.origem}
           </Badge>
-          <Badge variant="outline" className={`text-xs ${getStatusColor(lead.statusQualificacao)}`}>
+          <Badge
+            variant="outline"
+            className={`text-xs ${getStatusColor(lead.statusQualificacao)}`}
+          >
             {lead.statusQualificacao}
           </Badge>
         </div>
 
+        {/* Informações principais */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Users className="h-3 w-3" />
             <span>{lead.quantidadeVidas} vida{lead.quantidadeVidas > 1 ? 's' : ''}</span>
           </div>
+          
           {lead.valorMedio && (
             <div className="text-xs text-muted-foreground">
-              Valor atual: {lead.valorMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              Valor atual: {lead.valorMedio.toLocaleString('pt-BR', { 
+                style: 'currency', 
+                currency: 'BRL' 
+              })}
             </div>
           )}
         </div>
 
-        <div className={`flex items-center justify-between pt-2 border-t ${isOverdue ? 'border-red-200 dark:border-red-900/50' : 'border-border'}`}>
+        {/* Ações rápidas e Avatares */}
+        <div className="flex items-center justify-between pt-2 border-t border-border">
           <div className="flex gap-1">
-            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-background/80" onClick={(e) => { e.stopPropagation(); if (lead.celular) window.open(`tel:${lead.celular}`, '_self'); }}><Phone className="h-3 w-3" /></Button>
-            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-background/80" onClick={(e) => { e.stopPropagation(); if (lead.celular) window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank'); }}><MessageCircle className="h-3 w-3" /></Button>
-            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-background/80" onClick={(e) => { e.stopPropagation(); if (lead.email) window.open(`mailto:${lead.email}`, '_self'); }}><Mail className="h-3 w-3" /></Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(`tel:${lead.celular}`, '_self');
+              }}
+            >
+              <Phone className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(`https://wa.me/55${lead.celular.replace(/\D/g, '')}`, '_blank');
+              }}
+            >
+              <MessageCircle className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(`mailto:${lead.email}`, '_self');
+              }}
+            >
+              <Mail className="h-3 w-3" />
+            </Button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -185,15 +219,31 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
                 <span>{diasSemAtividade}d</span>
               </div>
             )}
+            
+            {/* GRUPO DE AVATARES */}
             <div className="flex items-center -space-x-2">
               {visibleOwners.map((owner: any) => (
-                <Avatar key={owner.id} className="h-6 w-6 border-2 border-background ring-0"><AvatarImage src={owner.foto || ""} alt={owner.nome} className="object-cover" /><AvatarFallback className="text-[9px] bg-primary text-primary-foreground font-bold">{(owner.nome || "U").substring(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+                <Avatar key={owner.id} className="h-6 w-6 border-2 border-background ring-0">
+                  <AvatarImage 
+                    src={owner.foto || ""} 
+                    alt={owner.nome} 
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="text-[9px] bg-primary text-primary-foreground font-bold">
+                    {(owner.nome || "U").substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               ))}
-              {shouldShowCounter && <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground">+{remainingCount}</div>}
+
+              {shouldShowCounter && (
+                <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground">
+                  +{remainingCount}
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 }
