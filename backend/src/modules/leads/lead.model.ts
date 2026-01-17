@@ -54,12 +54,9 @@ export type QualificationStatus = typeof qualificationStatuses[number];
 
 /**
  * Tipos de CNPJ
- * CORREÇÃO: Adicionado 'ME' que estava faltando e causando erro
  */
-
 export const cnpjTypes = ['MEI', 'EI', 'ME', 'EPP', 'SLU', 'LTDA', 'SS', 'SA', 'Média', 'Grande', 'Outro', 'Outros'] as const;
 export type CnpjType = typeof cnpjTypes[number];
-
 
 /**
  * Prioridades do lead
@@ -86,8 +83,8 @@ export interface Lead extends Document {
   
   // Vidas e faixas etárias
   livesCount?: number;
-  faixasEtarias?: FaixasEtarias; // Objeto novo
-  idades?: number[]; // Array legado (mantido por compatibilidade)
+  faixasEtarias?: FaixasEtarias;
+  idades?: number[];
   
   // Plano atual
   hasCurrentPlan?: boolean;
@@ -102,7 +99,7 @@ export interface Lead extends Document {
   
   // Preferências
   preferredHospitals?: string[];
-  preferredConvenios?: string[]; // Convênios/Operadoras preferidos
+  preferredConvenios?: string[];
   preferenciaCoparticipacao?: boolean;
   preferenciaEnfermaria?: boolean;
   
@@ -120,8 +117,8 @@ export interface Lead extends Document {
   utmTerm?: string;
   
   // Responsáveis
-  owner?: Types.ObjectId;       // Mantido para legado
-  owners?: Types.ObjectId[];    // Array de responsáveis
+  owner?: Types.ObjectId;       
+  owners?: Types.ObjectId[];    
   
   // Pipeline
   pipelineId: Types.ObjectId;
@@ -131,7 +128,7 @@ export interface Lead extends Document {
   // Status e qualificação
   qualificationStatus?: QualificationStatus;
   priority?: LeadPriority;
-  score?: number; // 0-100 pontuação do lead
+  score?: number;
   
   // Resultado
   lostReason?: string;
@@ -146,7 +143,7 @@ export interface Lead extends Document {
   proximoContato?: Date;
   lembreteContato?: string;
   
-  // Apólice vinculada (quando fechado)
+  // Apólice vinculada
   apoliceId?: Types.ObjectId;
   
   // Audit
@@ -156,17 +153,19 @@ export interface Lead extends Document {
   lastContactAt?: Date;
   
   // SLA e Vencimento
-  enteredStageAt?: Date; // Quando entrou na stage atual
-  dueDate?: Date; // Data de vencimento calculada baseada no SLA da stage
-  isOverdue?: boolean; // Se está atrasado
-  overdueHours?: number; // Horas de atraso
+  // 👇 ADICIONEI ESTE CAMPO AQUI (Importante para o TypeScript)
+  stageChangedAt: { type: Date, index: true }, 
+  enteredStageAt: { type: Date, index: true },
+  dueDate?: Date; 
+  isOverdue?: boolean; 
+  overdueHours?: number; 
   
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-// Schema específico para as faixas etárias (CORREÇÃO PRINCIPAL)
+// Schema específico para as faixas etárias
 const faixasEtariasSchema = new Schema<FaixasEtarias>({
   ate18: { type: Number, default: 0 },
   de19a23: { type: Number, default: 0 },
@@ -178,7 +177,7 @@ const faixasEtariasSchema = new Schema<FaixasEtarias>({
   de49a53: { type: Number, default: 0 },
   de54a58: { type: Number, default: 0 },
   acima59: { type: Number, default: 0 }
-}, { _id: false }); // _id: false impede que o Mongoose crie um ID para este sub-objeto
+}, { _id: false });
 
 const leadSchema = new Schema<Lead>(
   {
@@ -200,11 +199,7 @@ const leadSchema = new Schema<Lead>(
     
     // Vidas e faixas etárias
     livesCount: { type: Number, min: 0 },
-    
-    // NOVO CAMPO: Faixas Etárias (Objeto)
     faixasEtarias: { type: faixasEtariasSchema, default: () => ({}) },
-    
-    // Campo Legado: Idades (Array) - Mantido caso algo antigo ainda use
     idades: [Number], 
     
     // Plano atual
@@ -220,7 +215,7 @@ const leadSchema = new Schema<Lead>(
     
     // Preferências
     preferredHospitals: [String],
-    preferredConvenios: [String], // Convênios/Operadoras preferidos
+    preferredConvenios: [String],
     preferenciaCoparticipacao: Boolean,
     preferenciaEnfermaria: Boolean,
     
@@ -274,7 +269,9 @@ const leadSchema = new Schema<Lead>(
     lastContactAt: Date,
     
     // SLA e Vencimento
-    enteredStageAt: { type: Date, index: true },
+    // 👇 ADICIONEI O CAMPO NO SCHEMA (Agora o Mongoose vai ler o dado do banco!)
+    stageChangedAt: { type: Date, index: true }, 
+    enteredStageAt: { type: Date, index: true }, 
     dueDate: { type: Date, index: true },
     isOverdue: { type: Boolean, default: false, index: true },
     overdueHours: { type: Number, default: 0 }
@@ -284,26 +281,23 @@ const leadSchema = new Schema<Lead>(
   }
 );
 
-// Índices compostos para buscas otimizadas
+// Índices compostos
 leadSchema.index({ pipelineId: 1, stageId: 1, rank: 1 });
 leadSchema.index({ qualificationStatus: 1, createdAt: -1 });
 leadSchema.index({ owners: 1, qualificationStatus: 1 });
 leadSchema.index({ origin: 1, createdAt: -1 });
 leadSchema.index({ proximoContato: 1, qualificationStatus: 1 });
 
-// Virtual para calcular total de vidas das faixas etárias
+// Virtual para calcular total de vidas
 leadSchema.virtual('totalVidasFaixas').get(function() {
   if (!this.faixasEtarias) return 0;
-  // Soma todos os valores do objeto faixasEtarias
   return Object.values(this.faixasEtarias).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
 });
 
-// Middleware para sincronizar livesCount com faixas etárias
+// Middleware para sincronizar livesCount
 leadSchema.pre('save', function(next) {
-  // Se faixasEtarias foi modificado, atualiza o contador total de vidas
   if (this.faixasEtarias && this.isModified('faixasEtarias')) {
     const total = Object.values(this.faixasEtarias).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
-    // Se o total for maior que 0, atualizamos o livesCount
     if (total > 0) {
       this.livesCount = total;
     }

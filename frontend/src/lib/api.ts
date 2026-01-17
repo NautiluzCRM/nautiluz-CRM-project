@@ -296,7 +296,6 @@ export function mapApiLeadToLead(api: any): Lead {
   const rawOwners = api.owners && api.owners.length > 0 ? api.owners : (api.owner ? [api.owner] : []);
 
   // 2. Normaliza para garantir que temos um array de objetos { id, nome }
-  // Se o backend populou, 'u' é objeto. Se não, 'u' é string (ID).
   const normalizedOwners = rawOwners.map((u: any) => {
     if (typeof u === 'string') {
         return { id: u, nome: "Carregando...", foto: null }; 
@@ -308,13 +307,13 @@ export function mapApiLeadToLead(api: any): Lead {
     };
   });
 
-  // 3. Cria uma string de exibição (Ex: "Douglas, João") para lugares simples
+  // 3. Cria uma string de exibição
   const responsavelDisplay = normalizedOwners.map((o: any) => o.nome.split(' ')[0]).join(', ');
 
-  // 4. Extrai IDs para uso no formulário de edição (checkboxes)
+  // 4. Extrai IDs para checkbox
   const ownersIds = normalizedOwners.map((o: any) => o.id);
 
-  // 5. Garante que os IDs são strings
+  // 5. IDs e Stage
   const leadId = api._id || api.id;
   const stageId = api.stageId || api.colunaAtual;
 
@@ -328,7 +327,6 @@ export function mapApiLeadToLead(api: any): Lead {
     tipoCnpj: api.cnpjType || "Outros",
     quantidadeVidas: api.livesCount || api.quantidadeVidas || 0,
     
-    // Mantém compatibilidade com array antigo (idades), mas lê o objeto novo (faixasEtarias)
     idades: api.ageBuckets || api.idades || [],
     faixasEtarias: api.faixasEtarias || {}, 
     
@@ -341,13 +339,8 @@ export function mapApiLeadToLead(api: any): Lead {
     uf: api.state,
     cidade: api.city,
     
-    // Passamos a lista de objetos completos para o Modal de Detalhes renderizar Avatars
     owners: normalizedOwners, 
-    
-    // Passamos a lista de IDs para o Modal de Edição saber quais checkboxes marcar
     ownersIds: ownersIds,
-
-    // Mantemos compatibilidade visual com string
     responsavel: responsavelDisplay || "Não atribuído",
     
     statusQualificacao: api.qualificationStatus || "Qualificado",
@@ -355,6 +348,13 @@ export function mapApiLeadToLead(api: any): Lead {
     colunaAtual: typeof stageId === 'object' ? stageId.toString() : stageId,
     dataCriacao: api.createdAt ? new Date(api.createdAt) : new Date(),
     ultimaAtividade: api.lastActivityAt ? new Date(api.lastActivityAt) : new Date(),
+
+    // 👇👇👇 AQUI ESTÁ A CORREÇÃO MÁGICA 👇👇👇
+    // Repassa as datas de fase que vieram do backend
+    stageChangedAt: api.stageChangedAt,
+    enteredStageAt: api.enteredStageAt,
+    // 👆👆👆 O HUMBERTO AGRADECE 👆👆👆
+
     arquivos: [],
     atividades: api.activities || [],
   } as unknown as Lead;
