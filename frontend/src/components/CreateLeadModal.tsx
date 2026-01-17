@@ -440,9 +440,12 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                 <Select value={formData.origem} onValueChange={(val) => handleChange("origem", val)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Instagram">Instagram</SelectItem>
-                    <SelectItem value="Site">Site</SelectItem>
+                    <SelectItem value="Google Ads">Google Ads</SelectItem>
                     <SelectItem value="Indicação">Indicação</SelectItem>
+                    <SelectItem value="Instagram">Instagram</SelectItem>
+                    <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                    <SelectItem value="Site">Site</SelectItem>
+                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                     <SelectItem value="Outros">Outros</SelectItem>
                   </SelectContent>
                 </Select>

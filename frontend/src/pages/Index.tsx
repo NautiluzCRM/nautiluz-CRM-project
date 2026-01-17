@@ -304,11 +304,11 @@ const Index = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todas as origens</SelectItem>
-                          <SelectItem value="Instagram">Instagram</SelectItem>
-                          <SelectItem value="Site">Site</SelectItem>
-                          <SelectItem value="Indicação">Indicação</SelectItem>
-                          <SelectItem value="Meta Ads">Meta Ads</SelectItem>
                           <SelectItem value="Google Ads">Google Ads</SelectItem>
+                          <SelectItem value="Indicação">Indicação</SelectItem>
+                          <SelectItem value="Instagram">Instagram</SelectItem>
+                          <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                          <SelectItem value="Site">Site</SelectItem>
                           <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                           <SelectItem value="Outros">Outros</SelectItem>
                         </SelectContent>
@@ -387,10 +387,12 @@ const Index = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos os responsáveis</SelectItem>
-                          {pipeline?.owners?.map((owner: any) => (
-                            <SelectItem key={owner._id} value={owner._id}>
-                              {owner.nome}
-                            </SelectItem>
+                          {[...(pipeline?.owners || [])]
+                            .sort((a: any, b: any) => (a.nome || "").localeCompare(b.nome || ""))
+                            .map((owner: any) => (
+                              <SelectItem key={owner._id} value={owner._id}>
+                                {owner.nome}
+                              </SelectItem>
                           ))}
 
                         </SelectContent>
