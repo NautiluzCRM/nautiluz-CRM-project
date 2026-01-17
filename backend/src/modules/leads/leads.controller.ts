@@ -15,7 +15,7 @@ const leadSchema = z.object({
   city: z.string({ required_error: "A cidade é obrigatória." }).optional().or(z.literal('')),
   
   // CORREÇÃO 2: Estado não pode ser fixo em length(2) se vier lixo de teste
-  // Mudei de .length(2) para .max(50) para aceitar "<test_lead_state>" se for o caso
+  // Aceita "<test_lead_state>" se for o caso
   state: z.string().max(50, "Estado inválido").optional().or(z.literal('')),
   
   livesCount: z.number().min(0).optional(), 
@@ -35,10 +35,7 @@ const leadSchema = z.object({
   company: z.string().optional(),
   hasCnpj: z.boolean().optional(),
   
-  // CORREÇÃO 3: O Zod é chato com Enum. Se vier valor inválido, ele quebra.
-  // A melhor forma de lidar com dados sujos em Enum num update é usar preprocess ou transformar em string genérica se der erro.
-  // Mas, se você quiser manter estrito para produção, mantenha o enum. 
-  // Se quiser corrigir o teste, certifique-se que o frontend não está enviando lixo nesse campo.
+  // CORREÇÃO 3: Enum flexível
   cnpjType: z.enum(["MEI", "ME", "EI", "SLU", "LTDA", "SS", "SA", "Outros", "Média", "Grande", "Outro"]).optional().or(z.string().optional()), 
   
   owners: z.array(z.string()).optional(),
@@ -61,16 +58,29 @@ const leadSchema = z.object({
     acima59: z.number().optional()
   }).optional(),
 
-  createdAt: z.string().datetime().optional(),
   preferredHospitals: z.array(z.string()).optional(),
   preferredConvenios: z.array(z.string()).optional(),
   notes: z.string().optional(),
   qualificationStatus: z.string().optional(),
-  rank: z.string().optional()
+  rank: z.string().optional(),
+
+  // --- DATAS E CRONÔMETRO (IMPORTANTE PARA O SLA) ---
+  // Adicionei z.string() OU z.date() para ser flexível e não quebrar com formatos diferentes
+  createdAt: z.string().datetime().optional().or(z.date().optional()).or(z.string().optional()),
+  updatedAt: z.string().datetime().optional().or(z.date().optional()).or(z.string().optional()),
+  
+  stageChangedAt: z.string().datetime().optional().or(z.date().optional()).or(z.string().optional()),
+  enteredStageAt: z.string().datetime().optional().or(z.date().optional()).or(z.string().optional()),
+  dueDate: z.string().datetime().optional().or(z.date().optional()).or(z.string().optional()),
+  
+  isOverdue: z.boolean().optional(),
+  overdueHours: z.number().optional()
 });
 
 export const listLeadsHandler = asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user; 
+  // O Controller apenas repassa para o Service. 
+  // Se o campo stageChangedAt não estiver vindo, o culpado é a função listLeads dentro do service.
   const leads = await listLeads(req.query, user);
   res.json(leads);
 });

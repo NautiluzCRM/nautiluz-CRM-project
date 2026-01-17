@@ -4,7 +4,7 @@ export interface LeadOwner {
   foto?: string | null; 
 }
 
-// ADICIONE ISTO: A interface que faltava
+// NOVO: Adicionado para suportar o detalhamento de idades
 export interface FaixasEtarias {
   ate18?: number;
   de19a23?: number;
@@ -20,57 +20,62 @@ export interface FaixasEtarias {
 
 export interface Lead {
   id: string;
-  _id?: string; // ID do MongoDB
+  _id?: string;
   nome: string;
   empresa?: string;
   celular: string;
   email: string;
   possuiCnpj: boolean;
   
-  // Atualizei para aceitar strings genéricas para evitar erros de validação estritos
+  // Alterado para aceitar string genérica (evita erros se vier algo diferente do banco)
   tipoCnpj?: 'MEI' | 'EI' | 'ME' | 'EPP' | 'SLU' | 'LTDA' | 'SS' | 'SA' | 'Outros' | string;
   
   quantidadeVidas: number;
   
-  // --- AQUI ESTÁ A CORREÇÃO ---
-  idades: number[]; // Mantido para compatibilidade
-  faixasEtarias?: FaixasEtarias; // O novo objeto que faltava!
-  // ----------------------------
+  // --- MUDANÇA AQUI ---
+  idades: number[]; 
+  faixasEtarias?: FaixasEtarias; // Campo novo adicionado
+  // --------------------
 
   possuiPlano: boolean;
   planoAtual?: string;
   valorMedio?: number;
   hospitaisPreferencia: string[];
-  preferredConvenios?: string[]; // Convênios/Operadoras preferidos
+  preferredConvenios?: string[]; 
   
-  // Atualizei para aceitar string genérica também
   origem: 'Instagram' | 'Indicação' | 'Site' | 'Outros' | string;
   
   informacoes?: string;
   uf?: string;
   cidade?: string;
-  responsavel: string; // Mantido para compatibilidade visual simples
-  owners?: LeadOwner[]; // Lista de objetos com ID e Nome (para Avatars)
-  ownersIds?: string[]; // Lista de IDs (para checagem rápida de permissão)
+  responsavel: string; 
+  owners?: LeadOwner[]; 
+  ownersIds?: string[]; 
   statusQualificacao: 'Qualificado' | 'Incompleto' | 'Duplicado' | 'Sem interesse' | string;
   motivoPerda?: string;
   colunaAtual: string;
-  createdAt?: Date; // Data de criação automática do Mongoose
-  updatedAt?: Date; // Data de atualização automática do Mongoose
-  ultimaAtividade: Date;
+
+  // --- MUDANÇA NAS DATAS (CRUCIAL PARA O SLA) ---
+  // Aceita Date | string para não quebrar quando o dado vem do JSON
+  createdAt?: Date | string; 
+  updatedAt?: Date | string; 
+  ultimaAtividade: Date | string;
+  
+  stageChangedAt?: Date | string; // O campo novo para o cronômetro funcionar
+  // ----------------------------------------------
+
   arquivos: string[];
   atividades: Atividade[];
 }
 
 export interface Atividade {
   id: string;
-  // Adicionei os tipos novos do backend aqui para o TS não reclamar
   tipo: 'Ligação' | 'WhatsApp' | 'Email' | 'Reunião' | 'Observação' | 'Sistema' | 'Alteração' | 
         'lead_criado' | 'lead_atualizado' | 'lead_movido' | 'observacao_adicionada' | string;
   descricao: string;
-  data: Date;
+  data: Date | string; // Flexibilizado para aceitar string também
   usuario: string;
-  metadata?: any; // Para guardar dados extras como "de -> para"
+  metadata?: any; 
 }
 
 export interface Coluna {
@@ -78,7 +83,7 @@ export interface Coluna {
   nome: string;
   cor: string;
   ordem: number;
-  sla?: number; // em horas
+  sla?: number; 
   wipLimit?: number;
   columnTag?: string;
 }
