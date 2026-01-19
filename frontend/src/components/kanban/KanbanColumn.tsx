@@ -18,9 +18,9 @@ const getDataDeReferencia = (lead: Lead): Date | null => {
   const anyLead = lead as any;
   
   // 1. Prioridade: Datas de Fase (enteredStageAt é o campeão aqui)
-  const dataFase = anyLead.enteredStageAt || 
-                 anyLead.stageChangedAt || 
-                 anyLead.entered_stage_at;
+  const dataFase =  anyLead.enteredStageAt || 
+                    anyLead.stageChangedAt || 
+                    anyLead.entered_stage_at;
   if (dataFase) {
     return new Date(dataFase);
   }
@@ -42,6 +42,18 @@ const getDataDeReferencia = (lead: Lead): Date | null => {
 };
 
 export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: KanbanColumnProps) {
+  console.log(`[DEBUG COLUNA] ${coluna.nome} | SLA: ${coluna.sla} | Tipo: ${typeof coluna.sla}`);
+
+  leads.forEach(lead => {
+    if (lead.nome.includes("Nautiluz") || lead.nome.includes("Andréia")) {
+      console.log(`🕵️‍♂️ ESPIÃO DO LEAD [${lead.nome}]:`, {
+        enteredStageAt: (lead as any).enteredStageAt,
+        stageChangedAt: (lead as any).stageChangedAt,
+        createdAt: (lead as any).createdAt || (lead as any).dataCriacao
+      });
+    }
+  });
+  
   const { over } = useDndContext();
 
   const { setNodeRef, isOver } = useDroppable({

@@ -83,55 +83,62 @@ const Index = () => {
     beforeId?: string, 
     afterId?: string
   ) => {
+    // 1. ATUALIZAÇÃO OTIMISTA (Atualiza a tela ANTES do servidor)
     setPipeline((prev: any) => {
-      // 1. Cria uma cópia da lista de leads
+      // Cria uma cópia profunda para não mutar o estado diretamente
       const currentLeads = [...prev.leads];
       
-      // 2. Encontra e remove o lead da posição original
+      // Encontra o lead que está sendo movido
       const activeIndex = currentLeads.findIndex(l => l.id === leadId);
-      if (activeIndex === -1) return prev; // Segurança
+      if (activeIndex === -1) return prev; 
       
+      // Remove ele da posição antiga
       const [movedLead] = currentLeads.splice(activeIndex, 1);
       
-      // 3. Atualiza a propriedade de coluna
-      movedLead.colunaAtual = novaColuna;
+      // --- AQUI ESTÁ O SEGREDO 🔮 ---
+      // Atualizamos a coluna E AS DATAS para "Agora"
+      const leadAtualizado = {
+        ...movedLead,
+        colunaAtual: novaColuna,
+        enteredStageAt: new Date(), // <--- FORÇA O AZUL
+        stageChangedAt: new Date()  // <--- FORÇA O AZUL
+      };
+      // -------------------------------
 
-      // 4. Descobre onde inserir na nova lista
+      // Lógica de reordenar (Vizinho de Cima / Baixo)
       if (beforeId) {
-        // Se temos um "Vizinho de Cima", inserimos LOGO DEPOIS dele
         const beforeIndex = currentLeads.findIndex(l => l.id === beforeId);
         if (beforeIndex !== -1) {
-          currentLeads.splice(beforeIndex + 1, 0, movedLead);
+          currentLeads.splice(beforeIndex + 1, 0, leadAtualizado);
         } else {
-          // Fallback: se não achou o vizinho, joga pro final
-          currentLeads.push(movedLead);
+          currentLeads.push(leadAtualizado);
         }
       } else if (afterId) {
         const afterIndex = currentLeads.findIndex(l => l.id === afterId);
         if (afterIndex !== -1) {
-          currentLeads.splice(afterIndex, 0, movedLead);
+          currentLeads.splice(afterIndex, 0, leadAtualizado);
         } else {
-          currentLeads.push(movedLead);
+          currentLeads.push(leadAtualizado);
         }
       } else {
-        currentLeads.push(movedLead);
+        currentLeads.push(leadAtualizado);
       }
 
       return { ...prev, leads: currentLeads };
     });
 
+    // 2. Chama a API em segundo plano (O usuário nem percebe o delay)
     try {
       await moveLeadApi(leadId, novaColuna, beforeId, afterId);
-      // Atualizar estatísticas após mover o lead
       refreshStats();
     } catch (error) {
       console.error("Erro ao mover lead:", error);
       toast({
         variant: "destructive",
         title: "Erro ao salvar",
-        description: "A nova posição não foi salva no servidor."
+        description: "A nova posição não foi salva no servidor. Recarregando..."
       });
-      loadPipeline();
+      loadPipeline(); // Se der erro, desfaz a mentira recarregando tudo
     }
   };
 
