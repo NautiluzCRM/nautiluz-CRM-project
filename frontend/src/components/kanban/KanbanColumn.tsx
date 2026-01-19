@@ -14,28 +14,25 @@ interface KanbanColumnProps {
 }
 
 // --- MANTIVEMOS SUA FUNÇÃO AUXILIAR (CRUCIAL PARA O SLA FUNCIONAR) ---
+// --- FUNÇÃO AUXILIAR ---
+// --- FUNÇÃO AUXILIAR ---
 const getDataDeReferencia = (lead: Lead): Date | null => {
   const anyLead = lead as any;
   
-  // 1. Prioridade: Datas de Fase (enteredStageAt é o campeão aqui)
+  // 1. Prioridade: Se o lead foi movido recentemente, usa essa data (Cronômetro novo)
   const dataFase =  anyLead.enteredStageAt || 
                     anyLead.stageChangedAt || 
                     anyLead.entered_stage_at;
+  
   if (dataFase) {
     return new Date(dataFase);
   }
 
-  // 2. Fallback: Data de Criação
-  if (lead.createdAt) {
-    return new Date(lead.createdAt);
-  }
-
-  // 3. Fallback: ID (Para leads muito antigos sem createdAt)
-  if (lead.id && /^[0-9a-fA-F]{24}$/.test(lead.id)) {
-    try {
-      const timestamp = parseInt(lead.id.substring(0, 8), 16) * 1000;
-      return new Date(timestamp);
-    } catch (e) {}
+  // 2. Fallback: Se NUNCA foi movido (lead legado), usa a data de criação!
+  // 👇 ISSO AQUI VAI FAZER OS VELHOS FICAREM VERMELHOS 👇
+  if (lead.createdAt || (lead as any).dataCriacao) {
+    const dataCriacao = lead.createdAt || (lead as any).dataCriacao;
+    return new Date(dataCriacao);
   }
 
   return null;
