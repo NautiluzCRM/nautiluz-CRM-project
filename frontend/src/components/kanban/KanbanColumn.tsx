@@ -13,7 +13,7 @@ interface KanbanColumnProps {
   onLeadClick?: (lead: Lead) => void;
 }
 
-// --- FUNÇÃO AUXILIAR LIMPA (Sem Logs) ---
+// --- MANTIVEMOS SUA FUNÇÃO AUXILIAR (CRUCIAL PARA O SLA FUNCIONAR) ---
 const getDataDeReferencia = (lead: Lead): Date | null => {
   const anyLead = lead as any;
   
@@ -42,18 +42,7 @@ const getDataDeReferencia = (lead: Lead): Date | null => {
 };
 
 export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: KanbanColumnProps) {
-  console.log(`[DEBUG COLUNA] ${coluna.nome} | SLA: ${coluna.sla} | Tipo: ${typeof coluna.sla}`);
-
-  leads.forEach(lead => {
-    if (lead.nome.includes("Nautiluz") || lead.nome.includes("Andréia")) {
-      console.log(`🕵️‍♂️ ESPIÃO DO LEAD [${lead.nome}]:`, {
-        enteredStageAt: (lead as any).enteredStageAt,
-        stageChangedAt: (lead as any).stageChangedAt,
-        createdAt: (lead as any).createdAt || (lead as any).dataCriacao
-      });
-    }
-  });
-  
+  // Removemos os console.log e o "Espião" para limpar o código
   const { over } = useDndContext();
 
   const { setNodeRef, isOver } = useDroppable({
@@ -70,7 +59,7 @@ export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: 
   const slaHoras = Number(coluna.sla);
   const hasActiveSla = !isNaN(slaHoras) && slaHoras > 0;
 
-  // Cálculo otimizado com useMemo
+  // Cálculo otimizado dos leads vencidos usando a SUA lógica correta (Data de Entrada)
   const leadsVencidosCount = useMemo(() => {
     if (!hasActiveSla) return 0;
     return leads.filter(lead => {
@@ -110,6 +99,7 @@ export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: 
               {leadsVencidosCount} vencido{leadsVencidosCount > 1 ? 's' : ''}
             </Badge>
           )}
+          
           {hasActiveSla ? (
             <Badge variant="outline" className="text-xs flex items-center gap-1">
               <Clock className="h-3 w-3" />
@@ -121,6 +111,7 @@ export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: 
               Sem SLA
             </Badge>
           )}
+          
           {isWipExceeded && (
             <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200">
               WIP Excedido ({leads.length}/{coluna.wipLimit})
@@ -134,6 +125,7 @@ export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: 
           {leads.map((lead) => {
              let isVencido = false;
              
+             // Lógica CORRETA de cálculo por card (usando Data de Entrada)
              if (hasActiveSla) {
                  const dataRef = getDataDeReferencia(lead);
                  

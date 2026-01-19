@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Lead } from "@/types/crm";
-import { Card } from "@/components/ui/card"; 
+import { Card, CardContent } from "@/components/ui/card"; // Mantivemos o CardContent do GitHub
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -30,6 +30,7 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
     disabled: !canDrag,
   });
 
+  // Mantivemos o nome dndStyle da NOSSA versão (HEAD) para compatibilidade
   const dndStyle = {
     transform: CSS.Translate.toString(transform),
     transition,
@@ -60,16 +61,19 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
   const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
   const diasSemAtividade = Math.floor((Date.now() - dataUltima.getTime()) / (1000 * 60 * 60 * 24));
 
+  // Lógica de Owners
   const ownersList = (lead.owners && lead.owners.length > 0) ? lead.owners : [{ id: 'legacy', nome: lead.responsavel || 'Vendedor', foto: null }];
   const MAX_DISPLAY = 3;
-  const displayCount = ownersList.length > MAX_DISPLAY ? MAX_DISPLAY - 1 : MAX_DISPLAY;
+  const totalOwners = ownersList.length;
+  const shouldShowCounter = totalOwners > MAX_DISPLAY;
+  const displayCount = shouldShowCounter ? MAX_DISPLAY - 1 : MAX_DISPLAY;
   const visibleOwners = ownersList.slice(0, displayCount);
-  const remainingCount = ownersList.length - displayCount;
+  const remainingCount = totalOwners - displayCount;
 
   return (
     <Card
       ref={setNodeRef}
-      style={dndStyle}
+      style={dndStyle} // Mantivemos o estilo da nossa versão (HEAD)
       {...attributes}
       {...(canDrag ? listeners : {})}
       onClick={() => { if (!isBeingDragged) onLeadClick?.(lead); }}
@@ -78,12 +82,16 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
         ${canDrag ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'cursor-pointer'}
         ${isBeingDragged ? 'opacity-30 ring-2 ring-primary ring-offset-2 z-50 bg-background/80 pointer-events-none' : 'shadow-sm opacity-100'}
         ${!canDrag && isVendedor ? 'opacity-75' : ''}
+        
+        /* 👇 MANTIVEMOS A LÓGICA DE COR FORTE DO HEAD 👇 */
         ${isOverdue ? '!bg-red-50 !border-red-500 !border-l-red-600' : 'bg-card border-l-primary'}
       `}
     >
-      <div className="p-4 space-y-3">
+      {/* Adicionamos o CardContent que veio do GitHub (Incoming), mas com o padding da nossa versão */}
+      <CardContent className="p-4 space-y-3">
         <div className="space-y-1">
           <div className="flex items-start justify-between">
+            {/* Mantivemos a lógica de texto vermelho da nossa versão */}
             <h4 className={`font-medium text-sm line-clamp-1 ${isOverdue ? 'text-red-900 font-bold' : 'text-foreground'}`}>
               {lead.nome}
             </h4>
@@ -117,11 +125,11 @@ export function KanbanCard({ lead, onLeadUpdate, onLeadClick, isDragging = false
               {visibleOwners.map((owner: any) => (
                 <Avatar key={owner.id} className="h-6 w-6 border-2 border-background ring-0"><AvatarImage src={owner.foto || ""} alt={owner.nome} className="object-cover" /><AvatarFallback className="text-[9px] bg-primary text-primary-foreground font-bold">{(owner.nome || "U").substring(0, 2).toUpperCase()}</AvatarFallback></Avatar>
               ))}
-              {ownersList.length > MAX_DISPLAY && <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground">+{ownersList.length - MAX_DISPLAY + 1}</div>}
+              {shouldShowCounter && <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground">+{remainingCount}</div>}
             </div>
           </div>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 }
