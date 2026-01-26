@@ -93,12 +93,17 @@ ${textoFaixas}
 
 export const webhookHandler = asyncHandler(async (req: Request, res: Response) => {
   
-  const webhookSecret = process.env.WEBHOOK_SECRET || 'minha_senha_super_secreta';
+  // --- SEGURANÇA CORRIGIDA ---
+  // A senha padrão agora bate com a do seu Make
+  const webhookSecret = process.env.WEBHOOK_SECRET || 'SenhaDificilQueVoceColocouNoMake';
   const requestToken = req.headers['x-webhook-token'] || req.query.token;
 
+  // Se as senhas não forem idênticas, bloqueia
   if (requestToken !== webhookSecret) {
-    return res.status(403).json({ error: 'Acesso negado.' });
+    console.log(`[WEBHOOK BLOCK] Tentativa com token inválido: ${requestToken}`);
+    return res.status(403).json({ error: 'Acesso negado. Token inválido.' });
   }
+  // ---------------------------
 
   const { 
     nome, email, telefone, origem, quantidadeVidas, observacoes,
@@ -119,7 +124,6 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   // --- TRATAMENTO ---
   let phoneClean = normalizarTelefone(telefone);
 
-  // 🛡️ VACINA PARA LEAD DE TESTE 🛡️
   const isTestLead = nome.toLowerCase().includes('test lead') || 
                      nome.toLowerCase().includes('dummy data') ||
                      telefone.includes('dummy data');
@@ -145,11 +149,18 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
   const cidadeFinal = [cidade, city, City].find(val => val && val.trim().length > 0) || 'A verificar';
   const estadoFinal = [estado, state, State].find(val => val && val.trim().length > 0) || 'SP';
 
-  // --- LÓGICA DE VIDAS ---
   const { faixas, idadesArray } = processarFaixasEtarias(distribuicaoVidas);
   const somaFaixas = idadesArray.reduce((acc, curr) => acc + curr, 0);
-  const livesDeclaradas = Number(quantidadeVidas);
-  const livesFromField = (!isNaN(livesDeclaradas) && livesDeclaradas > 0) ? livesDeclaradas : 0;
+
+  let livesFromField = 0;
+  if (quantidadeVidas) {
+    const stringVidas = String(quantidadeVidas);
+    const numerosEncontrados = stringVidas.match(/\d+/g); 
+    if (numerosEncontrados) {
+      livesFromField = numerosEncontrados.reduce((acc, num) => acc + Number(num), 0);
+    }
+  }
+
   let lives = Math.max(somaFaixas, livesFromField);
   if (lives === 0) lives = 1;
 
@@ -179,9 +190,7 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
 
   const existingLead = await LeadModel.findOne({ $or: searchConditions });
 
-  // ===============================================================
   // CASO 1: ATUALIZAÇÃO
-  // ===============================================================
   if (existingLead) {
     console.log(`[WEBHOOK] Atualizando Lead: ${existingLead.name}`);
 
@@ -251,10 +260,8 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
       pipelineId: pipelineDefault?._id.toString(),
       stageId: stageNovo ? stageNovo._id.toString() : existingLead.stageId,
       lastActivity: new Date()
-      // customUpdateLog REMOVIDO para usar addActivity
     });
 
-    // 🔴 FORÇA O REGISTRO DA ATIVIDADE 🔴
     await addActivity(
       existingLead._id.toString(),
       'lead_atualizado', 
@@ -265,9 +272,7 @@ export const webhookHandler = asyncHandler(async (req: Request, res: Response) =
     return res.status(StatusCodes.CREATED).json({ success: true, action: 'updated' });
   }
 
-  // ===============================================================
   // CASO 2: CRIAÇÃO
-  // ===============================================================
   const pipeline = await PipelineModel.findOne({ key: 'default' }) || await PipelineModel.findOne();
   const stage = await StageModel.findOne({ pipelineId: pipeline?._id, key: 'novo' }) || await StageModel.findOne({ pipelineId: pipeline?._id });
 
