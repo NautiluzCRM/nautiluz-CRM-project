@@ -63,7 +63,7 @@ export function KanbanBoard({ colunas, leads, onLeadMove, onLeadUpdate, onLeadCl
     }
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
+ const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     const overId = over?.id;
     if (!overId || active.id === overId) return;
@@ -89,18 +89,33 @@ export function KanbanBoard({ colunas, leads, onLeadMove, onLeadUpdate, onLeadCl
         newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
       }
 
+      // --- 👇 AQUI COMEÇA A MÁGICA DA ATUALIZAÇÃO OTIMISTA 👇 ---
+      
+      // 1. Pegamos o lead que está sendo movido
+      const leadSendoMovido = activeItems[activeIndex];
+
+      // 2. Criamos uma cópia dele "batizada" com a data de AGORA
+      const leadAtualizado = {
+        ...leadSendoMovido,
+        colunaAtual: overContainer,     // Atualiza o ID da coluna
+        enteredStageAt: new Date(),     // RESET: Define entrada como AGORA
+        stageChangedAt: new Date(),     // RESET: Define mudança como AGORA
+        // Isso força o KanbanColumn a recalcular o SLA imediatamente!
+      };
+
+      // 3. Inserimos o lead JÁ ATUALIZADO na nova coluna
       return {
         ...prev,
         [activeContainer]: [...prev[activeContainer].filter((item) => item.id !== active.id)],
         [overContainer]: [
           ...prev[overContainer].slice(0, newIndex),
-          activeItems[activeIndex],
+          leadAtualizado, // <--- Usamos a versão nova aqui
           ...prev[overContainer].slice(newIndex, prev[overContainer].length),
         ],
       };
+      // --- 👆 FIM DA MÁGICA 👆 ---
     });
   };
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     const activeId = active.id as string;

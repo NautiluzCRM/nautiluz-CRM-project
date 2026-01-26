@@ -13,15 +13,38 @@ interface KanbanColumnProps {
   onLeadClick?: (lead: Lead) => void;
 }
 
-export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: KanbanColumnProps) {
+// --- MANTIVEMOS SUA FUNÇÃO AUXILIAR (CRUCIAL PARA O SLA FUNCIONAR) ---
+// --- FUNÇÃO AUXILIAR ---
+// --- FUNÇÃO AUXILIAR ---
+const getDataDeReferencia = (lead: Lead): Date | null => {
+  const anyLead = lead as any;
+  
+  // 1. Prioridade: Se o lead foi movido recentemente, usa essa data (Cronômetro novo)
+  const dataFase =  anyLead.enteredStageAt || 
+                    anyLead.stageChangedAt || 
+                    anyLead.entered_stage_at;
+  
+  if (dataFase) {
+    return new Date(dataFase);
+  }
+
+  // 2. Fallback: Se NUNCA foi movido (lead legado), usa a data de criação!
+  // 👇 ISSO AQUI VAI FAZER OS VELHOS FICAREM VERMELHOS 👇
+  if (lead.createdAt || (lead as any).dataCriacao) {
+    const dataCriacao = lead.createdAt || (lead as any).dataCriacao;
+    return new Date(dataCriacao);
+  }
+
+  return null;
+};
+
+export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: KanbanColumnProps) {
+  // Removemos os console.log e o "Espião" para limpar o código
   const { over } = useDndContext();
 
   const { setNodeRef, isOver } = useDroppable({
     id: coluna.id,
-    data: {
-      type: 'column',
-      column: coluna,
-    },
+    data: { type: 'column', column: coluna },
   });
 
   const isActive = useMemo(() => {
@@ -30,18 +53,20 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
     return leads.some(lead => lead.id === over.id);
   }, [isOver, over, leads]);
 
-  // SLA Ativo: Apenas se for número E maior que zero
-  const hasActiveSla = typeof coluna.sla === 'number' && coluna.sla > 0;
+  const slaHoras = Number(coluna.sla);
+  const hasActiveSla = !isNaN(slaHoras) && slaHoras > 0;
 
-  const leadsVencidos = leads.filter(lead => {
-    // Se não tem SLA ativo, não há vencimento
-    if (!hasActiveSla) return false;
-    
-    const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
-    const horasPassadas = (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60);
-    
-    return horasPassadas > (coluna.sla || 0);
-  });
+  // Cálculo otimizado dos leads vencidos usando a SUA lógica correta (Data de Entrada)
+  const leadsVencidosCount = useMemo(() => {
+    if (!hasActiveSla) return 0;
+    return leads.filter(lead => {
+      const dataRef = getDataDeReferencia(lead);
+      if (!dataRef || isNaN(dataRef.getTime())) return false;
+      
+      const horasPassadas = (Date.now() - dataRef.getTime()) / (1000 * 60 * 60);
+      return horasPassadas > slaHoras;
+    }).length;
+  }, [leads, hasActiveSla, slaHoras]);
 
   const isWipExceeded = coluna.wipLimit && leads.length > coluna.wipLimit;
 
@@ -55,39 +80,29 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
       `}
       style={{ height: '100%', maxHeight: '100%' }}
     >
-      {/* Header da Coluna */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-foreground flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: coluna.cor }}
-            />
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: coluna.cor }} />
             {coluna.nome}
           </h3>
-          <Badge variant="secondary" className="text-xs">
-            {leads.length}
-          </Badge>
+          <Badge variant="secondary" className="text-xs">{leads.length}</Badge>
         </div>
         
-        {/* Indicadores */}
-        <div className="flex gap-2">
-          {/* Badge Vermelha: Apenas se SLA ativo E tiver vencidos */}
-          {hasActiveSla && leadsVencidos.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {hasActiveSla && leadsVencidosCount > 0 && (
             <Badge variant="destructive" className="text-xs flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
-              {leadsVencidos.length} vencido{leadsVencidos.length > 1 ? 's' : ''}
+              {leadsVencidosCount} vencido{leadsVencidosCount > 1 ? 's' : ''}
             </Badge>
           )}
           
-          {/* Badge de Tempo SLA (ou Sem SLA) */}
           {hasActiveSla ? (
             <Badge variant="outline" className="text-xs flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              SLA: {coluna.sla}h
+              SLA: {slaHoras}h
             </Badge>
           ) : (
-            // Badge para quando é zero ou undefined
             <Badge variant="outline" className="text-xs flex items-center gap-1 text-muted-foreground bg-muted/50 border-dashed">
               <Clock className="h-3 w-3 opacity-50" />
               Sem SLA
@@ -102,15 +117,20 @@ export function KanbanColumn({ coluna, leads, onLeadUpdate, onLeadClick }: Kanba
         </div>
       </div>
 
-      {/* Lista de Cards */}
       <div className="flex-1 p-4 space-y-3 overflow-y-scroll min-h-0 scrollbar-thin">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => {
-             const dataUltima = lead.ultimaAtividade instanceof Date ? lead.ultimaAtividade : new Date(lead.ultimaAtividade);
+             let isVencido = false;
              
-             // Card só fica vermelho se tiver SLA ativo (>0)
-             const isVencido = hasActiveSla && 
-               (Date.now() - dataUltima.getTime()) / (1000 * 60 * 60) > (coluna.sla || 0);
+             // Lógica CORRETA de cálculo por card (usando Data de Entrada)
+             if (hasActiveSla) {
+                 const dataRef = getDataDeReferencia(lead);
+                 
+                 if (dataRef && !isNaN(dataRef.getTime())) {
+                     const horasPassadas = (Date.now() - dataRef.getTime()) / (1000 * 60 * 60);
+                     isVencido = horasPassadas > slaHoras;
+                 }
+             }
 
             return (
               <KanbanCard
