@@ -6,4 +6,5 @@ const router = Router();
 
 router.get('/', getPipelineData);
 
+
 export default router;
