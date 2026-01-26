@@ -93,44 +93,44 @@ export function LinktreeForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 1. VALIDAÇÃO DE VIDAS (Total deve bater)
+    // 1. VALIDAÇÃO DE VIDAS
     if (!isTotalValid) {
       alert(`A soma das idades (${totalFaixas}) deve ser igual ao total de vidas (${formData.quantidadeVidas})!`);
       return;
     }
 
-    // 2. VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS (Nome e Cidade não podem ser só espaços) [NOVO]
+    // 2. VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
     if (!formData.nome.trim() || !formData.cidade.trim()) {
       alert("Por favor, preencha o Nome e a Cidade corretamente.");
       return;
     }
 
-    // 3. VALIDAÇÃO DE TELEFONE (Mínimo 14 caracteres: (11) 91234-5678)
+    // 3. VALIDAÇÃO DE TELEFONE
     if (formData.celular.length < 14) {
       alert("Por favor, digite um número de celular válido com DDD.");
       return;
     }
 
-    // 4. VALIDAÇÃO DE EMAIL (Formato básico) [NOVO]
+    // 4. VALIDAÇÃO DE EMAIL
     if (formData.email && (!formData.email.includes("@") || !formData.email.includes("."))) {
        alert("Por favor, digite um e-mail válido.");
        return;
     }
 
-    // 5. VALIDAÇÃO DE INVESTIMENTO (Positivo e Obrigatório)
+    // 5. VALIDAÇÃO DE INVESTIMENTO
     const valorInvestimento = Number(formData.valorMedio);
     if (!formData.valorMedio || valorInvestimento <= 0) {
       alert("O valor de investimento previsto é obrigatório e deve ser um valor positivo.");
       return;
     }
 
-    // 6. VALIDAÇÃO DO TIPO DE CNPJ (Se marcou Sim, tem que escolher)
+    // 6. VALIDAÇÃO DO TIPO DE CNPJ
     if (formData.possuiCnpj && !formData.tipoCnpj) {
       alert("Por favor, selecione o Tipo de CNPJ.");
       return;
     }
 
-    // 7. TRUQUE DO HOSPITAL: Pega o input pendente mesmo sem clicar no "+"
+    // 7. TRUQUE DO HOSPITAL
     const hospitaisFinais = [...hospitais];
     if (hospitalInput.trim()) {
       hospitaisFinais.push(hospitalInput.trim());
@@ -143,30 +143,29 @@ export function LinktreeForm() {
         name: formData.nome,
         phone: formData.celular,
         email: formData.email,
-        
-        // Formata a cidade
         city: formatCityName(formData.cidade),
         state: formData.uf,
-        
-        // Converte números
         livesCount: Number(formData.quantidadeVidas),
         avgPrice: Number(formData.valorMedio),
-        
-        // Dados de CNPJ e Plano
         hasCnpj: formData.possuiCnpj,
         cnpjType: formData.possuiCnpj ? formData.tipoCnpj : "",
-        
         hasCurrentPlan: formData.possuiPlano,
         currentPlan: formData.possuiPlano ? formData.planoAtual : "",
-        
-        // Arrays
         ageBuckets: faixas,
         preferredHospitals: hospitaisFinais,
-
         notes: formData.observacoes 
       };
 
-      const response = await fetch('http://localhost:3000/public/linktree', {
+      // --- CORREÇÃO DE URL E TYPE SCRIPT ---
+      // 1. Pega a URL do .env com segurança de tipagem
+      const envUrl = (import.meta as any).env.VITE_API_URL || "https://nautiluz-crm-project.onrender.com";
+
+      // 2. Remove o "/api" caso ele exista, para garantir que vamos bater na raiz
+      // Isso resolve o erro 404 se a rota estiver fora de /api
+      const baseUrl = envUrl.replace('/api', '');
+
+      // 3. Faz o fetch na rota pública correta
+      const response = await fetch(`${baseUrl}/public/linktree`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -174,7 +173,7 @@ export function LinktreeForm() {
 
       const data = await response.json();
 
-      if (response.status === 201) {
+      if (response.ok) {
         setSuccess(true);
       } else {
         console.error("Erro do Backend:", data);
@@ -183,7 +182,7 @@ export function LinktreeForm() {
 
     } catch (error) {
       console.error(error);
-      alert("Erro de conexão com o servidor. Verifique se o backend está rodando.");
+      alert("Erro de conexão com o servidor. Verifique sua internet.");
     } finally {
       setIsLoading(false);
     }
@@ -330,7 +329,7 @@ export function LinktreeForm() {
                       <Select 
                         value={formData.tipoCnpj} 
                         onValueChange={(val) => handleChange("tipoCnpj", val)}
-                        required={formData.possuiCnpj} // Torna obrigatório se o switch estiver ligado
+                        required={formData.possuiCnpj} 
                       >
                         <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione o Tipo *" /></SelectTrigger>
                         <SelectContent>{TIPOS_CNPJ.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
