@@ -1,6 +1,6 @@
 
 import { Router } from 'express';
-import { getPipelineData } from '../controllers/Pipeline.controller';
+import { getPipelineData } from '../controllers/Pipeline.controller.js';
 
 const router = Router();
 

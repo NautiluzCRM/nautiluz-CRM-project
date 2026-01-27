@@ -1,5 +1,5 @@
 import { Response , Request} from 'express';
-import PipelineColumn from '../models/PipelineColum.model';
+import PipelineColumn from '../models/PipelineColum.model.js';
 
 export const getPipelineData = async(req: Request, res: Response) => {
     try{
