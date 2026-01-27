@@ -1,5 +1,5 @@
 import { Router } from "express";
-import {putLeadData} from "../controllers/Lead.controller";
+import {putLeadData} from "../controllers/Lead.controller.js";
 
 const router = Router();
 
