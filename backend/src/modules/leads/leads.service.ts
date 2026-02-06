@@ -30,7 +30,6 @@ interface LeadFilter {
 }
 
 // --- FUNÇÃO AUXILIAR PARA LIMPAR CAMPOS VAZIOS ---
-// Isso impede que strings vazias quebrem campos do tipo ObjectId ou Date
 const cleanEmptyFields = (obj: any) => {
   const newObj = { ...obj };
   Object.keys(newObj).forEach(key => {
@@ -89,29 +88,32 @@ export async function listLeads(filter: LeadFilter = {}, user?: UserAuth) {
     query.stageId = filter.stageId;
   }
 
-  return LeadModel.find(query)
+  // 👇 AJUSTE AQUI: Adicionei log e garanti retorno total
+  // O .find() traz tudo, mas se o schema estiver confuso, isso garante.
+  const leads = await LeadModel.find(query)
     .sort({ createdAt: -1 })
     .populate('owners', 'name email photoUrl photoBase64') 
     .populate('owner', 'name email photoUrl photoBase64');
+    
+  // LOG DE DIAGNÓSTICO (Para você ver no terminal se o dado existe)
+  const leadsComProposta = leads.filter(l => l.proposalUrl);
+  if (leadsComProposta.length > 0) {
+     console.log(`✅ [LIST LEADS] Encontrados ${leadsComProposta.length} leads com proposta.`);
+     console.log(`   Exemplo: ${leadsComProposta[0].name} -> ${leadsComProposta[0].proposalUrl}`);
+  }
+
+  return leads;
 }
 
 export function getLead(id: string) {
   return LeadModel.findById(id)
     .populate('owners', 'name email photoUrl photoBase64')
     .populate('owner', 'name email photoUrl photoBase64')
-    .lean();
+    .lean(); // .lean() converte para objeto puro JSON
 }
 
 /**
- * Sistema de Distribuição de Leads - Round Robin com Fallback
- * 
- * Garante que nenhum vendedor fique sem lead seguindo a ordem:
- * 1. Busca vendedor que atende TODOS os critérios (vidas + CNPJ)
- * 2. Fallback 1: Busca vendedor que atende apenas o critério de CNPJ (ignora vidas)
- * 3. Fallback 2: Busca vendedor que atende apenas o critério de vidas (ignora CNPJ)
- * 4. Fallback 3: Busca qualquer vendedor ativo com distribuição ativa
- * 
- * Em todos os casos, usa round-robin baseado em lastLeadReceivedAt
+ * Sistema de Distribuição de Leads
  */
 export async function findNextResponsible(lives: any, hasCnpj: boolean) {
   const livesNumber = Number(lives) || 0;
@@ -120,20 +122,16 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
     ? { $in: ['required', 'both'] } 
     : { $in: ['forbidden', 'both'] };
 
-  // Função auxiliar para atualizar o timestamp e retornar o ID
   const assignToSeller = async (seller: any, matchType: string) => {
-    console.log(`[DISTRIBUIÇÃO] [${matchType}] Lead (${livesNumber} vidas, CNPJ: ${hasCnpj}) → ${seller.name}`);
-    console.log(`    Última vez que recebeu: ${seller.distribution?.lastLeadReceivedAt || 'NUNCA'}`);
-
+    // console.log(`[DISTRIBUIÇÃO] [${matchType}] Lead (${livesNumber} vidas, CNPJ: ${hasCnpj}) → ${seller.name}`);
     await UserModel.updateOne(
       { _id: seller._id },
       { $set: { 'distribution.lastLeadReceivedAt': new Date() } }
     );
-    
     return seller._id.toString();
   };
 
-  // ========== TENTATIVA 1: MATCH PERFEITO (Vidas + CNPJ) ==========
+  // 1. MATCH PERFEITO
   const perfectMatch = await UserModel.findOne({
     active: true,                       
     'distribution.active': true,        
@@ -144,13 +142,9 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
   .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
   .select('_id name distribution');
 
-  if (perfectMatch) {
-    return assignToSeller(perfectMatch, 'MATCH PERFEITO');
-  }
+  if (perfectMatch) return assignToSeller(perfectMatch, 'MATCH PERFEITO');
 
-  console.log(`[DISTRIBUIÇÃO] Nenhum match perfeito para: ${livesNumber} vidas | CNPJ: ${hasCnpj}. Tentando fallbacks...`);
-
-  // ========== FALLBACK 1: Apenas CNPJ (ignora vidas) ==========
+  // 2. FALLBACK 1: Apenas CNPJ
   const cnpjOnlyMatch = await UserModel.findOne({
     active: true,                       
     'distribution.active': true,        
@@ -159,11 +153,9 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
   .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
   .select('_id name distribution');
 
-  if (cnpjOnlyMatch) {
-    return assignToSeller(cnpjOnlyMatch, 'FALLBACK CNPJ');
-  }
+  if (cnpjOnlyMatch) return assignToSeller(cnpjOnlyMatch, 'FALLBACK CNPJ');
 
-  // ========== FALLBACK 2: Apenas Vidas (ignora CNPJ) ==========
+  // 3. FALLBACK 2: Apenas Vidas
   const livesOnlyMatch = await UserModel.findOne({
     active: true,                       
     'distribution.active': true,        
@@ -173,11 +165,9 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
   .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
   .select('_id name distribution');
 
-  if (livesOnlyMatch) {
-    return assignToSeller(livesOnlyMatch, 'FALLBACK VIDAS');
-  }
+  if (livesOnlyMatch) return assignToSeller(livesOnlyMatch, 'FALLBACK VIDAS');
 
-  // ========== FALLBACK 3: Qualquer vendedor ativo ==========
+  // 4. FALLBACK 3: Qualquer vendedor ativo
   const anyActiveSeller = await UserModel.findOne({
     active: true,                       
     'distribution.active': true
@@ -185,11 +175,9 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
   .sort({ 'distribution.lastLeadReceivedAt': 1, _id: 1 }) 
   .select('_id name distribution');
 
-  if (anyActiveSeller) {
-    return assignToSeller(anyActiveSeller, 'FALLBACK GERAL');
-  }
+  if (anyActiveSeller) return assignToSeller(anyActiveSeller, 'FALLBACK GERAL');
 
-  // ========== ÚLTIMO RECURSO: Qualquer vendedor/admin ativo ==========
+  // 5. ÚLTIMO RECURSO
   const anyActiveUser = await UserModel.findOne({
     active: true,
     role: { $in: ['vendedor', 'admin', 'gerente'] }
@@ -198,7 +186,6 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
   .select('_id name distribution');
 
   if (anyActiveUser) {
-    console.warn(`[DISTRIBUIÇÃO] [ÚLTIMO RECURSO] Nenhum vendedor com distribuição ativa. Usando: ${anyActiveUser.name}`);
     await UserModel.updateOne(
       { _id: anyActiveUser._id },
       { $set: { 'distribution.lastLeadReceivedAt': new Date() } }
@@ -206,13 +193,12 @@ export async function findNextResponsible(lives: any, hasCnpj: boolean) {
     return anyActiveUser._id.toString();
   }
 
-  console.error(`[DISTRIBUIÇÃO] CRÍTICO: Nenhum usuário disponível no sistema!`);
   return null; 
 }
 
 export async function createLead(input: any, user?: UserAuth) {
 
-  // 1. VERIFICAÇÃO DE DUPLICIDADE (BUSCA INTELIGENTE)
+  // VERIFICAÇÃO DE DUPLICIDADE
   const criteriosBusca: any[] = [{ phone: input.phone }];
   if (input.email && input.email.trim() !== '') {
     criteriosBusca.push({ email: input.email });
@@ -221,19 +207,12 @@ export async function createLead(input: any, user?: UserAuth) {
   const existingLead = await LeadModel.findOne({ $or: criteriosBusca });
 
   if (existingLead) {
-    // Limpeza de campos vazios antes de atualizar duplicado
     const cleanInput = cleanEmptyFields(input);
-
     const updatedLead = await LeadModel.findByIdAndUpdate(
       existingLead._id,
-      {
-        ...cleanInput,
-        lastActivity: new Date(),
-        updatedBy: user?.sub || SYSTEM_ID 
-      },
+      { ...cleanInput, lastActivity: new Date(), updatedBy: user?.sub || SYSTEM_ID },
       { new: true }
     );
-
     await ActivityService.createActivity({
       leadId: existingLead._id.toString(),
       tipo: 'lead_atualizado' as any, 
@@ -241,12 +220,10 @@ export async function createLead(input: any, user?: UserAuth) {
       userId: user?.sub || SYSTEM_ID,
       userName: user?.sub ? 'Usuário' : 'Sistema'
     });
-
-    console.log(`Lead atualizado (Duplicado): ${updatedLead?.name}`);
     return updatedLead;
   }
 
-  // Limpeza de campos vazios antes de criar
+  // CRIAÇÃO DE NOVO LEAD
   if (input.cnpjType === '') delete input.cnpjType;
   
   const pipeline = await PipelineModel.findById(input.pipelineId);
@@ -257,46 +234,22 @@ export async function createLead(input: any, user?: UserAuth) {
 
   const rank = input.rank || '0|hzzzzz:';
   
-  // ========== LÓGICA DE ATRIBUIÇÃO DE RESPONSÁVEL ==========
-  // 
-  // LEAD MANUAL (user existe): 
-  //   - Se o usuário selecionou responsáveis (input.owners), usa eles
-  //   - Se não selecionou, atribui para o próprio usuário criador
-  //   - Vendedores sempre ficam como responsáveis do próprio lead
-  //
-  // LEAD AUTOMÁTICO (user não existe - webhook/integração):
-  //   - Usa o sistema de distribuição com fallback inteligente
-  //   - Garante que sempre haverá um responsável
-  // =========================================================
-  
   let ownersList: string[] = [];
   
   if (user) {
-    // === LEAD MANUAL ===
     if (user.role === 'vendedor') {
-      // Vendedor sempre fica como responsável do lead que ele cria
       ownersList = [user.sub];
     } else if (input.owners && input.owners.length > 0) {
-      // Admin/Gerente selecionou responsáveis manualmente
       ownersList = input.owners;
     } else {
-      // Admin/Gerente não selecionou ninguém, fica como responsável
       ownersList = [user.sub];
     }
-    console.log(`[LEAD MANUAL] Criado por ${user.role}. Responsáveis: ${ownersList.length}`);
   } else {
-    // === LEAD AUTOMÁTICO (Webhook/Integração) ===
     if (input.owners && input.owners.length > 0) {
-      // Já veio com responsável definido (raro, mas possível)
       ownersList = input.owners;
-      console.log(`[LEAD AUTOMÁTICO] Responsável pré-definido: ${ownersList.length}`);
     } else {
-      // Usa o sistema de distribuição com fallback
       const distributedOwner = await findNextResponsible(input.livesCount || 0, input.hasCnpj || false);
-      if (distributedOwner) {
-        ownersList = [distributedOwner];
-      }
-      console.log(`[LEAD AUTOMÁTICO] Distribuído para: ${distributedOwner || 'NINGUÉM'}`);
+      if (distributedOwner) ownersList = [distributedOwner];
     }
   }
 
@@ -313,12 +266,10 @@ export async function createLead(input: any, user?: UserAuth) {
     lastActivity: input.createdAt || new Date()
   });
 
+  // LOG DE CRIAÇÃO
   const creatorId = user?.sub;
   let userName = 'Sistema';
-  
-  const finalUserId = (creatorId && mongoose.Types.ObjectId.isValid(creatorId)) 
-    ? creatorId 
-    : SYSTEM_ID;
+  const finalUserId = (creatorId && mongoose.Types.ObjectId.isValid(creatorId)) ? creatorId : SYSTEM_ID;
 
   if (creatorId && mongoose.Types.ObjectId.isValid(creatorId)) {
      const userDoc = await UserModel.findById(creatorId);
@@ -339,37 +290,17 @@ export async function createLead(input: any, user?: UserAuth) {
 }
 
 export async function updateLead(id: string, input: any, user?: UserAuth) {
-  // 1. LOG DE ENTRADA: Ver exatamente o que está chegando
-  console.log(`[SERVICE] updateLead iniciado.`);
-  console.log(`- ID recebido (string): "${id}"`);
-  console.log(`- Tipo do input: ${typeof input}`);
-
-  // 2. VALIDAÇÃO E CONVERSÃO FORÇADA DO ID
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-    console.error(`[SERVICE] ERRO: ID inválido recebido: "${id}"`);
     throw new AppError('ID do Lead inválido', StatusCodes.BAD_REQUEST);
   }
 
-  // Converte string para ObjectId manualmente para garantir
   const objectId = new mongoose.Types.ObjectId(id);
-
-  // 3. BUSCA COM LOG DE DIAGNÓSTICO
   const existingLead = await LeadModel.findById(objectId);
   
   if (!existingLead) {
-    // Se cair aqui, é o mistério. Vamos tentar achar o erro.
-    console.error(`[SERVICE] CRÍTICO: LeadModel.findById retornou null.`);
-    console.error(`- ID Buscado (ObjectId):`, objectId);
-    console.error(`- Coleção consultada:`, LeadModel.collection.name);
-    
-    // Tenta achar na força bruta para ver se o documento existe mesmo
-    const checkAll = await LeadModel.findOne({ _id: objectId });
-    console.error(`- Busca secundária (findOne):`, checkAll ? 'ENCONTRADO (Estranho!)' : 'REALMENTE NÃO EXISTE');
-
-    throw new AppError('Lead não encontrado no banco de dados', StatusCodes.NOT_FOUND);
+    throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
   }
 
-  // ... (Resto das validações de permissão continuam iguais)
   if (user && user.role !== 'admin') {
     const owners = existingLead.owners || [];
     const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
@@ -377,14 +308,11 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
   }
 
   const updatedById = user?.sub || SYSTEM_ID;
-
-  // 4. LIMPEZA DE CAMPOS VAZIOS (A função cleanEmptyFields deve estar no topo do arquivo)
   const cleanInput = cleanEmptyFields(input);
   if (cleanInput.pipelineId === '') delete cleanInput.pipelineId;
   if (cleanInput.stageId === '') delete cleanInput.stageId;
 
   try {
-    // Atualização
     const lead = await LeadModel.findByIdAndUpdate(
         objectId, 
         { ...cleanInput, updatedBy: updatedById }, 
@@ -393,23 +321,10 @@ export async function updateLead(id: string, input: any, user?: UserAuth) {
       .populate('owners', 'name email photoUrl photoBase64')
       .populate('owner', 'name email photoUrl photoBase64');
 
-    // ... (Lógica de Logs de Atividade - MANTENHA A MESMA DO CÓDIGO ANTERIOR) ...
-    const updatorId = user?.sub;
-    const userDoc = updatorId ? await UserModel.findById(updatorId) : null;
-    const userName = userDoc?.name || 'Sistema';
-    const finalUserId = updatorId || SYSTEM_ID;
-
-    // ... (Cole aqui o restante dos blocos de ActivityService que você já tem) ...
-    
-    // (Resumo do bloco de logs para não ficar gigante na resposta, mas você deve manter o seu código original de logs aqui)
-    // if (cleanInput.stageId...)
-    // if (cleanInput.owners...)
-    // etc...
-
     return lead;
 
   } catch (err) {
-    console.error(`[SERVICE] Erro fatal no findByIdAndUpdate:`, err);
+    console.error(`[SERVICE] Erro no updateLead:`, err);
     throw err;
   }
 }
@@ -421,24 +336,16 @@ export async function deleteLead(id: string, user?: UserAuth) {
   if (user && user.role !== 'admin') {
      const owners = existingLead.owners || [];
      const isOwner = owners.some((ownerId: any) => ownerId.toString() === user.sub);
-     
-     if (!isOwner) {
-       throw new AppError('Você não tem permissão para excluir este lead.', StatusCodes.FORBIDDEN);
-     }
+     if (!isOwner) throw new AppError('Permissão negada.', StatusCodes.FORBIDDEN);
   }
 
   return LeadModel.findByIdAndDelete(id);
 }
 
 export async function addActivity(leadId: string, type: string, payload: any, userId?: string) {
-  const lead = await LeadModel.findById(leadId);
-  if (!lead) throw new AppError('Lead não encontrado', StatusCodes.NOT_FOUND);
-  
-  const descricao = payload.description || payload.descricao || 'Nova atividade registrada';
-
   const finalUserId = (userId && mongoose.Types.ObjectId.isValid(userId)) ? userId : SYSTEM_ID;
-  
   let finalUserName = 'Sistema';
+  
   if (userId && userId !== SYSTEM_ID && mongoose.Types.ObjectId.isValid(userId)) {
     try {
       const user = await UserModel.findById(userId);
@@ -447,14 +354,12 @@ export async function addActivity(leadId: string, type: string, payload: any, us
   }
 
   let novoTipo = type;
-  if (type === 'Sistema' || type === 'Alteração') {
-    novoTipo = 'lead_atualizado'; 
-  }
+  if (type === 'Sistema' || type === 'Alteração') novoTipo = 'lead_atualizado'; 
 
   return ActivityService.createActivity({
     leadId,
     tipo: novoTipo as any, 
-    descricao,
+    descricao: payload.description || payload.descricao || 'Nova atividade',
     userId: finalUserId,
     userName: finalUserName,
     metadata: payload

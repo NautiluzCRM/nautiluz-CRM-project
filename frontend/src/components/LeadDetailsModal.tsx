@@ -87,7 +87,9 @@ const FAIXAS_LABELS = [
 
 // --- FUNÇÃO AUXILIAR PARA ASSETS LOCAIS ---
 const getOperadoraInfo = (plano?: string) => {
-  if (!plano) return null;
+  // 👇 PROTEÇÃO: Se for nulo, vazio ou traço, retorna null (sem logo)
+  if (!plano || plano.trim() === '' || plano === '-') return null;
+  
   const text = plano.toLowerCase();
   
   if (text.includes('amil') || text.includes('one health') || text.includes('lincx')) return { src: '/logos/amil.png', name: 'Amil' };
@@ -162,10 +164,19 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
 
   const operadoraInfo = lead ? getOperadoraInfo(lead.planoAtual) : null;
 
+  // 👇 NOVA FUNÇÃO AUXILIAR: Valida se vale a pena buscar no backend
+  const isValidPlan = (plano?: string) => {
+    if (!plano) return false;
+    const clean = plano.trim();
+    // Só busca se não for vazio, não for traço e tiver mais de 2 letras
+    return clean !== '' && clean !== '-' && clean.length > 2; 
+  };
+
   // Buscar logo customizada do Cloudinary quando não houver local
   useEffect(() => {
-    if (isOpen && lead?.planoAtual && !operadoraInfo) {
-      searchOperadoraLogo(lead.planoAtual).then((logo) => {
+    // 👇 PROTEÇÃO APLICADA AQUI: Usa isValidPlan
+    if (isOpen && isValidPlan(lead?.planoAtual) && !operadoraInfo) {
+      searchOperadoraLogo(lead.planoAtual!).then((logo) => {
         if (logo) {
           setCustomLogoUrl(logo.logoUrl);
         } else {
@@ -182,7 +193,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     const file = e.target.files?.[0];
     if (!file || !lead?.planoAtual) return;
 
-    // Validar tamanho (500KB)
     if (file.size > 500 * 1024) {
       toast({
         variant: "destructive",
@@ -192,7 +202,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
       return;
     }
 
-    // Validar tipo
     if (!file.type.startsWith('image/')) {
       toast({
         variant: "destructive",
@@ -205,7 +214,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     setIsUploadingLogo(true);
 
     try {
-      // Converter para base64
       const reader = new FileReader();
       reader.onload = async () => {
         const base64 = reader.result as string;
@@ -237,13 +245,11 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
       });
     }
 
-    // Limpar input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  // Função para selecionar logo local pré-definida
   const handleSelectLocalLogo = async (logoSrc: string) => {
     if (!lead?.planoAtual) return;
     
@@ -251,7 +257,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     setShowLogoSelector(false);
     
     try {
-      // Buscar a imagem local e converter para base64
       const response = await fetch(logoSrc);
       const blob = await response.blob();
       
@@ -287,12 +292,10 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     }
   };
 
-  // Filtrar logos locais pela busca
   const filteredLogos = LOGOS_LOCAIS.filter(logo => 
     logo.name.toLowerCase().includes(logoSearchTerm.toLowerCase())
   );
 
-  // Carregar atividades e notas quando o modal abrir
   useEffect(() => {
     if (isOpen && leadId) {
       loadActivities();
@@ -395,10 +398,8 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
     ? Math.floor((Date.now() - new Date(lead.ultimaAtividade).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  // --- CORREÇÃO AQUI: Lógica Híbrida (Objeto Novo ou Array Antigo) ---
   let faixasPreenchidas: { label: string; count: number }[] = [];
   
-  // 1. Tenta usar o objeto novo (lead.faixasEtarias)
   if (lead.faixasEtarias) {
       const mapKeys = [
           { key: 'ate18', label: '0-18' },
@@ -415,18 +416,16 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
       
       faixasPreenchidas = mapKeys.map(m => ({
           label: m.label,
-          // @ts-ignore - Acesso dinâmico seguro
+          // @ts-ignore
           count: (lead.faixasEtarias as any)[m.key] || 0
       })).filter(x => x.count > 0);
   } 
-  // 2. Fallback para array antigo (lead.idades)
   else if (lead.idades && lead.idades.length > 0) {
       faixasPreenchidas = lead.idades.map((count, index) => ({
         label: FAIXAS_LABELS[index],
         count: count
       })).filter(item => item.count > 0);
   }
-  // -----------------------------------------------------------------
   
   const ownersList = (leadData.owners || []) as any[];
   
@@ -492,7 +491,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
           </DialogTitle>
         </DialogHeader>
 
-        {/* Badges */}
         <div className="flex flex-wrap gap-2 -mt-2">
           <Badge variant="secondary">
             {lead.origem}
@@ -509,9 +507,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Coluna Principal */}
           <div className="md:col-span-2 space-y-6">
-            {/* Contato */}
             <div className="space-y-3">
               <h3 className="text-base font-semibold flex items-center gap-2">
                 <Phone className="h-4 w-4" />
@@ -545,14 +541,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
 
             <Separator />
 
-            {/* Informações do Plano */}
             <div className="space-y-4">
               <h3 className="text-base font-semibold flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Informações do Plano
               </h3>
               
-              {/* Grid: Quantidade de Vidas e Faixas Etárias */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-medium uppercase text-muted-foreground mb-2">Quantidade de Vidas</p>
@@ -576,7 +570,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                 </div>
               </div>
 
-              {/* Grid: CNPJ e Hospitais */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-medium uppercase text-muted-foreground mb-2">CNPJ</p>
@@ -599,10 +592,8 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                 </div>
               </div>
 
-              {/* Card Grande: Logo + Plano + Valor */}
               <div className="border rounded-lg p-4 bg-muted/30 flex items-center justify-between gap-4 relative">
                 <div className="flex items-center gap-4">
-                  {/* Input oculto para upload customizado */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -611,19 +602,18 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                     className="hidden"
                   />
                   
-                  {/* Container da Logo - Clicável para abrir seletor */}
                   <div 
                     className={`h-20 w-28 rounded border bg-card flex items-center justify-center overflow-hidden shrink-0 relative group ${
-                      !operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual ? 'cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors' : ''
+                      // 👇 PROTEÇÃO APLICADA AQUI TAMBÉM: Só permite clique se nome for válido
+                      !operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual && isValidPlan(lead.planoAtual) ? 'cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors' : ''
                     }`}
                     onClick={() => {
-                      // Só abre seletor se não tem logo e usuário pode editar
-                      if (!operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual && !isUploadingLogo) {
+                      if (!operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual && isValidPlan(lead.planoAtual) && !isUploadingLogo) {
                         setShowLogoSelector(true);
                         setLogoSearchTerm("");
                       }
                     }}
-                    title={!operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual ? "Clique para adicionar logo" : undefined}
+                    title={!operadoraInfo && !customLogoUrl && canEdit && lead?.planoAtual && isValidPlan(lead.planoAtual) ? "Clique para adicionar logo" : undefined}
                   >
                     {isUploadingLogo ? (
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -641,7 +631,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                         className="h-full w-full object-contain p-2"
                         onError={(e) => e.currentTarget.style.display = 'none'}
                       />
-                    ) : lead?.planoAtual && canEdit ? (
+                    ) : lead?.planoAtual && isValidPlan(lead.planoAtual) && canEdit ? (
                       <div className="flex flex-col items-center gap-1 text-muted-foreground group-hover:text-primary transition-colors">
                         <ImagePlus className="h-6 w-6" />
                         <span className="text-[9px] text-center">Adicionar logo</span>
@@ -652,7 +642,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                   </div>
                   <div>
                     <p className="text-xs font-medium uppercase text-muted-foreground">Plano Atual</p>
-                    <p className="text-base font-bold">{lead.planoAtual || "Sem plano atual"}</p>
+                    <p className="text-base font-bold">{lead.planoAtual || "-"}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -667,7 +657,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                   </div>
                 </div>
 
-                {/* Modal/Popover de Seleção de Logo */}
                 {showLogoSelector && (
                   <div className="absolute left-0 top-full mt-2 z-50 w-80 bg-card border rounded-lg shadow-lg p-3">
                     <div className="flex items-center justify-between mb-3">
@@ -682,7 +671,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                       </Button>
                     </div>
                     
-                    {/* Campo de busca */}
                     <input
                       type="text"
                       placeholder="Buscar operadora..."
@@ -692,7 +680,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                       autoFocus
                     />
                     
-                    {/* Grid de logos */}
                     <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto mb-3">
                       {filteredLogos.map((logo) => (
                         <div
@@ -716,7 +703,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                       </p>
                     )}
                     
-                    {/* Opção de upload customizado */}
                     <Separator className="my-2" />
                     <Button
                       size="sm"
@@ -737,7 +723,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
 
             <Separator />
 
-            {/* Observações */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold flex items-center gap-2">
@@ -854,9 +839,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
             </div>
           </div>
 
-          {/* Coluna Sidebar */}
           <div className="space-y-6">
-            {/* Responsável */}
             <div className="space-y-3">
               <h3 className="text-base font-semibold flex items-center gap-2">
                 <Activity className="h-4 w-4" />
@@ -868,7 +851,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                   {sortedOwners.map((owner: any) => (
                     <div key={owner.id} className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                       <Avatar className="h-9 w-9 border-2">
-                        {/* Usamos owner.foto que vem do backend */}
                         <AvatarImage 
                           src={owner.foto || ""} 
                           alt={owner.nome} 
@@ -888,7 +870,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
               ) : (
                 <div className="flex items-center gap-3 p-3 bg-muted/30 border rounded-lg">
                   <Avatar className="h-9 w-9 border-2">
-                    {/* Fallback para lead antigo sem array de owners (apenas string nome) */}
                     <AvatarImage src="" alt={lead.responsavel || "Vendedor"} />
                     <AvatarFallback className="bg-primary text-white text-xs font-semibold">
                       {(lead.responsavel || "VD").substring(0, 2).toUpperCase()}
@@ -902,7 +883,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
               )}
             </div>
 
-            {/* Datas Importantes */}
             <div className="space-y-3">
               <h3 className="text-base font-semibold flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
@@ -925,7 +905,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
               </div>
             </div>
 
-            {/* Atividades Recentes */}
             <div className="space-y-3">
               <h3 className="text-base font-semibold">Atividades Recentes</h3>
               <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
@@ -937,7 +916,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                   activities.slice(0, 10).map((atividade) => (
                     <Dialog key={atividade._id}>
                       <DialogTrigger asChild>
-                        {/* O Card agora é um botão clicável */}
                         <div 
                           className="p-3 bg-white border rounded-lg text-sm cursor-pointer hover:bg-gray-50 hover:shadow-sm transition-all group"
                         >
@@ -956,14 +934,12 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                             </span>
                           </div>
                           
-                          {/* Esse texto agora será o principal indicador para clicar */}
                           <div className="text-[10px] text-blue-500 mt-1 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                             Ver detalhes →
                           </div>
                         </div>
                       </DialogTrigger>
                       
-                      {/* A Janela que abre ao clicar */}
                       <DialogContent className="max-w-md sm:max-w-lg z-[9999]">
                         <DialogHeader>
                           <DialogTitle className="flex items-center gap-2 text-base">
@@ -981,7 +957,6 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onEdit, onDelete }: Le
                           </Badge>
                           
                           <ScrollArea className="max-h-[50vh] rounded-md border p-4 bg-muted/20">
-                            {/* whitespace-pre-wrap garante que os parágrafos não fiquem grudados */}
                             <p className="text-sm text-foreground whitespace-pre-wrap font-mono leading-relaxed">
                               {atividade.descricao}
                             </p>

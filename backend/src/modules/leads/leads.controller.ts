@@ -3,6 +3,8 @@ import { asyncHandler } from '../../common/http.js';
 import { z } from 'zod';
 import { addActivity, createLead, deleteLead, getLead, listLeads, updateLead } from './leads.service.js';
 
+import { LeadModel } from './lead.model.js';
+import { StageModel } from '../pipelines/stage.model.js'; // <--- O erro 500 é quase certeza a falta dessa linha!
 const leadSchema = z.object({
   // --- Campos Obrigatórios (Validadores Rigorosos) ---
   name: z.string({ required_error: "O nome completo é obrigatório." }).min(1, "O nome é obrigatório."),
@@ -108,3 +110,105 @@ export const addActivityHandler = asyncHandler(async (req: Request, res: Respons
   const activity = await addActivity(req.params.id, body.type, body.payload, user?.sub);
   res.status(201).json(activity);
 });
+
+// backend/src/modules/leads/leads.controller.ts
+
+// backend/src/modules/leads/leads.controller.ts
+
+export async function uploadProposal(req: any, res: any) {
+  try {
+    const { id } = req.params;
+    const file = req.file;
+
+    console.log(" Recebendo arquivo:", file);
+
+    if (!file) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    }
+
+    // 1. Busca a Etapa de Destino (Propostas Submetidas)
+    // Se o nome no banco for diferente (ex: "Proposta Submetida"), vai dar erro aqui.
+    const targetStage = await StageModel.findOne({ 
+      name: { $regex: /Propostas? Submetidas?/i } // Regex para aceitar singular/plural
+    });
+    
+    if (!targetStage) {
+      console.error("❌ Erro: Coluna 'Propostas Submetidas' não encontrada no Banco.");
+      return res.status(404).json({ error: 'Coluna de destino não encontrada.' });
+    }
+
+    // 2. ATUALIZAÇÃO CIRÚRGICA (Sem validar o lead inteiro)
+    const agora = new Date();
+
+    const updatedLead = await LeadModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          proposalUrl: file.path,        // Salva o caminho do arquivo
+          proposalDate: agora,           // Data do envio
+          proposalOriginalName: file.originalname,
+          stageId: targetStage._id,      // Move para a nova coluna
+          
+          // --- RESET DO SLA (Cronômetro) ---
+          enteredStageAt: agora,         // Zera o tempo da etapa
+          stageChangedAt: agora,         // Marca a mudança
+          isOverdue: false,              // Remove o alerta vermelho
+          overdueHours: 0                // Zera contagem de horas vencidas
+        }
+      },
+      { new: true } // Retorna o lead atualizado
+    );
+
+    if (!updatedLead) {
+      return res.status(404).json({ error: 'Lead não encontrado para atualização.' });
+    }
+
+    console.log("✅ Sucesso! Lead movido e tempo resetado:", updatedLead.name);
+
+    return res.json(updatedLead);
+
+  } catch (error: any) {
+    // Agora o erro vai aparecer no Console do Navegador (Network > Preview)
+    console.error("💥 ERRO FATAL no Upload:", error);
+    return res.status(500).json({ 
+      error: 'Erro interno ao salvar proposta.',
+      details: error.message || error 
+    });
+  }
+}
+
+// backend/src/modules/leads/leads.controller.ts
+
+// ... outras funções ...
+
+export async function downloadProposal(req: any, res: any) {
+  try {
+    const { id } = req.params;
+
+    // 1. Busca o Lead
+    const lead = await LeadModel.findById(id);
+
+    if (!lead || !lead.proposalUrl) {
+      return res.status(404).json({ error: 'Arquivo não encontrado.' });
+    }
+
+    // 2. Define o nome bonito (ou usa um padrão se não tiver)
+    const fileName = lead.proposalOriginalName || `Proposta_${lead.name.replace(/\s+/g, '_')}.pdf`;
+
+    // 3. Força o download com o nome correto
+    // O Express resolve o caminho relativo da pasta 'uploads' automaticamente se estiver na raiz
+    // Se der erro de caminho, tente: path.resolve(lead.proposalUrl)
+    return res.download(lead.proposalUrl, fileName, (err) => {
+      if (err) {
+        console.error("Erro ao baixar arquivo:", err);
+        if (!res.headersSent) {
+          res.status(500).send("Erro ao baixar arquivo.");
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Erro no download:", error);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+}

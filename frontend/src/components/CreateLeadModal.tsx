@@ -237,6 +237,7 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
+        // --- MANTÉM APENAS NOME E CELULAR ---
         if (!formData.nome.trim()) {
           toast({ variant: "destructive", title: "Nome obrigatório", description: "Preencha o nome completo." });
           return false;
@@ -245,40 +246,22 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
           toast({ variant: "destructive", title: "Celular inválido", description: "Insira um celular válido com pelo menos 10 dígitos." });
           return false;
         }
-        if (formData.email && (!formData.email.includes("@") || !formData.email.includes("."))) {
+        // Validação de email mantém apenas se o usuário digitar algo (não bloqueia se estiver vazio)
+        if (formData.email && formData.email.trim() !== "" && (!formData.email.includes("@") || !formData.email.includes("."))) {
           toast({ variant: "destructive", title: "Email inválido", description: "Insira um email válido." });
           return false;
         }
-        if (!formData.cidade.trim()) {
-          toast({ variant: "destructive", title: "Cidade obrigatória", description: "Preencha a cidade." });
-          return false;
-        }
-        if (!formData.uf) {
-          toast({ variant: "destructive", title: "UF obrigatória", description: "Selecione o estado." });
-          return false;
-        }
+        
+        // REMOVIDO: Bloqueio de Cidade e UF
         return true;
 
       case 2:
-        if (Number(formData.quantidadeVidas) <= 0) {
-          toast({ variant: "destructive", title: "Vidas inválidas", description: "Quantidade deve ser maior que zero." });
-          return false;
-        }
-        if (Number(formData.valorMedio) <= 0) {
-          toast({ variant: "destructive", title: "Valor inválido", description: "Valor estimado deve ser maior que zero." });
-          return false;
-        }
-        if (formData.possuiCnpj && !formData.tipoCnpj) {
-          toast({ variant: "destructive", title: "Tipo CNPJ obrigatório", description: "Selecione o tipo de CNPJ." });
-          return false;
-        }
+        // REMOVIDO: Bloqueio de Vidas, Valor e CNPJ.
+        // Agora permite avançar mesmo com 0 ou vazio.
         return true;
 
       case 3:
-        if (!isTotalValid) {
-          toast({ variant: "destructive", title: "Distribuição incorreta", description: `Total de vidas deve ser ${formData.quantidadeVidas}.` });
-          return false;
-        }
+        // REMOVIDO: Validação se a soma das faixas bate com o total.
         return true;
 
       case 4:
@@ -424,11 +407,11 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
             
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 space-y-2">
-                <Label htmlFor="nome">Nome Completo *</Label>
+                <Label htmlFor="nome">Nome Completo </Label>
                 <Input id="nome" value={formData.nome} onChange={(e) => handleChange("nome", e.target.value)} placeholder="Ex: Maria Silva" />
               </div>
               <div className="col-span-6 md:col-span-4 space-y-2">
-                <Label htmlFor="celular">Celular *</Label>
+                <Label htmlFor="celular">Celular </Label>
                 <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", formatPhone(e.target.value))} placeholder="(11) 99999-9999" />
               </div>
               <div className="col-span-6 md:col-span-4 space-y-2">
@@ -451,14 +434,14 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
                 </Select>
               </div>
               <div className="col-span-4 md:col-span-3 space-y-2">
-                <Label htmlFor="uf">UF *</Label>
+                <Label htmlFor="uf">UF </Label>
                 <Select value={formData.uf} onValueChange={(val) => handleChange("uf", val)}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>{UFS.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="col-span-8 md:col-span-9 space-y-2">
-                <Label htmlFor="cidade">Cidade *</Label>
+                <Label htmlFor="cidade">Cidade </Label>
                 <Select 
                   value={formData.cidade} 
                   onValueChange={(val) => handleChange("cidade", val)}
@@ -487,11 +470,11 @@ export function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLeadModalP
             
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="qtdVidas">Total de Vidas *</Label>
+                <Label htmlFor="qtdVidas">Total de Vidas </Label>
                 <Input id="qtdVidas" type="number" min="1" value={formData.quantidadeVidas} onChange={(e) => handleChange("quantidadeVidas", e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="valorMedio">Valor Estimado *</Label>
+                <Label htmlFor="valorMedio">Valor Estimado </Label>
                 <Input id="valorMedio" type="number" step="0.01" value={formData.valorMedio} onChange={(e) => handleChange("valorMedio", e.target.value)} />
               </div>
               <div className="space-y-2">
