@@ -197,43 +197,28 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
   const totalFaixas = faixas.reduce((acc, curr) => acc + curr, 0);
   const isTotalValid = totalFaixas === Number(formData.quantidadeVidas);
 
-  const validateForm = (): boolean => {
+ const validateForm = (): boolean => {
+    // 1. Validação de Nome (Mantida)
     if (!formData.nome.trim()) {
       toast({ variant: "destructive", title: "Nome obrigatório", description: "Preencha o nome completo." });
       return false;
     }
+
+    // 2. Validação de Celular (Mantida)
     if (!formData.celular.trim() || formData.celular.length < 10) {
       toast({ variant: "destructive", title: "Celular inválido", description: "Insira um celular válido." });
       return false;
     }
-    if (formData.email && (!formData.email.includes("@") || !formData.email.includes("."))) {
+
+    // 3. Email (Mantido apenas se preenchido, para evitar erro de formato)
+    if (formData.email && formData.email.trim() !== "" && (!formData.email.includes("@") || !formData.email.includes("."))) {
       toast({ variant: "destructive", title: "Email inválido", description: "Insira um email válido." });
       return false;
     }
-    if (!formData.cidade.trim()) {
-      toast({ variant: "destructive", title: "Cidade obrigatória", description: "Preencha a cidade." });
-      return false;
-    }
-    if (!formData.uf) {
-      toast({ variant: "destructive", title: "UF obrigatória", description: "Selecione o estado." });
-      return false;
-    }
-    if (Number(formData.quantidadeVidas) <= 0) {
-      toast({ variant: "destructive", title: "Vidas inválidas", description: "Quantidade deve ser maior que zero." });
-      return false;
-    }
-    if (Number(formData.valorMedio) <= 0) {
-      toast({ variant: "destructive", title: "Valor inválido", description: "Valor estimado deve ser maior que zero." });
-      return false;
-    }
-    if (formData.possuiCnpj && !formData.tipoCnpj) {
-      toast({ variant: "destructive", title: "Tipo CNPJ obrigatório", description: "Selecione o tipo de CNPJ." });
-      return false;
-    }
-    if (!isTotalValid) {
-      toast({ variant: "destructive", title: "Distribuição incorreta", description: `Total de vidas (${totalFaixas}) deve ser igual a ${formData.quantidadeVidas}.` });
-      return false;
-    }
+
+    // --- REMOVIDO: Cidade, UF, Vidas, Valor, CNPJ e Distribuição ---
+    // Agora o formulário aceita salvar mesmo com esses campos vazios ou zerados.
+
     return true;
   };
 
@@ -304,12 +289,12 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
             
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 space-y-2">
-                <Label htmlFor="nome">Nome Completo *</Label>
+                <Label htmlFor="nome">Nome Completo </Label>
                 <Input id="nome" value={formData.nome} onChange={(e) => handleChange("nome", e.target.value)} placeholder="Ex: Maria Silva" />
               </div>
               
               <div className="col-span-12 md:col-span-4 space-y-2">
-                <Label htmlFor="celular" className="flex items-center gap-1"><Phone className="h-3 w-3" /> Celular *</Label>
+                <Label htmlFor="celular" className="flex items-center gap-1"><Phone className="h-3 w-3" /> Celular </Label>
                 <Input id="celular" value={formData.celular} onChange={(e) => handleChange("celular", formatPhone(e.target.value))} placeholder="(11) 99999-9999" />
               </div>
               <div className="col-span-12 md:col-span-4 space-y-2">
@@ -337,11 +322,11 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
                 <Input id="empresa" value={formData.empresa} onChange={(e) => handleChange("empresa", e.target.value)} placeholder="Opcional" />
               </div>
               <div className="col-span-8 md:col-span-4 space-y-2">
-                <Label htmlFor="cidade" className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Cidade *</Label>
+                <Label htmlFor="cidade" className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Cidade </Label>
                 <Input id="cidade" value={formData.cidade} onChange={(e) => handleChange("cidade", e.target.value)} placeholder="Ex: São Paulo" />
               </div>
               <div className="col-span-4 md:col-span-2 space-y-2">
-                <Label htmlFor="uf" className="flex gap-1">UF *</Label>
+                <Label htmlFor="uf" className="flex gap-1">UF </Label>
                 <Select value={formData.uf} onValueChange={(val) => handleChange("uf", val)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{UFS.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}</SelectContent>
@@ -360,11 +345,11 @@ export function EditLeadModal({ isOpen, onClose, onCancel, onSuccess, leadToEdit
             
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-6 md:col-span-4 space-y-2">
-                <Label htmlFor="qtdVidas">Total de Vidas *</Label>
+                <Label htmlFor="qtdVidas">Total de Vidas </Label>
                 <Input id="qtdVidas" type="number" min="1" value={formData.quantidadeVidas} onChange={(e) => handleChange("quantidadeVidas", e.target.value)} />
               </div>
               <div className="col-span-6 md:col-span-4 space-y-2">
-                <Label htmlFor="valorMedio">Valor Estimado (R$) *</Label>
+                <Label htmlFor="valorMedio">Valor Estimado (R$) </Label>
                 <Input id="valorMedio" type="number" step="0.01" value={formData.valorMedio} onChange={(e) => handleChange("valorMedio", e.target.value)} />
               </div>
             </div>

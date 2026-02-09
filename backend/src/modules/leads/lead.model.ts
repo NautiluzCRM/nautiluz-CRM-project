@@ -58,7 +58,6 @@ export type QualificationStatus = typeof qualificationStatuses[number];
 export const cnpjTypes = ['MEI', 'EI', 'ME', 'EPP', 'SLU', 'LTDA', 'SS', 'SA', 'Média', 'Grande', 'Outro', 'Outros'] as const;
 export type CnpjType = typeof cnpjTypes[number];
 
-
 /**
  * Prioridades do lead
  */
@@ -153,9 +152,16 @@ export interface Lead extends Document {
   lastActivityAt?: Date;
   lastContactAt?: Date;
   
+  // --- CAMPOS DE UPLOAD (CRUCIAIS PARA SUA FUNCIONALIDADE) ---
+  proposalUrl?: string; 
+  // 👇 NOVO CAMPO ADICIONADO AQUI NA INTERFACE
+  proposalOriginalName?: string; 
+  proposalDate?: Date;  
+  // ----------------------------------------------------------
+    
   // SLA e Vencimento
-  enteredStageAt?: Date; // Quando entrou na stage atual
-  stageChangedAt?: Date; // Campo de compatibilidade (Adicionado)
+  enteredStageAt?: Date; 
+  stageChangedAt?: Date; 
   dueDate?: Date;
   isOverdue?: boolean;
   overdueHours?: number;
@@ -184,7 +190,7 @@ const leadSchema = new Schema<Lead>(
     // Dados básicos
     name: { type: String, required: true, index: true },
     company: { type: String, index: true },
-    phone: String,
+    phone: { type: String, required: true },
     phoneSecondary: String,
     whatsapp: String,
     email: { type: String, index: true },
@@ -199,12 +205,8 @@ const leadSchema = new Schema<Lead>(
     
     // Vidas e faixas etárias
     livesCount: { type: Number, min: 0 },
-    
-    // NOVO CAMPO: Faixas Etárias (Objeto)
     faixasEtarias: { type: faixasEtariasSchema, default: () => ({}) },
-    
-    // Campo Legado: Idades (Array)
-    idades: [Number], 
+    idades: [Number], // Campo Legado
     
     // Plano atual
     hasCurrentPlan: Boolean,
@@ -271,45 +273,51 @@ const leadSchema = new Schema<Lead>(
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     lastActivityAt: Date,
     lastContactAt: Date,
+
+    // --- SCHEMA DOS CAMPOS DE UPLOAD ---
+    proposalUrl: { type: String }, 
+    // 👇 NOVO CAMPO ADICIONADO AQUI NO SCHEMA
+    proposalOriginalName: { type: String },
+    proposalDate: { type: Date },
+    // -----------------------------------
     
-    // ==========================================
-    // SLA e Vencimento (CORRIGIDO AQUI)
-    // ==========================================
+    // SLA e Vencimento
     enteredStageAt: { 
       type: Date, 
       index: true,
-      default: Date.now // <--- Garante que nasça com data
+      default: Date.now 
     },
     stageChangedAt: {
       type: Date,
-      default: Date.now // <--- Garante compatibilidade
+      default: Date.now
     },
     dueDate: { type: Date, index: true },
     isOverdue: { type: Boolean, default: false, index: true },
     overdueHours: { type: Number, default: 0 }
-    // ==========================================
   },
   {
     timestamps: true
   }
 );
 
-// Índices compostos para buscas otimizadas
+// Índices compostos
 leadSchema.index({ pipelineId: 1, stageId: 1, rank: 1 });
 leadSchema.index({ qualificationStatus: 1, createdAt: -1 });
 leadSchema.index({ owners: 1, qualificationStatus: 1 });
 leadSchema.index({ origin: 1, createdAt: -1 });
 leadSchema.index({ proximoContato: 1, qualificationStatus: 1 });
 
-// Virtual para calcular total de vidas das faixas etárias
-leadSchema.virtual('totalVidasFaixas').get(function() {
+// Virtual para calcular total de vidas
+leadSchema.virtual('totalVidasFaixas').get(function(this: Lead) {
   if (!this.faixasEtarias) return 0;
+  // @ts-ignore
   return Object.values(this.faixasEtarias).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
 });
 
-// Middleware para sincronizar livesCount com faixas etárias
-leadSchema.pre('save', function(next) {
+// Middleware para sincronizar livesCount
+leadSchema.pre('save', function(this: Lead, next) {
   if (this.faixasEtarias && this.isModified('faixasEtarias')) {
+    // @ts-ignore
     const total = Object.values(this.faixasEtarias).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
     if (total > 0) {
       this.livesCount = total;
