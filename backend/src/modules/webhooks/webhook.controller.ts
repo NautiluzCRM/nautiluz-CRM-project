@@ -52,22 +52,34 @@ const processarFaixasEtarias = (textoInput: string) => {
     return { faixas, idadesArray };
   }
 
-  const mapaDeChaves: Record<number, keyof typeof faixas> = {
-    1: 'ate18', 2: 'de19a23', 3: 'de24a28', 4: 'de29a33', 5: 'de34a38',
-    6: 'de39a43', 7: 'de44a48', 8: 'de49a53', 9: 'de54a58', 10: 'acima59'
-  };
-
-  const partes = textoInput.split(',');
+  const partes = textoInput.split(/[,;\s]+/);
 
   partes.forEach(parte => {
-    const [codigoStr, qtdStr] = parte.trim().split(':');
-    const codigo = parseInt(codigoStr);
-    const qtd = parseInt(qtdStr);
+    const idade = parseInt(parte.trim());
 
-    if (!isNaN(codigo) && !isNaN(qtd) && codigo >= 1 && codigo <= 10) {
-      const chave = mapaDeChaves[codigo];
-      if (chave) faixas[chave] = qtd;
-      idadesArray[codigo - 1] = qtd;
+    if (!isNaN(idade)) {
+      let index = -1;
+      // Classifica a idade no bucket correto automaticamente
+      if (idade >= 0 && idade <= 18) index = 0;       // ate18
+      else if (idade >= 19 && idade <= 23) index = 1; // de19a23
+      else if (idade >= 24 && idade <= 28) index = 2; // de24a28
+      else if (idade >= 29 && idade <= 33) index = 3; // de29a33
+      else if (idade >= 34 && idade <= 38) index = 4; // de34a38
+      else if (idade >= 39 && idade <= 43) index = 5; // de39a43
+      else if (idade >= 44 && idade <= 48) index = 6; // de44a48
+      else if (idade >= 49 && idade <= 53) index = 7; // de49a53
+      else if (idade >= 54 && idade <= 58) index = 8; // de54a58
+      else if (idade >= 59) index = 9;                // acima59
+
+      if (index !== -1) {
+        idadesArray[index]++;
+        const chaves = [
+          'ate18', 'de19a23', 'de24a28', 'de29a33', 'de34a38',
+          'de39a43', 'de44a48', 'de49a53', 'de54a58', 'acima59'
+        ];
+        const chave = chaves[index] as keyof typeof faixas;
+        faixas[chave]++;
+      }
     }
   });
 

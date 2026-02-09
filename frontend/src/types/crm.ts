@@ -60,6 +60,10 @@ export interface Lead {
   ultimaAtividade: Date;
   arquivos: string[];
   atividades: Atividade[];
+
+  proposalUrl?: string;
+  proposalOriginalName?: string;
+  proposalDate?: string;
 }
 
 export interface Atividade {

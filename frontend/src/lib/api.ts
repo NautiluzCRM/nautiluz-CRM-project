@@ -1,7 +1,8 @@
 import { Lead, Pipeline, Coluna } from "@/types/crm";
 
 // @ts-ignore - Vite env typing
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000/api";
+// Volte para a variável de ambiente ou coloque o link do Render
+export const API_URL = import.meta.env.VITE_API_URL || "https://nautiluz-crm-project.onrender.com/api";
 const storages = [localStorage, sessionStorage];
 
 // Flag para evitar múltiplos redirects simultâneos
@@ -99,6 +100,7 @@ async function refreshAccessToken() {
   return null;
 }
 
+// Wrapper genérico para fetch (trata JSON e Auth)
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = {
     "Content-Type": "application/json",
@@ -278,10 +280,8 @@ export function mapApiStageToColuna(stage: any): Coluna {
 }
 
 export function mapApiLeadToLead(api: any): Lead {
-  // 1. Pega o array bruto (pode vir owners ou owner)
   const rawOwners = api.owners && api.owners.length > 0 ? api.owners : (api.owner ? [api.owner] : []);
 
-  // 2. Normaliza para garantir que temos um array de objetos { id, nome }
   const normalizedOwners = rawOwners.map((u: any) => {
     if (typeof u === 'string') {
         return { id: u, nome: "Carregando...", foto: null }; 
@@ -293,13 +293,8 @@ export function mapApiLeadToLead(api: any): Lead {
     };
   });
 
-  // 3. Cria uma string de exibição
   const responsavelDisplay = normalizedOwners.map((o: any) => o.nome.split(' ')[0]).join(', ');
-
-  // 4. Extrai IDs para uso no formulário de edição
   const ownersIds = normalizedOwners.map((o: any) => o.id);
-
-  // 5. Garante que os IDs são strings
   const leadId = api._id || api.id;
   const stageId = api.stageId || api.colunaAtual;
 
@@ -336,17 +331,19 @@ export function mapApiLeadToLead(api: any): Lead {
     dataCriacao: api.createdAt ? new Date(api.createdAt) : new Date(),
     ultimaAtividade: api.lastActivityAt ? new Date(api.lastActivityAt) : new Date(),
     
-    // --- CORREÇÃO CRÍTICA AQUI ---
-    // Mapeamento dos campos de data para o SLA funcionar no Frontend
     enteredStageAt: api.enteredStageAt ? new Date(api.enteredStageAt) : undefined,
     stageChangedAt: api.stageChangedAt ? new Date(api.stageChangedAt) : undefined,
-    // -----------------------------
+
+    // 👇 AQUI ESTAVA FALTANDO! ADICIONEI ESTAS DUAS LINHAS:
+    proposalUrl: api.proposalUrl,
+    proposalOriginalName: api.proposalOriginalName,
+    proposalDate: api.proposalDate,
+    // ----------------------------------------------------
 
     arquivos: [],
     atividades: api.activities || [],
   } as unknown as Lead;
 }
-
 export function mapLeadToApiPayload(lead: Partial<Lead>) {
   return {
     name: lead.nome,
@@ -800,4 +797,41 @@ export async function deleteOperadoraLogo(id: string): Promise<{ message: string
   return request<{ message: string }>(`/operadoras/logos/${id}`, {
     method: 'DELETE',
   });
+}
+
+// No final do arquivo api.ts
+
+export async function uploadProposalApi(leadId: string, file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+  
+  // Headers manuais (sem Content-Type, o browser define automático para multipart/form-data)
+  const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+  // ATENÇÃO: Se sua API_URL já termina com /api (ex: http://localhost:10000/api),
+  // então aqui deve ser apenas `/leads/${leadId}/proposal`.
+  // O fetch vai montar: http://localhost:10000/api/leads/123/proposal
+  const response = await fetch(`${API_URL}/leads/${leadId}/proposal`, {
+    method: 'POST',
+    headers: headers,
+    body: formData
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+       throw new Error("Sessão expirada. Faça login novamente.");
+    }
+    const text = await response.text();
+    // Tenta ler o JSON de erro se existir
+    try {
+        const json = JSON.parse(text);
+        throw new Error(json.error || json.message || "Erro ao fazer upload");
+    } catch {
+        throw new Error(text || "Erro ao fazer upload da proposta");
+    }
+  }
+
+  return response.json();
 }

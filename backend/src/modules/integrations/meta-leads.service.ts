@@ -228,7 +228,7 @@ export async function ingestMetaPayload(body: unknown, integrationId?: string) {
     });
   }
   
-  logger.info(`✅ Lead criado via Instagram Lead Ads: ${lead._id} - ${name} (${email || phone || 'sem contato'})`);
+  logger.info(`Lead criado via Instagram Lead Ads: ${lead._id} - ${name} (${email || phone || 'sem contato'})`);
   return lead;
 }
 
@@ -471,7 +471,7 @@ export async function subscribePageWebhook(pageId: string, pageAccessToken: stri
     }
     
     if (data.success) {
-      logger.info(`✅ Webhook registrado para página ${pageId}`);
+      logger.info(`Webhook registrado para página ${pageId}`);
       return { success: true };
     }
     

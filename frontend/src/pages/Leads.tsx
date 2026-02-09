@@ -207,21 +207,6 @@ const Leads = () => {
               {!isPrivileged && <span className="text-[9px] bg-black/20 px-1 rounded">FIXO</span>}
             </Button>
 
-            {/*
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs shrink-0">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos Status</SelectItem>
-                <SelectItem value="Qualificado">Qualificado</SelectItem>
-                <SelectItem value="Incompleto">Incompleto</SelectItem>
-                <SelectItem value="Duplicado">Duplicado</SelectItem>
-                <SelectItem value="Sem interesse">Sem interesse</SelectItem>
-              </SelectContent>
-            </Select>
-            */}
-
             <Select value={origemFilter} onValueChange={setOrigemFilter}>
               <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs shrink-0">
                 <SelectValue placeholder="Origem" />
@@ -435,7 +420,7 @@ const Leads = () => {
                       
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
+                        {lead.dataCriacao ? new Date(lead.dataCriacao).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
                       </span>
                     </div>
                   </CardContent>
@@ -452,12 +437,18 @@ const Leads = () => {
                     <TableRow>
                       <TableHead className="min-w-[180px]">Nome</TableHead>
                       <TableHead className="hidden md:table-cell">Empresa</TableHead>
+                      
+                      {/* 👇 NOVA COLUNA CNPJ 👇 */}
+                      <TableHead className="hidden md:table-cell text-center w-20">CNPJ</TableHead>
+                      
                       <TableHead className="min-w-[140px]">Contato</TableHead>
                       <TableHead className="hidden sm:table-cell text-center w-20">Vidas</TableHead>
                       <TableHead className="w-28">Status</TableHead>
                       <TableHead className="hidden lg:table-cell">Origem</TableHead>
                       <TableHead className="hidden md:table-cell text-right">Valor</TableHead>
-                      <TableHead className="hidden sm:table-cell text-right w-24">Data</TableHead>
+                      
+                      {/* 👇 COLUNA DATA (Renomeada) 👇 */}
+                      <TableHead className="hidden sm:table-cell text-right w-28">Criado em</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -478,9 +469,18 @@ const Leads = () => {
                             <span className="font-medium text-sm truncate max-w-[120px] sm:max-w-none">{lead.nome}</span>
                           </div>
                         </TableCell>
+                        
                         <TableCell className="hidden md:table-cell text-muted-foreground">
                           {lead.empresa || '-'}
                         </TableCell>
+
+                        {/* 👇 NOVA CÉLULA CNPJ 👇 */}
+                        <TableCell className="hidden md:table-cell text-center">
+                          <Badge variant={lead.possuiCnpj ? "outline" : "secondary"} className="text-[10px] font-normal">
+                            {lead.possuiCnpj ? "Sim" : "Não"}
+                          </Badge>
+                        </TableCell>
+
                         <TableCell>
                           <div className="space-y-0.5">
                             <div className="text-xs sm:text-sm">{lead.celular}</div>
@@ -508,8 +508,18 @@ const Leads = () => {
                             : '-'
                           }
                         </TableCell>
+                        
+                        {/* 👇 CÉLULA DATA (Corrigida: usa lead.dataCriacao) 👇 */}
                         <TableCell className="hidden sm:table-cell text-right text-xs text-muted-foreground">
-                          {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'}
+                          {lead.dataCriacao
+                            ? new Date(lead.dataCriacao).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: '2-digit', 
+                                year: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) 
+                            : '-'}
                         </TableCell>
                       </TableRow>
                     ))}

@@ -29,7 +29,6 @@ const getDataDeReferencia = (lead: Lead): Date | null => {
   }
 
   // 2. Fallback: Se NUNCA foi movido (lead legado), usa a data de criação!
-  // 👇 ISSO AQUI VAI FAZER OS VELHOS FICAREM VERMELHOS 👇
   if (lead.createdAt || (lead as any).dataCriacao) {
     const dataCriacao = lead.createdAt || (lead as any).dataCriacao;
     return new Date(dataCriacao);
@@ -84,7 +83,9 @@ export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: 
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-foreground flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: coluna.cor }} />
-            {coluna.nome}
+              <span className="">
+                {coluna.nome}
+              </span>          
           </h3>
           <Badge variant="secondary" className="text-xs">{leads.length}</Badge>
         </div>
@@ -93,7 +94,7 @@ export function KanbanColumn({ coluna, leads = [], onLeadUpdate, onLeadClick }: 
           {hasActiveSla && leadsVencidosCount > 0 && (
             <Badge variant="destructive" className="text-xs flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
-              {leadsVencidosCount} vencido{leadsVencidosCount > 1 ? 's' : ''}
+              {leadsVencidosCount} Vencido{leadsVencidosCount > 1 ? 's' : ''}
             </Badge>
           )}
           
