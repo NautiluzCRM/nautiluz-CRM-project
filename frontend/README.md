@@ -1,97 +1,117 @@
-# README i Frontend (Vite + React + shadcn/ui)
+# 🎨 Nautiluz CRM - Frontend
 
-## Visão geral
+Este diretório contém a interface do usuário do CRM Nautiluz, construída como uma Single Page Application (SPA) moderna e responsiva.
 
-Frontend do CRM Nautiluz, estilo Pipefy (cards + Kanban).
-Stack: **Vite** + **React** + **TypeScript** + **shadcn/ui (Radix)** + **TailwindCSS**.
+## 🛠️ Stack Tecnológica
 
-## Requisitos
+A interface foi desenvolvida com foco em performance e experiência do usuário (UX), utilizando as seguintes bibliotecas principais:
 
-* Node.js 18+ (recomendado 20+)
-* npm 9+ (ou pnpm/yarn)
-* Backend rodando (ver README do backend)
+* **Core:** React 18 + Vite + TypeScript
+* **Estilização:** Tailwind CSS
+* **Componentes UI:** Shadcn/UI (Baseado em Radix Primitives + Class Variance Authority)
+* **Gerenciamento de Estado (Server):** TanStack Query (React Query)
+* **Gerenciamento de Estado (Client):** Context API + React Hooks
+* **Roteamento:** React Router DOM
+* **Formulários:** React Hook Form + Zod (Validação de Schemas)
+* **Kanban (Drag & Drop):** `@dnd-kit/core`
+* **Gráficos:** Recharts
 
-## Instalação
+## 🚀 Configuração do Ambiente
 
+### 1. Variáveis de Ambiente (.env)
+Copie o arquivo de exemplo:
 ```bash
-cd frontend
+cp .env.example .env
+```
+Preencha a variável de conexão com a API:
+```
+Variável: VITE_API_URL
+Descrição: Endereço do Backend
+Exemplo: http://localhost:3000
+```
+
+### 2. Instalação e Execução
+```bash
+# Instalar dependências
 npm install
-```
 
-## Executar em desenvolvimento
-
-```bash
+# Iniciar servidor de desenvolvimento (Hot Reload)
 npm run dev
+
+# Verificar erros de tipagem e linting
+npm run lint
 ```
 
-Por padrão:
+## 🏗️ Arquitetura do Projeto
 
-* Local: `http://localhost:8080/`
-* Host: configurado para aceitar rede local (vide `vite.config.ts`)
+A organização do código reflete a complexidade do sistema, separando componentes de UI, layout estrutural e páginas de negócio.
 
-## Build de produção
+* **`src/components/`**:
+    * **`ui/`**: Componentes base do **Shadcn/UI** (Button, Input, Dialog, Sheet). Mantenha puros.
+    * **`kanban/`**: Componentes exclusivos do funil de vendas.
+    * **`llinktree/`**: Componentes da página pública do vendedor.
+    * **Estrutura & Layout:**
+        * `Layout.tsx`: Shell principal da aplicação (Wrapper).
+        * `AppSidebar.tsx` & `Header.tsx`: Navegação lateral e superior responsiva.
+        * `ProtectedRoute.tsx`: *Higher-Order Component* que bloqueia acesso de usuários não logados.
+    * **Modais de Negócio:**
+        * `CreateLeadModal.tsx`: Formulário de entrada de novos leads.
+        * `EditLeadModal.tsx` & `LeadDetailsModal.tsx`: Edição e visualização detalhada.
 
-```bash
-npm run build
-npm run preview
-```
+* **`src/pages/`**: Mapeamento completo das telas do sistema.
+    * **Operacional:**
+        * `Index.tsx`: Kanban principal.
+        * `Leads.tsx`: Página de Leads
+        * `Calendario.tsx`: Agendamento de tarefas.
+        * `Linktree.tsx`: Visualização da bio do vendedor.
+    * **Gestão & Dashboards:**
+        * `Analytics.tsx`: Gráficos de performance.
+        * `Relatorios.tsx` & `Exportacoes.tsx`: Extração de dados.
+        * `Metas.tsx`: Acompanhamento de objetivos comerciais.
+    * **Administrativo:**
+        * `GestaoVendedores.tsx`: Controle de equipe.
+        * `GerenciarUsuarios.tsx`: CRUD de usuários do sistema.
+        * `Configuracoes.tsx` & `Integracoes.tsx`: Ajustes sistêmicos e conexão com Meta.
+    * **Autenticação:**
+        * `Login.tsx`, `ForgotPassword.tsx`, `ResetPassword.tsx`.
 
-## Variáveis de ambiente
+* **`src/hooks/`**: Lógica encapsulada.
+    * `use-auth.tsx`: Sessão e permissões (RBAC).
+    * `use-mobile.tsx`: Detecção de dispositivo móvel.
+    * `use-theme.tsx`: Controle do Dark/Light mode.
+    * `use-toast.ts`: Disparo de notificações flutuantes (Sucesso/Erro).
 
-Crie um `.env` (ou `.env.local`) na pasta `frontend/`:
+* **`src/lib/`**: Configurações de infraestrutura.
+    * `api.ts`
+    * `utils.ts`
 
-```
-VITE_API_URL=http://localhost:3000
-VITE_SOCKET_URL=http://localhost:3000
-```
+## 🧩 Funcionalidades Chave & Implementação
 
-> `VITE_API_URL` e `VITE_SOCKET_URL` apontam para o backend (HTTP e WebSocket).
+### 1. Kanban Drag-and-Drop
+O coração do sistema utiliza `@dnd-kit` para permitir a movimentação fluida de cards entre as colunas.
+* **Estratégia:** Utilizamos *Optimistic UI* via React Query para atualizar a posição do card instantaneamente na interface, enquanto a requisição é processada em segundo plano.
 
-## Estrutura de pastas (resumo)
+### 2. Formulários Inteligentes (Saúde)
+A entrada de dados utiliza `react-hook-form` integrado com `zod` para validação rigorosa.
+* **Regra de Negócio:** O schema valida campos críticos como "Quantidade de Vidas" e "Faixas Etárias", garantindo que o lead só entre no funil com dados consistentes.
 
-```
-src/
-├─ assets/                # imagens, ícones
-├─ components/            # componentes compartilhados (inclui ui/* do shadcn)
-├─ data/                  # mocks ou constantes
-├─ hooks/                 # hooks (ex.: use-toast, use-mobile)
-├─ lib/                   # utils (ex.: cn, api client)
-├─ pages/                 # páginas (Login, Leads/Kanban, etc.)
-├─ types/                 # tipos globais (Lead, Stage, User)
-├─ App.tsx / main.tsx
-└─ index.css / App.css
-```
+### 3. Controle de Acesso (RBAC)
+O hook `useAuth()` consome o contexto de autenticação para expor o perfil do usuário logado.
+* **Implementação:** O front esconde automaticamente rotas e botões sensíveis (como "Configurações" ou "Exportar Relatório") caso o usuário seja do perfil **Vendedor**, mantendo a segurança da interface.
 
-## shadcn/ui & Tailwind
+## 🎨 Estilização e Tema
 
-* Tailwind configurado em `tailwind.config.ts`
-* Utilitários em `src/lib/utils.ts` (`cn`)
-* Toaster e Toast seguem padrão shadcn (com `use-toast` em `src/hooks/`)
+O projeto utiliza **Tailwind CSS** como motor de estilização, garantindo a responsividade exigida.
 
-## Kanban (drag & drop)
+* **Design System:** As cores, fontes e espaçamentos seguem o padrão definido em `tailwind.config.ts` e `index.css`.
+* **Dark Mode:** A interface suporta nativamente o modo escuro, ativado via classes `dark:` do Tailwind.
+* **Responsividade:** Utiliza os breakpoints padrão (`md:`, `lg:`) para adaptar o layout do Kanban e das tabelas para dispositivos móveis e tablets.
 
-* Colunas (stages) e cards (leads) renderizados a partir do backend.
-* DnD aciona **POST `/kanban/move`** no backend com `{ leadId, toStageId, beforeId?, afterId? }`.
-* Atualização em tempo real via **Socket.IO**:
+## 📦 Scripts de Build
 
-  * Evento `kanban:updated` para sincronizar outros clientes.
+Comandos disponíveis no `package.json` para o ciclo de vida da aplicação:
 
-## Scripts úteis
-
-```bash
-npm run dev        # desenvolvimento
-npm run build      # build de produção
-npm run preview    # serve build estático localmente
-npm run lint       # (se configurado) lint do código
-```
-
-## Problemas comuns
-
-* **Import '@/hooks/use-toast' não resolve**: verifique alias `@` nos tsconfigs e se o arquivo existe como `src/hooks/use-toast.ts` (sem espaços ocultos no nome).
-* **CORS**: ajuste `VITE_API_URL` e a origem permitida no backend.
-
-## Deploy
-
-* Build estático (pasta `dist/`)
-* Pode ser servido por Nginx, Vercel, Netlify, etc.
-* Configure `VITE_API_URL` para o endpoint público do backend.
+* **`npm run dev`**: Inicia o servidor de desenvolvimento local (Vite) com Hot Module Replacement (HMR).
+* **`npm run build`**: Compila o TypeScript e gera os arquivos otimizados para produção na pasta `dist/`.
+* **`npm run preview`**: Permite visualizar localmente a versão de produção gerada pelo build.
+* **`npm run lint`**: Executa a verificação estática de código (ESLint) para garantir padronização e evitar erros de sintaxe.
